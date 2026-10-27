@@ -1,0 +1,24 @@
+# Python and development tools
+.venv/
+.cache/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+.DS_Store
+
+# Data, model weights and runtime outputs
+/data/
+/checkpoints/
+/runs/
+*.pt
+*.pth
+*.safetensors
+
+# Local private configuration
+.env
+.env.*
+!.env.example
