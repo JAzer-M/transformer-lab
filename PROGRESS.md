@@ -4,34 +4,53 @@
 
 ## 当前状态
 
-更新时间：2026-10-27 17:17（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-10-28 13:20（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | 用户已确认保存 M0 Mac 基础环境，基线保存后进入 M1 注意力练习；完整 M0 仍有剩余验收 |
-| 本轮范围 | M0 本地 Git 基线、m1-attention 分支与首个注意力测试 |
-| 实现方 | 用户手写 MHA；Codex 准备测试、讲解并 review；用户决定切换时再交接 Claude Code |
-| 审查方 | Codex 子 agent review_m0_bootstrap 已审查，无待修问题；Claude Code 尚未接手 |
-| Git 分支 / commit | 当前 m0-bootstrap；用户已授权首个本地基线提交与 m1-attention 分支创建，实际提交以 Git 记录为准 |
-| 本轮改动 | 先记录 M0 复核与授权；基线保存后新增 tests/test_attention.py，注意力实现由用户创建 |
+| 项目阶段 | M1 多头因果注意力（用户手写）与 9 个注意力测试已提交到 m1-attention；下一模块 block.py |
+| 本轮范围 | Claude Code 接手：落盘上次在 worktree 写好的 4 个注意力测试、补交接记录、讲解单头到多头；按用户确认先写 4 个多头测试（红灯） |
+| 实现方 | 用户手写 MHA；Claude Code 负责测试、讲解与 review |
+| 审查方 | 单头 4 个测试与多头 4 个测试均由 Claude Code 编写，尚无其他 agent 审查；完整 MHA 待完成后审查 |
+| Git 分支 / commit | m1-attention；在 277661b 之上新增提交 `add multi-head causal self-attention with tests`（哈希见 `git log`）；未合并 main，无远程 |
+| 本轮改动 | `tests/test_attention.py`（从 worktree 复制，再新增 4 个多头测试）与本文件；未编辑用户实现或操作暂存区 |
 | 工程代码与依赖 | 项目已可编辑安装；PyTorch 2.9.1、NumPy 2.4.6、pytest 9.1.1、ruff 0.17.2；锁文件共 38 个包条目，包含其他平台的依赖 |
 | 本机环境 | Python 3.11.9，arm64；uv 0.13.5 已安装到 `/Users/j/.local/bin`，未修改 shell 配置 |
-| 范围与保护检查 | 本轮 AGENTS.md / CLAUDE.md 字节未改；用户手写实现未创建，用户笔记目录为空，结果表无实验行 |
-| pytest / 代码检查 | 本次 M0 提交前复核：5 passed in 1.09s；ruff check 与 format --check 均通过 |
-| Mac 真实设备检查 | MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功 |
+| 范围与保护检查 | 用户手写实现由用户修改和暂存；Claude Code 只读检查 attention.py，只写测试与本文件 |
+| pytest / 代码检查 | 提交前 pytest 14 passed in 0.93s；ruff check 通过；format --check 为 19 files already formatted；`git diff --check HEAD` 通过 |
+| Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
 | 训练 / 实验 | 均未运行；`experiments/results.md` 仅有表头，没有实验结果 |
 | Windows / CUDA | 本轮未访问或验证，不从 Mac 状态推断 |
-| 下一步 | 保存基线并加入首测后，由用户创建 CausalSelfAttention 并先写构造函数 |
+| 下一步 | 讲解并由用户手写 `block.py`（Pre-LN、残差、MLP）；合并 main 需用户读完 diff 并另行授权 |
 
 ## 当前任务与下一步
 
-- 计划位置：`docs/PLAN.md` 的「M0 实施计划」，第一批已获用户确认。
-- 当前操作：用户已授权保存 M0 本地基线并创建 `m1-attention`，执行后记录实际 commit。
-- 分工：用户手写 MHA；Codex 准备首测、逐段讲解并审查。M0 工程已有独立审查记录。
+- 计划位置：`docs/PLAN.md` 的「M1 最小 GPT」；本轮已进入用户手写 forward 的单头注意力计算，M0 基线已保存。
+- 基线：`277661b5495525c5bad21782c061c023597fc60f`（M0）；当前分支 `m1-attention`，`main` 保留已通过 5 项测试的基础工程。
+- 分工：用户已手写类、构造函数及 forward 的投影/打分部分；下一助手继续讲解和审查，用户继续亲手实现。
 - 首批本地验证已通过：包安装和隔离导入、设备选择逻辑、pytest、ruff、CPU/MPS 小张量检查；本次提交前再次复核测试和代码检查。
 - Mac pytest 已通过；完整 M0 仍需补充 Windows/WSL 真实 CUDA 自检、该设备的 pytest 与 CPU 10 步训练证据；后者依赖 M1 代码就绪。
 - 当前 M1 约定：`CausalSelfAttention(d_model=4, n_heads=1)`，输入与输出均为 `(B, T, C)`。先加入形状测试，再由用户亲手实现；后续逐项加入因果性、数值一致性与梯度测试。
-- 本轮改动差异见 `runs/m0-bootstrap/m0-changes.patch`；该文件和检查日志留在本机，不进 Git。
+- 首测状态：当前代码成功运行至 forward 的分数缩放后，在用户保留的占位异常处失败。完整结果 1 failed, 5 passed；仍待补齐 forward 输出。
+- 用户手写要求：用户已修正 `__init__` 与 `super().__init__()`，并加入手写说明注释；属性名为 `self._head_dim`，后续引用保持一致。Codex 不直接改实现。
+- M0 历史差异保留在 `runs/m0-bootstrap/m0-changes.patch`。当前 M1 包含用户已暂存且继续修改的 attention.py、本文件与未追踪的首测；已暂存和工作区整体差异可用 `git diff HEAD` 查看，新测试需直接读取。
+
+## Claude Code 接手入口（2026-10-27）
+
+> 2026-10-27 19:55 注：本节是 Codex 18:55 写的接手说明，保留原文作为历史；其中第 5–9 条描述的代码进度已过时，最新状态见上方「当前状态」与交接记录末尾两条。
+
+1. 工作目录：`/Users/j/Desktop/transformer-lab`。先读 `AGENTS.md`、`docs/PLAN.md`、本文件，再读磁盘上的 `src/tlab/model/attention.py` 与 `tests/test_attention.py`，核对 `git status` 和 `git diff HEAD`。
+2. 当前分工按原规划：MHA、block、训练主循环和 LoRALinear 由用户手写；助手讲解、写测试和 review。本轮用户明确表示转到 Claude Code，请从当前教学位置继续。
+3. Git 基线是 `277661b5495525c5bad21782c061c023597fc60f`，`main`、`m0-bootstrap`、`m1-attention` 均指向它，当前在 `m1-attention`，无远程。M1 实现尚未提交；`.idea/` 是用户 IDE 配置，保留其现状。
+4. 特别核对用户工作：attention.py 的状态为 AM，暂存版本是 0 字节空文件，磁盘版本为 918 字节，包含最新手写实现。以磁盘内容为准，保留用户暂存区和工作区；完整改动在 `git diff HEAD` 中可见，未追踪的测试直接读取。
+5. 已实现：构造函数用四个无偏置 Linear 创建 Q/K/V 与输出投影；`__init__` 拼写已修正。forward 已写 q/k/v、`k.transpose(-2,-1)`、`q @ k_t`、除以 `sqrt(self._head_dim)`，最后保留 `NotImplementedError("待加入因果掩码和输出计算")`。
+6. 当前仅在 `n_heads=1` 的教学用例中检查；尚未拆分头维度，不能将这段代码当成已完成的多头注意力。实际属性名是 `self._head_dim`。
+7. 当前学习位置：用户刚初步理解 Linear 对象、内部权重、输入输出维度，以及创建层与调用层的区别；本轮重点疑问是三维 `(B,T,C)` 的含义。已用 B=2、T=3、C=4 解释为两张 3×4 矩阵，批量乘法逐样本执行 `q[b] @ k[b].T`，批次之间不混合。用户理解情况尚待其反馈，请先确认这个概念再继续。
+8. 下一步由用户手写：上三角未来位置因果掩码 → 在 softmax 前屏蔽 → 沿最后一维 softmax → 权重乘 V → out_proj 返回结果。单头行为确认后再扩展多头；测试逐项补数值参考、因果性、梯度、长度 1、多头形状和维度约束，SDPA 仅作测试参考。
+9. 最新验证：pytest 为 1 failed, 5 passed，唯一失败到达上述占位异常。ruff 报 I001（导入后空行）与 F841（v 尚未用于后续计算），format --check 提示用户文件待格式化。v 将用于 AV，后续计算应保留它；由用户按项目规范补形状注释、标准手写标记并处理格式，助手不直接改其实现。
+10. 本机工具：Python 3.11.9，项目 `.venv`；uv 为 `/Users/j/.local/bin/uv`。本轮使用 `UV_CACHE_DIR=/Users/j/Desktop/transformer-lab/.cache/uv`。PyTorch 2.9.1、NumPy 2.4.6、pytest 9.1.1、ruff 0.17.2 已装；MPS 的实机成功记录在 10/26 的日志，本轮未重跑。
+11. 证据：`runs/m1-attention/07-pytest-handoff.txt`、`08-ruff-handoff.txt`、`09-format-handoff.txt`；`10-batch-matmul-demo.json` 验证批量乘法等于逐矩阵计算后堆叠。当前磁盘/暂存代码和测试的原样快照、Git 状态与哈希在 `runs/m1-attention/claude-handoff-20261027/`，该目录不进 Git。
+12. 完整 M0 仍需 Windows/WSL CUDA 自检、该设备 pytest 和 CPU 10 步训练；模型/训练路径未齐，尚无正式训练与实验数字，results.md 只有表头。M1 测试通过且用户理解后再按其授权提交与合并。
 
 ## 交接记录
 
@@ -98,6 +117,118 @@
 - 首测约定：调用 `CausalSelfAttention(d_model=4, n_heads=1)`，给出形状 `(2, 3, 4)` 的输入，检查输出为 `(2, 3, 4)`。测试先前已在临时目录形成草稿；正式加入 M1 后重新记录结果。
 - 历史记录更正：2026-10-26 依赖记录中“实际安装”列表包含 Python 3.11.9，表述不准确；Python 3.11.9 是机器原有解释器，本项目复用它建立虚拟环境，额外安装的是 uv 与项目依赖包。
 - 下一步：完成本地基线和分支操作后，在 M1 记录实际 commit；加入首测并确认预期失败，然后交给用户编写注意力模块。
+
+### 2026-10-27 17:20（UTC+08:00）｜Codex｜M0 基线保存与 M1 首测落盘
+
+- Git 操作已完成：在 `m0-bootstrap` 创建本地首提交 `277661b5495525c5bad21782c061c023597fc60f`，信息为 `set up M0 environment, device selection and tests`；建立 `main` 指向该基线，再创建并切换到 `m1-attention`。
+- 基线只包含列明的 23 份 M0 工程文件与文档；`.idea/` 保留在用户工作区，未纳入提交。没有远程或推送操作。Git 提示提交身份由本机信息自动推断，本轮未修改 Git 身份配置。
+- 新增 `tests/test_attention.py`：首测调用 `CausalSelfAttention(d_model=4, n_heads=1)`，输入 `(2, 3, 4)`，断言输出 `(2, 3, 4)`。未创建用户手写实现，也未更改已有测试断言。
+- 首次目标测试在收集阶段因缺少注意力模块报错，原始记录为 `runs/m1-attention/01-shape-red.txt`；ruff 同时报告 I001 导入分组问题。将待实现模块的导入移入本条测试，既解决分组问题，也让已有 M0 测试可以继续运行。
+- 正式首次完整结果：`uv run --locked pytest` 退出码 1，1 failed, 5 passed in 0.92s；唯一失败是 `ModuleNotFoundError: No module named 'tlab.model.attention'`。记录在 `runs/m1-attention/02-pytest-initial.txt`。
+- 代码检查：`uv run --locked ruff check .` 退出码 0；`uv run --locked ruff format --check .` 退出码 0，18 files already formatted。日志为 `03-ruff-check.txt`、`04-ruff-format.txt`。
+- 当前交付：已保存可用 M0 基线，并为用户手写 MHA 准备首个失败测试；M1 实现尚未开始，测试与本轮进度保留为未提交改动。
+- 下一步：独立复核本轮首测与记录，向用户解释 nn.Module、构造函数与 nn.Linear，再由用户亲手创建注意力类；后续按测试逐步实现 forward。
+
+### 2026-10-27 17:24（UTC+08:00）｜Codex｜首测独立审查与手写任务交接
+
+- 独立审查者：Codex 子 agent `review_m0_bootstrap`，只读核对首测、失败日志、M0 提交范围与三个分支指针，没有修改文件或重复运行测试。
+- 结论：首测接口、形状断言、预期失败记录和 Git 操作符合本次约定；指出当前任务仍引用 M0 计划及历史差异的文档问题。
+- 修复与验证：已将当前计划指向 M1，将旧 patch 明确标为 M0 历史记录，并注明新测试尚未追踪、需直接读取。主 agent 用文件检查和 Git 引用核对确认更正，`git diff --check` 通过。
+- 当前剩余改动：`PROGRESS.md` 和新增的 `tests/test_attention.py`；用户 `.idea/` 仍保留在工作区。M1 代码与测试全部通过前不提交本轮开发改动。
+- 用户下一步：自行创建 `src/tlab/model/attention.py`，标记用户手写；先定义继承 `nn.Module` 的 `CausalSelfAttention`，构造函数接收 d_model、n_heads，建立 Q/K/V 和输出投影。构造函数检查后再编写 forward。
+
+### 2026-10-27 17:43（UTC+08:00）｜Codex｜检查用户构造函数初稿与概念讲解
+
+- 用户新增 `src/tlab/model/attention.py`，定义四个 `nn.Linear(d_model, d_model, bias=False)`，forward 仍为 NotImplementedError。用户正在确认 Q/K/V、out_proj、d_model、super 初始化、head_dim 与前向传播的含义，尚未进行学习验收。
+- 实际问题：第 5 行方法名为 `_init_`，第 6 行调用为 `super()._init_()`；两处均需由用户修正为双下划线的 `__init__`。当前顶部也尚未添加用户手写标记。
+- 本次命令：`uv run --locked pytest tests/test_attention.py -q`，退出码 1，1 failed in 0.63s；报 `CausalSelfAttention.__init__() got an unexpected keyword argument 'd_model'`。证据在 `runs/m1-attention/05-user-constructor-check.txt`。
+- 核对当前已安装 PyTorch 的 Linear 文档与 Module 初始化源码：Linear 对最后一维做线性变换，权重形状为 (out_features, in_features)；Module 初始化建立参数、缓冲区与子模块登记结构。
+- 操作边界：本轮未编辑用户实现、未改变其已暂存和工作区版本，也未提交或运行训练；只更新进度和保存首测输出。当前 Git 的 attention.py 状态为 AM，应保留用户两份状态。
+- 下一步：先讲清构造参数与运行时 QKV 的区别、输出投影位置、每头维度和 forward 职责；由用户修正初始化后再检查构造函数，随后逐步写 forward。
+
+### 2026-10-27 18:00（UTC+08:00）｜Codex｜验证初始化修正并解释线性层
+
+- 用户已修正两处初始化拼写，四个投影层定义保留；forward 仍主动抛 NotImplementedError。用户本轮重点询问 Linear 层的返回值、矩阵乘法方向、in_features/out_features/bias、为何封装为层以及 out_proj 的用途。
+- 实际直接检查：创建 `CausalSelfAttention(d_model=4, n_heads=1)` 成功；四个 weight 形状均为 (4, 4)，登记的可学习参数共 64 个；输入 (1, 3, 4) 时 Q/K/V 均为同形状 Tensor。
+- 用 `torch.testing.assert_close` 核对 `attention.q_proj(x)` 与 `x @ attention.q_proj.weight.T`，通过。模块调用确实进入 forward，仍抛用户保留的 NotImplementedError。
+- 证据：`runs/m1-attention/06-linear-inspection.json`。本轮未重跑 pytest，没有编辑、暂存或提交用户实现。
+- 学习状态：当前需讲清创建层返回可调用对象、调用层返回张量；构造参数规定矩阵尺寸和偏置规则，矩阵本身才是学习参数；out_proj 作用于注意力加权结果。用户理解情况等待反馈。
+- 下一步：继续使用小矩阵和逐行形状说明这些概念，之后由用户写 forward，不将构造函数运行成功等同于整个注意力模块完成。
+
+### 2026-10-27 18:55（UTC+08:00）｜Codex｜批次维度讲解与 Claude Code 交接
+
+- 用户已手写 forward 的线性投影、转置、打分与缩放，现请求解释 (B,T,C) 后切换到 Claude Code，并明确要求写交接日志。
+- 本次完整测试：`uv run --locked pytest` 退出码 1，1 failed, 5 passed in 1.22s；注意力首测运行到了第 27 行用户保留的 NotImplementedError。没有修改测试来隐藏失败。
+- 本次静态检查：ruff check 退出码 1，I001 与 F841；format --check 退出码 1，仅 attention.py 待格式化。均为只检查，未自动改动用户实现。
+- 批量乘法演示：输入 (2,3,4)，K 转置后 (2,4,3)，分数形状 (2,3,3)。用 torch.testing.assert_close 验证 `q @ k.transpose(-2,-1)` 与逐样本矩阵乘法再 torch.stack 的结果一致，通过。
+- 工作区证据：保存磁盘源码、暂存空文件与首测的原样快照；核对 attention.py 为 AM，磁盘 918 字节、暂存 0 字节。没有改变源码、暂存区或 Git 提交。
+- 交接内容：顶部当前状态及「Claude Code 接手入口」已记录已完成代码、真实检查、学习进度、剩余步骤和保护边界。用户对批次轴的理解尚待反馈，不提前标记学习验收通过。
+
+### 2026-10-27 约 19:00–19:50（UTC+08:00）｜Claude Code（worktree 会话 d6d2ccb0，本条由下一会话补记）｜单头注意力讲解与 4 个测试
+
+- 补记原因：该会话开在 worktree `.claude/worktrees/project-plan-collaboration-eb22b0`，被禁止写入主目录，无法更新本文件。本条依据其对话记录 `~/.claude/projects/-Users-j-Desktop-transformer-lab--claude-worktrees-project-plan-collaboration-eb22b0/d6d2ccb0-….jsonl` 转述，其中的检查结果不是本条作者亲自运行的。
+- 范围与用户确认：讲解 (B,T,C) 与批量乘法、因果掩码、softmax 的 dim、out_proj 的作用；用户确认后编写 4 个测试（用户明确不要第 5 个“batch 之间不互相影响”测试）。实现方为用户，测试编写方为 Claude Code。
+- 用户手写进度：用户在主目录 `attention.py` 中补完因果掩码（`torch.triu(..., diagonal=1)` + `masked_fill(-inf)`）、`softmax(dim=-1)`、`attn @ v`、`out_proj`，并改好文件头标记；该会话转述 pytest 为 6 passed。
+- 测试：在 worktree 的 `tests/test_attention.py` 新增因果性、与 `F.scaled_dot_product_attention(is_causal=True)` 数值一致、四个投影层梯度、长度为 1 共 4 个测试，并把模块导入移到文件顶部。转述：用用户代码跑通过；用 4 个故意写错的内存版本（无掩码、dim=-2、无缩放、无 out_proj）检验，每个错误至少被一个测试抓住。
+- 学习状态（转述）：用户已答对 T=5、C=8 时 scores/mask/attn/z 的形状，以及 `attn.sum(dim=-1)` 的形状 (B,T) 和全为 1、dim=0 是跨批次归一化；初次把 `scores[1,2,0]` 的批次下标当成第 1 条，已纠正。用户偏好：代码片段每段前加中文步骤注释、行尾加形状注释（已存入 Claude 记忆）。
+- 遗留：attention.py 的格式与少量形状注释由用户自行处理；思考题“掩码每次新建 vs 在 `__init__` 预建”留待写生成函数时讨论。
+
+### 2026-10-27 19:55（UTC+08:00）｜Claude Code｜落盘注意力测试并接手多头讲解
+
+- 范围与用户确认：用户指示三件事：把 worktree 中的测试复制到项目并跑 pytest、补交接记录、讲解单头到多头（代码由用户手写）。实现方为用户，Claude Code 负责测试与讲解。
+- 工作区与设备：`/Users/j/Desktop/transformer-lab`，Mac；分支 m1-attention，HEAD 277661b；attention.py 为 AM，PROGRESS.md 为 M，tests/test_attention.py 与 `.idea/` 未追踪。
+- 改动：`cp .claude/worktrees/project-plan-collaboration-eb22b0/tests/test_attention.py tests/test_attention.py`，复制前用 diff 核对差异仅为新增 4 个测试与导入上移；更新本文件的当前状态并追加本条与上一条补记。未改动 attention.py。
+- 本次验证：`.venv/bin/python -m pytest -q` 为 10 passed in 0.92s（5 个 M0 测试 + 5 个注意力测试），证据 `runs/m1-attention/11-pytest-after-tests.txt`；`.venv/bin/ruff check .` 通过（`12-ruff-check.txt`）；`.venv/bin/ruff format --check .` 提示 attention.py 一个文件待格式化（`13-ruff-format.txt`）。
+- 未验证与失败：没有重做上一会话的故意写错实验；Windows/CUDA、训练、实验均未运行。
+- 审查状态：新增 4 个测试尚未由其他 agent 审查。
+- 学习状态：用户需亲手把单头扩展为多头：拆头 view/transpose、各头独立注意力、合头 transpose/contiguous/view，以及 d_model 能被 n_heads 整除的检查。
+- 下一步：Claude 讲解多头形状变化；用户手写；之后 Claude 补多头相关测试并 review。worktree 中的测试文件已落盘，那个 worktree 可由用户决定是否清理。
+
+### 2026-10-27 20:01（UTC+08:00）｜Claude Code｜多头测试先行（红灯）
+
+- 范围与用户确认：用户同意测试计划，要求先写 4 个多头测试、确认失败后再手写实现。实现方为用户，测试编写方为 Claude Code。
+- 改动：`tests/test_attention.py` 新增 `import pytest` 与 4 个测试：多头形状（d_model=8, n_heads=2）、多头与 SDPA 数值一致（参考答案在测试里自行拆头，以 (B,h,T,d) 传入 SDPA 后合头）、多头因果性、d_model=6/n_heads=4 时构造抛 AssertionError。原有测试与断言未改。未改动 attention.py。
+- 本次验证：`.venv/bin/python -m pytest -q -rA` 为 2 failed, 12 passed in 0.95s，证据 `runs/m1-attention/14-pytest-multihead-red.txt`；失败的是 SDPA 对照（80 个元素中 64 个不符，最大绝对差 0.130）和整除检查（DID NOT RAISE）。`ruff check tests` 通过，`ruff format --check tests` 为 3 files already formatted（`15-`、`16-` 两份日志）。
+- 红灯说明：多头形状与多头因果性两个测试在当前单头代码下已经通过，因为单头实现本身保持形状且是因果的；它们是多头改写后的回归保护，不是红灯测试。
+- 测试有效性检查：在 scratchpad 脚本中写了参考多头实现，在内存中替换类后运行全部注意力测试（未写入项目、未改用户文件）。正确版本全部通过；`view(B,h,T,d)` 直接拆头的版本未通过多头 SDPA 对照与多头因果性；按 √C 缩放的版本未通过多头 SDPA 对照。证据 `runs/m1-attention/17-multihead-test-mutation-check.txt`。
+- 审查状态：未请求其他 agent 审查。
+- 学习状态：用户需亲手加整除检查、拆头、合头（合头步骤由用户自行推导）。
+- 下一步：用户实现后跑 pytest，目标 14 passed；Claude review 并检查形状注释与格式。
+
+### 2026-10-27 20:20（UTC+08:00）｜Claude Code｜检查用户多头初稿并再次讲解
+
+- 范围：用户已在 attention.py 中手写整除检查、拆头、合头初稿，表示对单头到多头和维度变换仍感到混乱，请求再讲解并核实进度。Claude Code 只读检查，未改用户文件。
+- 本次验证：`.venv/bin/python -m pytest -q` 为 8 failed, 6 passed in 1.11s，证据 `runs/m1-attention/18-pytest-user-multihead-draft.txt`；全部注意力前向测试失败于 `AttributeError: 'CausalSelfAttention' object has no attribute 'head_dim'`（拆头三行写成 `self.head_dim`，构造函数定义的是 `self._head_dim`）。整除检查测试已通过。
+- 诊断：scratchpad 脚本仅在内存中为该类补 `head_dim` 别名后运行全部注意力测试，无失败；说明除属性名外初稿逻辑正确。另用演示脚本验证“逐头切片跑单头再拼接”与 view/transpose 一次算完的结果一致（allclose 为 True），用于讲解。
+- 遗留：属性名由用户改正；第 33、34、38、41、42 行形状注释仍是单头版本；格式待 `ruff format`。
+- 学习状态：用户对拆头/合头的维度变换尚未讲清，不标记理解验收。
+- 下一步：用户改正属性名并跑到 14 passed；确认能讲清后 Claude review，再按用户授权提交；之后进入 M1 的 block.py（用户手写）。
+
+### 2026-10-28 12:58（UTC+08:00）｜Claude Code｜多头测试转绿与 view/transpose/contiguous 讲解
+
+- 范围：用户改正属性名后请求解释 view 的含义与参数、contiguous 的作用、为何反复转置。Claude Code 只读检查，未改用户文件。
+- 本次验证：`.venv/bin/python -m pytest -q` 为 14 passed in 1.41s（`runs/m1-attention/19-pytest-user-multihead.txt`）；`ruff check .` 通过（`20-`）；`ruff format --check .` 仅 attention.py 待格式化（`21-`）。讲解用演示输出保存在 `22-view-transpose-demo.txt`：view 按内存顺序重新分组、-1 自动推断、元素数不符报错；transpose 与原张量共享内存、stride 由 (4,1) 变 (1,4)、is_contiguous 为 False 且 view 报错；contiguous 返回新内存的副本，此后修改原张量不影响副本。
+- 遗留：用户表示已加注释，但磁盘上第 31、33、34、38、41、42 行仍为单头形状注释，需用户确认是否已保存；格式待 `ruff format`。
+- 审查状态：多头实现尚未 review；测试仍无其他 agent 审查。
+- 学习状态：用户计划自己用语言复述多头流程，尚未验收。
+- 下一步：用户复述多头流程并整理注释；Claude review；经用户授权提交 M1 注意力；然后进入 block.py。
+
+### 2026-10-28 13:15（UTC+08:00）｜Claude Code｜多头复述与 review
+
+- 范围：用户更新形状注释并口头复述多头流程，追问 4 维 k 为何用 `transpose(-2, -1)` 而非 `(1, 2)`。Claude Code 只读检查，未改用户文件。
+- 本次验证：pytest 14 passed in 0.94s（`runs/m1-attention/23-pytest.txt`）；ruff check 通过（`24-`）；format --check 仍提示 attention.py 待格式化（`25-`）。演示（`26-k-transpose-demo.txt`）：对 (2,2,5,4) 的 k，`transpose(-2,-1)` 得 (2,2,4,5) 且与 `transpose(2,3)` 相同，`q @` 之后为 (2,2,5,5)；`transpose(1,2)` 得 (2,5,2,4)，`q @` 之后报 RuntimeError；3 维时 `(-2,-1)` 与 `(1,2)` 结果相同。
+- Review（Claude Code）：实现逻辑与形状注释正确，无功能问题；剩余为格式（等号空格、`. transpose` 空格、第 37 行过长、`#` 前空格），由用户运行 `ruff format` 处理。测试仍无其他 agent 审查。
+- 学习状态：用户复述正确：C 拆成 h 个 d 维、中间每头等同单头、contiguous 用于让内存顺序与转置后的逻辑顺序一致；“各头负责不同特征”已补充为“各头在各自学到的子空间里有独立的注意力模式”。
+- 下一步：用户格式化后，经授权提交 M1 注意力；之后进入 block.py（用户手写）。
+
+### 2026-10-28 13:20（UTC+08:00）｜Claude Code｜提交 M1 多头注意力
+
+- 范围与用户确认：用户运行 ruff format 后明确授权提交。提交内容为 `src/tlab/model/attention.py`（用户手写）、`tests/test_attention.py`（Claude Code 编写）与本文件；`.idea/` 与 `runs/` 不提交。
+- 提交前验证：pytest 14 passed in 0.93s（`runs/m1-attention/27-`）；ruff check 通过（`28-`）；format --check 为 19 files already formatted（`29-`）；`git diff --check HEAD` 退出码 0。暂存前 attention.py 的暂存版本仍是旧空文件，提交时以磁盘版本重新 add。
+- 学习检查：用户回答“单头与多头参数量”时认为不同。实测（`30-params-flops-demo.txt`，C=8, T=5）h=1/2/4 时参数量均为 256 = 4·C²，矩阵乘法 FLOPs 均为 3360，注意力表元素数为 25/50/100；已纠正“h、d 是参数”的理解，计算量相同的判断正确。
+- 格式说明：ruff 把 softmax 那行的长行尾注释拆成三行，用户可自行把注释移到上一行，不影响功能。
+- 审查状态：Claude Code 已 review 实现；测试尚无其他 agent 审查。
+- 下一步：block.py；合并 main 待用户另行授权。
 
 ## 后续交接模板
 
