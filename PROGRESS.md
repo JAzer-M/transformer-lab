@@ -4,24 +4,24 @@
 
 ## 当前状态
 
-更新时间：2026-10-28 13:20（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-10-28 14:08（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M1 多头因果注意力（用户手写）与 9 个注意力测试已提交到 m1-attention；下一模块 block.py |
-| 本轮范围 | Claude Code 接手：落盘上次在 worktree 写好的 4 个注意力测试、补交接记录、讲解单头到多头；按用户确认先写 4 个多头测试（红灯） |
-| 实现方 | 用户手写 MHA；Claude Code 负责测试、讲解与 review |
-| 审查方 | 单头 4 个测试与多头 4 个测试均由 Claude Code 编写，尚无其他 agent 审查；完整 MHA 待完成后审查 |
-| Git 分支 / commit | m1-attention；在 277661b 之上新增提交 `add multi-head causal self-attention with tests`（哈希见 `git log`）；未合并 main，无远程 |
-| 本轮改动 | `tests/test_attention.py`（从 worktree 复制，再新增 4 个多头测试）与本文件；未编辑用户实现或操作暂存区 |
+| 项目阶段 | M1 多头因果注意力已提交（ea88109）；进入 block.py：用户手写的 MLP 与 Block 及 6 个 block 测试已提交到 m1-block；下一模块 gpt.py |
+| 本轮范围 | block.py：Claude Code 写测试并讲解 MLP、LayerNorm、Pre-LN、残差；用户手写实现 |
+| 实现方 | 用户手写 block.py（MLP、Block）；Claude Code 负责测试、讲解与 review |
+| 审查方 | 注意力与 block 测试均由 Claude Code 编写，尚无其他 agent 审查；MHA 已由 Claude Code review |
+| Git 分支 / commit | m1-block（从 m1-attention 的 ea88109 分出），新增提交 `add pre-LN transformer block with MLP and tests`（哈希见 `git log`）；m1-attention 与 m1-block 均未合并 main，无远程 |
+| 本轮改动 | 新建 m1-block 分支；新增 `tests/test_block.py`；更新本文件；提交用户手写的 block.py |
 | 工程代码与依赖 | 项目已可编辑安装；PyTorch 2.9.1、NumPy 2.4.6、pytest 9.1.1、ruff 0.17.2；锁文件共 38 个包条目，包含其他平台的依赖 |
 | 本机环境 | Python 3.11.9，arm64；uv 0.13.5 已安装到 `/Users/j/.local/bin`，未修改 shell 配置 |
 | 范围与保护检查 | 用户手写实现由用户修改和暂存；Claude Code 只读检查 attention.py，只写测试与本文件 |
-| pytest / 代码检查 | 提交前 pytest 14 passed in 0.93s；ruff check 通过；format --check 为 19 files already formatted；`git diff --check HEAD` 通过 |
+| pytest / 代码检查 | 提交前完整 pytest 为 20 passed in 0.93s；ruff check 通过；format --check 为 21 files already formatted；`git diff --check` 通过 |
 | Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
 | 训练 / 实验 | 均未运行；`experiments/results.md` 仅有表头，没有实验结果 |
 | Windows / CUDA | 本轮未访问或验证，不从 Mac 状态推断 |
-| 下一步 | 讲解并由用户手写 `block.py`（Pre-LN、残差、MLP）；合并 main 需用户读完 diff 并另行授权 |
+| 下一步 | gpt.py：先列计划与测试等用户确认（token embedding、可学习位置编码、L 层 Block、最终 LayerNorm、weight tying、参数量函数）；合并 main 需用户另行授权 |
 
 ## 当前任务与下一步
 
@@ -229,6 +229,56 @@
 - 格式说明：ruff 把 softmax 那行的长行尾注释拆成三行，用户可自行把注释移到上一行，不影响功能。
 - 审查状态：Claude Code 已 review 实现；测试尚无其他 agent 审查。
 - 下一步：block.py；合并 main 待用户另行授权。
+
+### 2026-10-28 13:26（UTC+08:00）｜Claude Code｜block.py 计划确认与测试先行
+
+- 用户确认：从 m1-attention 新建 `m1-block`；M1 使用 `nn.LayerNorm`（M3 再手写 RMSNorm）；MLP 写在 block.py 中、Linear 不加 bias；暂不加 dropout。用户要求写代码过程中同时讲解 Transformer 相关知识。实现方为用户，测试与讲解由 Claude Code 负责。
+- 接口约定：`MLP(d_model)` 含 `fc: Linear(C, 4C)`、`proj: Linear(4C, C)`；`Block(d_model, n_heads)` 含 `ln1, attn, ln2, mlp`；输入输出均为 (B, T, C)。
+- 改动：`git switch -c m1-block`；新增 `tests/test_block.py`（6 个测试：MLP 形状与 4 倍隐藏层、Block 形状、Pre-LN 公式对照（随机化两个 LayerNorm 参数以区分 ln1/ln2）、分支输出置 0 时为恒等、因果性、参数量 12C²+4C）。模块在各测试内导入，便于先写 MLP 时其测试单独转绿。
+- 本次验证：pytest 6 failed, 14 passed in 0.96s，失败均为 `ModuleNotFoundError: tlab.model.block`（`runs/m1-block/01-pytest-block-red.txt`）；ruff check 通过，format --check 为 20 files already formatted。
+- 测试有效性检查：scratchpad 中构造参考实现并注入 `sys.modules` 运行（未写入项目）：正确版本全部通过；Post-LN、去掉残差均被 Pre-LN 公式与恒等测试抓住；ln1/ln2 位置互换被 Pre-LN 公式测试抓住；Linear 加 bias 被恒等与参数量测试抓住；把 GELU 换成 ReLU 不会被任何测试抓住（Pre-LN 测试把 block 自己的 mlp 当黑盒）。证据 `runs/m1-block/02-block-test-mutation-check.txt`。讲解用演示 `03-gelu-linear-demo.txt`。
+- 审查状态：未请求其他 agent 审查。
+- 下一步：用户手写 MLP；之后讲 LayerNorm、Pre-LN、残差，用户手写 Block。
+
+### 2026-10-28 13:42（UTC+08:00）｜Claude Code｜检查用户 MLP 并答疑
+
+- 范围：用户手写 `MLP` 后提问：MLP 为何不涉及注意力、fc 的形状、MLP 参数量、d_model 含义、`import torch` 与 `from torch import nn` 是否重复、MLP 与论文中神经网络的关系。Claude Code 只读检查，未改用户文件。
+- 本次验证：`pytest tests/test_block.py -q` 为 5 failed, 1 passed in 0.71s（`runs/m1-block/04-pytest-user-mlp.txt`），MLP 测试通过，其余为尚无 Block 的 ImportError。ruff check 报 I001（block.py 的 import 顺序），format --check 提示 block.py 待格式化。演示（`05-mlp-shape-params-demo.txt`）：输入 (2,5,8) 时 fc.weight (32,8)、h (2,5,32)、proj.weight (8,32)；MLP 参数 512 = 8C²，注意力 256 = 4C²；MLP 对单个 token 计算与整体计算的对应位置一致；`torch.nn` 在只 import torch 时即可访问，`nn is torch.nn` 为 True。
+- Review：MLP 逻辑正确（fc → GELU → proj，无 bias）；第 22 行缺形状注释；I001 与格式由用户运行 `ruff check --fix` 和 `ruff format` 处理。
+- 学习状态：用户对 d_model（每个 token 向量的长度，即 C）与 MLP 参数量尚不熟，已讲解，待其反馈。
+- 下一步：讲解 LayerNorm、Pre-LN、残差，用户手写 Block。
+
+### 2026-10-28 13:48（UTC+08:00）｜Claude Code｜MLP 整理完成，讲解维度分工与 LayerNorm
+
+- 范围：用户已补形状注释并运行 ruff；提问“是否一直只在 d_model 特征上操作、不关心序列和 token”。Claude Code 只读检查，未改用户文件。
+- 本次验证：完整 pytest 5 failed, 15 passed in 0.98s（失败均为尚无 Block）；ruff check 通过；format --check 为 21 files already formatted。演示（`runs/m1-block/06-mixing-layernorm-demo.txt`）：只改 token0 时，q_proj、MLP、LayerNorm 不影响其他 token，注意力会影响；四者都不跨序列混合。LayerNorm 对 [1..8] 的输出与手算 (v-均值)/sqrt(方差+eps) 一致，输出均值约 0、方差约 1，输入放大 100 倍输出不变；参数为 weight (8,) 全 1 与 bias (8,) 全 0。
+- 学习状态：已纠正为“多数组件只在 C 维上逐 token 加工，只有注意力在 T 维上混合，B 维从不混合”；待用户手写 Block 后复述。
+- 下一步：用户手写 Block，目标完整 pytest 20 passed；Claude review。
+
+### 2026-10-28 14:00（UTC+08:00）｜Claude Code｜Block 通过与 review、参数概念讲解
+
+- 范围：用户手写 `Block`，问漏掉残差为何会报错、参数是什么及如何计算。Claude Code 只读检查，未改用户文件。
+- 本次验证：完整 pytest 20 passed in 0.92s（`runs/m1-block/07-`）；ruff check 通过（`08-`）；format --check 21 files already formatted（`09-`）。
+- 漏残差检查（`10-no-residual-check.txt`）：内存中把 Block.forward 换成无残差版本，Pre-LN 公式与分支置 0 恒等两个测试失败，形状、因果、参数量与 MLP 测试仍通过；无残差且分支置 0 时输出全为 0，有残差时输出等于输入。
+- 参数列举（`11-block-params.txt`）：Block(8, 2) 共 10 个参数张量，合计 800 = 12C²+4C；注意力 4×64、MLP 2×256、两个 LayerNorm 各 8+8。
+- Review（Claude Code）：Block 结构正确（Pre-LN、两个独立 LayerNorm、残差、更新后的 x 进入 MLP 子层）；第 40、42 行缺形状注释 `# (B, T, C)`，由用户补。
+- 学习状态：用户已能区分 C 与 d_model；“参数 = 可学习张量中的数，个数 = 各形状元素数之和”已讲解，待用户复述。
+- 下一步：用户补注释并授权后提交 m1-block；然后进入 gpt.py。
+
+### 2026-10-28 14:06（UTC+08:00）｜Claude Code｜提交前复核未过格式检查，讲解参数量阶数
+
+- 范围：用户补完形状注释并授权提交，追问为何 LayerNorm 参数为 C 而 Linear 为 C²。
+- 本次验证：pytest 20 passed in 1.24s（`runs/m1-block/12-`）；ruff check 通过（`13-`）；format --check 为 1 file would be reformatted（`14-`，block.py 第 40、42 行行尾注释前只有一个空格）；`git diff --check` 退出码 0。
+- 决策：block.py 为用户手写文件，Claude Code 不代为格式化；本次未提交，待用户运行 `ruff format` 后再提交。
+- 讲解演示（`15-layernorm-vs-linear-demo.txt`，C=3）：LayerNorm 输出与逐分量 n_i·w_i+b_i 一致，参数为 (3,) 与 (3,)；Linear 输出与 y_i=Σ_j W[i][j]·x_j 一致，参数为 (3,3)。
+- 下一步：用户格式化后提交 m1-block，再进入 gpt.py。
+
+### 2026-10-28 14:08（UTC+08:00）｜Claude Code｜提交 m1-block
+
+- 范围与用户确认：用户运行 ruff format 后告知已格式化，此前已授权提交。提交内容为 `src/tlab/model/block.py`（用户手写）、`tests/test_block.py`（Claude Code 编写）与本文件；`.idea/`、`runs/` 不提交。
+- 提交前验证：pytest 20 passed in 0.93s（`runs/m1-block/16-`）；ruff check 通过（`17-`）；format --check 为 21 files already formatted（`18-`）；`git diff --check` 退出码 0。
+- 审查状态：Claude Code 已 review Block 与 MLP；block 测试无其他 agent 审查。
+- 下一步：gpt.py 计划；m1-attention 与 m1-block 合并 main 需用户读完 diff 并另行授权。
 
 ## 后续交接模板
 
