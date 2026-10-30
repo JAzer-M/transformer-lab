@@ -4,24 +4,24 @@
 
 ## 当前状态
 
-更新时间：2026-10-30 14:30（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-10-30 14:51（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M1 模型部分完成：注意力（ea88109）、block（555395a）、gpt.py 均由用户手写并已提交到各自分支；下一步数据准备与训练循环 |
-| 本轮范围 | gpt.py：Claude Code 写测试并讲解 dataclass、Embedding、位置编码、weight tying、初始化、forward；用户手写实现 |
-| 实现方 | 用户手写 gpt.py（用户选择亲手写，规范未强制）；Claude Code 负责测试、讲解与 review |
+| 项目阶段 | M1 模型部分已提交（ea88109、555395a、1b481bc）；任务 A 数据（m1-data）已实现并通过测试，待用户阅读与授权提交；之后任务 B 训练、任务 C 生成 |
+| 本轮范围 | M1 剩余：A 字符级数据（Claude 写）→ B 训练（主循环用户手写）→ C 生成（Claude 写） |
+| 实现方 | 任务 A：Claude Code；任务 B 主循环：用户；任务 B 外围与任务 C：Claude Code |
 | 审查方 | 注意力与 block 测试均由 Claude Code 编写，尚无其他 agent 审查；MHA 已由 Claude Code review |
-| Git 分支 / commit | m1-gpt（从 m1-block 的 555395a 分出），新增提交 `add GPT model with learnable positions, weight tying and tests`（哈希见 `git log`）；m1-attention、m1-block、m1-gpt 均未合并 main，无远程 |
-| 本轮改动 | 新建 m1-gpt 分支；新增 `tests/test_gpt.py`；提交用户手写的 gpt.py；更新本文件 |
+| Git 分支 / commit | m1-data（从 m1-gpt 的 1b481bc 分出）；char.py、prepare 脚本、test_char_data.py 未追踪，本文件未提交；M1 各分支均未合并 main，无远程 |
+| 本轮改动 | 新增 `src/tlab/data/char.py`、`scripts/prepare_shakespeare_char.py`、`tests/test_char_data.py`；本地生成 `data/shakespeare_char/`（不进 git） |
 | 工程代码与依赖 | 项目已可编辑安装；PyTorch 2.9.1、NumPy 2.4.6、pytest 9.1.1、ruff 0.17.2；锁文件共 38 个包条目，包含其他平台的依赖 |
 | 本机环境 | Python 3.11.9，arm64；uv 0.13.5 已安装到 `/Users/j/.local/bin`，未修改 shell 配置 |
 | 范围与保护检查 | 用户手写实现由用户修改和暂存；Claude Code 只读检查 attention.py，只写测试与本文件 |
-| pytest / 代码检查 | 提交前完整 pytest 为 26 passed in 0.93s；ruff check 通过；format --check 为 23 files already formatted；`git diff --check` 通过 |
+| pytest / 代码检查 | 最新完整 pytest 为 34 passed；ruff check 通过；format --check 为 26 files already formatted |
 | Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
-| 训练 / 实验 | 均未运行；`experiments/results.md` 仅有表头，没有实验结果 |
+| 训练 / 实验 | 均未运行；Tiny Shakespeare 数据已在 Mac 本地准备好；`experiments/results.md` 仅有表头 |
 | Windows / CUDA | 本轮未访问或验证，不从 Mac 状态推断 |
-| 下一步 | M1 剩余：字符级 Tiny Shakespeare 数据准备、训练循环（主循环由用户手写，外围由 Claude Code 写）、生成函数；先列计划等用户确认。合并 main 需用户另行授权 |
+| 下一步 | 用户阅读任务 A 并授权提交 m1-data；然后任务 B：新增 pyyaml 依赖（用户已同意），写训练外围与测试，用户手写主循环 |
 
 ## 当前任务与下一步
 
@@ -347,6 +347,21 @@
 - 提交前验证：pytest 26 passed in 0.93s（`runs/m1-gpt/14-`）；ruff check 通过（`15-`）；format --check 23 files already formatted（`16-`）；`git diff --check` 退出码 0。上一轮复核时 format --check 未过（行尾注释前一个空格），当时未提交。
 - 审查状态：Claude Code 已 review gpt.py；gpt 测试无其他 agent 审查。
 - 下一步：M1 数据与训练循环计划；三个 M1 分支合并 main 需用户读完 diff 并另行授权。
+
+### 2026-10-30 14:39（UTC+08:00）｜Claude Code｜M1 剩余计划确认与任务 A（字符级数据）
+
+- 用户确认：M1 剩余分三个任务 A 数据 → B 训练 → C 生成；同意下载 Tiny Shakespeare `input.txt`（karpathy/char-rnn 原始链接，约 1.1 MB）；同意新增 `pyyaml`（任务 B 时加入）；生成函数由 Claude Code 写、用户阅读；暂不加 dropout；正式超参建议 6 层 / 6 头 / d_model 384 / block_size 256 / batch 64 / lr 1e-3 恒定 / max_iters 2000 / eval 每 250 步、50 个 batch / seed 1337，用户已接受。实现方为 Claude Code。
+- 改动：`git switch -c m1-data`；先写 `tests/test_char_data.py`（8 个测试：字表排序去重、编码解码还原、未知字符报 KeyError、字表保存加载、9:1 顺序切分、uint16 文件读写、get_batch 形状/dtype/连续性/y=x 后移一位/不越界、同种子可复现），确认 8 failed, 26 passed（`runs/m1-data/01-`）；再写 `src/tlab/data/char.py` 与 `scripts/prepare_shakespeare_char.py`。
+- 数据准备：脚本内 urllib 下载在本机报 `SSL: CERTIFICATE_VERIFY_FAILED`（python.org 版 Python 未安装证书），未关闭证书校验；改用系统 curl 从同一地址下载，1,115,394 字节，sha256 `86c4e6aa…565ed`。之后运行脚本：字表 65，训练 1,003,854、验证 111,540 个 token（`02-prepare-data.txt`）。Windows/WSL 上脚本是否能直接下载未验证。
+- 本次验证：完整 pytest 34 passed（`04-`）；ruff check 通过（`05-`）；format --check 26 files already formatted（`06-`）。真实数据检查（`03-real-batch-check.txt`）：train+val 解码后与原文逐字一致；随机 batch 解码可读，y 为 x 后移一位；`data/` 未出现在 git status。
+- 审查状态：任务 A 由 Claude Code 实现，尚无其他 agent 审查；待用户阅读。
+- 下一步：用户阅读并授权提交 m1-data；之后任务 B。
+
+### 2026-10-30 14:51（UTC+08:00）｜Claude Code｜提交 m1-data
+
+- 用户确认：用户阅读 char.py 后提问（char 是否“按单词加入词表并嵌入”），已讲清字符级编号与模型内 tok_emb 嵌入的分工；用户表示可以进行下一步，视为授权提交 m1-data 并开始任务 B。
+- 提交内容：`src/tlab/data/char.py`、`scripts/prepare_shakespeare_char.py`、`tests/test_char_data.py` 与本文件；`data/`、`runs/`、`.idea/` 不提交。提交前 pytest 34 passed、ruff check 通过、format --check 26 files already formatted。
+- 下一步：任务 B（m1-train）。
 
 ## 后续交接模板
 
