@@ -4,36 +4,40 @@
 
 ## 当前状态
 
-更新时间：2026-10-30 16:15（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-10-30 16:31（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M1 代码全部提交：注意力 ea88109、block 555395a、GPT 1b481bc、数据 39a0c13、训练 21d2f29、生成（m1-generate 最新提交）；待在 Windows 5060 正式训练 |
-| 本轮范围 | M1 剩余：A 字符级数据（Claude 写）→ B 训练（主循环用户手写）→ C 生成（Claude 写） |
-| 实现方 | 任务 C 生成：Claude Code（用户选择阅读） |
-| 审查方 | 注意力与 block 测试均由 Claude Code 编写，尚无其他 agent 审查；MHA 已由 Claude Code review |
-| Git 分支 / commit | m1-generate 包含全部 M1 提交（链式分支 m1-attention → m1-block → m1-gpt → m1-data → m1-train → m1-generate）；均未合并 main；无远程 |
-| 本轮改动 | 提交 `src/tlab/eval/generate.py`、`scripts/sample.py`、`tests/test_generate.py` |
+| 项目阶段 | M1 代码全部完成并推送（m1-generate）；待 Codex 在 Windows/WSL + RTX 5060 上按 `docs/m1-windows-run.md` 完成 M0 Windows 验收与 M1 正式训练 |
+| 本轮范围 | 交接给 Windows 上的 Codex：执行正式训练并把结果写回仓库；之后用户回到 Mac 让 Claude Code 读取 |
+| 实现方 | 下一轮执行方：Codex（Windows/WSL）；用户手写文件（attention/block/gpt/trainer）不得修改 |
+| 审查方 | M1 代码由 Claude Code review；测试由 Claude Code 编写，尚无其他 agent 审查；Codex 回传结果后由 Claude Code 核对 |
+| Git 分支 / commit | 远程 origin = https://github.com/JAzer-M/transformer-lab.git（私有）；已推送 main（277661b）与 m1-generate（dbd7c78，含全部 M1 提交），均与本地一致；M1 未合并 main；本文件最近几条记录尚未提交 |
+| 本轮改动 | 新增 `docs/m1-windows-run.md`（Windows 操作手册）；更新本文件 |
 | 工程代码与依赖 | 项目已可编辑安装；PyTorch 2.9.1、NumPy 2.4.6、pytest 9.1.1、ruff 0.17.2；锁文件共 38 个包条目，包含其他平台的依赖 |
 | 本机环境 | Python 3.11.9，arm64；uv 0.13.5 已安装到 `/Users/j/.local/bin`，未修改 shell 配置 |
 | 范围与保护检查 | 用户手写实现由用户修改和暂存；Claude Code 只读检查 attention.py，只写测试与本文件 |
 | pytest / 代码检查 | 最新完整 pytest 为 48 passed in 1.46s；ruff check 通过；format --check 为 35 files already formatted |
 | Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
 | 训练 / 实验 | 仅 Mac CPU 冒烟：tiny_smoke 10 步，val loss 4.1833 → 3.8944（最终评估 3.8711），56,405 tokens/s；正式训练未运行，`experiments/results.md` 仅有表头（冒烟不计入） |
-| Windows / CUDA | 本轮未访问或验证，不从 Mac 状态推断 |
-| 下一步 | 用户在 Mac 建 GitHub 私有仓库并推送 m1-generate（需用户操作或明确授权）；Windows/WSL 上 clone → uv sync → GPU 自检 → pytest → 准备数据 → tiny_smoke（补 Windows 端 M0 验收）→ shakespeare_char 正式训练 → sample；回传终端输出、metrics.csv、run.json 与生成样例 |
+| Windows / CUDA | 尚未验证：GPU 自检、Windows 上 pytest、CPU 10 步冒烟、正式训练均待 Codex 按手册执行 |
+| 下一步 | Codex 按 `docs/m1-windows-run.md` 执行第 1–5 步，结果写入 `experiments/m1_shakespeare_char/`、`experiments/results.md` 与本文件，经用户同意后推送 m1-generate；用户回到 Mac 让 Claude Code pull 并核对 |
 
 ## 当前任务与下一步
 
-- 计划位置：`docs/PLAN.md` 的「M1 最小 GPT」；本轮已进入用户手写 forward 的单头注意力计算，M0 基线已保存。
-- 基线：`277661b5495525c5bad21782c061c023597fc60f`（M0）；当前分支 `m1-attention`，`main` 保留已通过 5 项测试的基础工程。
-- 分工：用户已手写类、构造函数及 forward 的投影/打分部分；下一助手继续讲解和审查，用户继续亲手实现。
-- 首批本地验证已通过：包安装和隔离导入、设备选择逻辑、pytest、ruff、CPU/MPS 小张量检查；本次提交前再次复核测试和代码检查。
-- Mac pytest 已通过；完整 M0 仍需补充 Windows/WSL 真实 CUDA 自检、该设备的 pytest 与 CPU 10 步训练证据；后者依赖 M1 代码就绪。
-- 当前 M1 约定：`CausalSelfAttention(d_model=4, n_heads=1)`，输入与输出均为 `(B, T, C)`。先加入形状测试，再由用户亲手实现；后续逐项加入因果性、数值一致性与梯度测试。
-- 首测状态：当前代码成功运行至 forward 的分数缩放后，在用户保留的占位异常处失败。完整结果 1 failed, 5 passed；仍待补齐 forward 输出。
-- 用户手写要求：用户已修正 `__init__` 与 `super().__init__()`，并加入手写说明注释；属性名为 `self._head_dim`，后续引用保持一致。Codex 不直接改实现。
-- M0 历史差异保留在 `runs/m0-bootstrap/m0-changes.patch`。当前 M1 包含用户已暂存且继续修改的 attention.py、本文件与未追踪的首测；已暂存和工作区整体差异可用 `git diff HEAD` 查看，新测试需直接读取。
+- 计划位置：`docs/PLAN.md` 的「M1 最小 GPT」。代码部分全部完成，剩余验收：5060 上训练出格式像剧本的文本、val loss 稳定下降。
+- 代码分支：`m1-attention`（ea88109）→ `m1-block`（555395a）→ `m1-gpt`（1b481bc）→ `m1-data`（39a0c13）→ `m1-train`（21d2f29）→ `m1-generate`（dbd7c78 及之后的文档提交），链式分出；远程 `origin` 为私有仓库 https://github.com/JAzer-M/transformer-lab ，已推送 `main` 与 `m1-generate`。M1 尚未合并 `main`，合并需用户读完 diff 后另行授权。
+- 用户手写：`attention.py`（多头因果注意力）、`block.py`（MLP + Pre-LN Block）、`gpt.py`（GPT）、`trainer.py`（`train()` 主循环）。Claude Code 编写：数据、训练外围、生成、全部测试。
+- Mac 验证：pytest 48 passed；ruff check 与 format 通过；tiny_smoke CPU 10 步跑通（val 4.1833 → 3.8944）。
+- 未完成：Windows/WSL GPU 自检、Windows 上 pytest 与 CPU 10 步（M0 剩余验收）；M1 正式训练与生成样例。执行手册见 `docs/m1-windows-run.md`。
+- 默认值提醒：AdamW weight_decay 0.01（作用于全部参数）、betas 默认；M1 不加 dropout；checkpoint 不含优化器状态；tokens/s 计时含评估。
+
+## Codex 接手入口（Windows 正式训练，2026-10-30）
+
+1. 在 WSL2 Ubuntu 中工作，目录放在 `~` 下；`git clone` 后 `git checkout m1-generate`。先读 `AGENTS.md`、`docs/PLAN.md`、本文件顶部「当前状态」。
+2. 严格按 `docs/m1-windows-run.md` 的第 1–5 步执行：uv sync → GPU 自检 → pytest（预期 48 passed）→ 准备数据（核对 sha256）→ tiny_smoke → shakespeare_char 正式训练（首行必须是 `设备 cuda，参数量 10,750,080`）→ sample。
+3. 不改超参数、配置与用户手写文件；出错、CUDA 不可用、loss NaN 或发散时立即停止并记录原文，不自行调参。
+4. 结果写入 `experiments/m1_shakespeare_char/`（run.json、metrics.csv、控制台输出、样例、env_check.txt），在 `experiments/results.md` 追加一行真实数字，并在本文件追加交接记录；提交与推送前征得用户同意。
 
 ## Claude Code 接手入口（2026-10-27）
 
@@ -421,6 +425,26 @@
 - 讲解补充：multinomial 三个参数与 (B,V)→(B,1) 形状（`runs/m1-generate/09-`），torch.cat 沿 dim=1/dim=0 拼接及两种报错（`10-`）。
 - 现状核对：仓库没有远程；`docs/PLAN.md` 规定两台电脑以 GitHub 为唯一代码来源，因此 Windows 训练前需先建远程并推送，属对外操作，等待用户决定。
 - 下一步：用户按对话中给出的步骤在 Windows/WSL 上运行并回传结果；Claude Code 据真实结果追加 `experiments/results.md`。
+
+### 2026-10-30 16:24（UTC+08:00）｜Claude Code｜尝试推送到 GitHub（未成功）
+
+- 用户请求：创建 GitHub 仓库并推送。本机无 gh、无 SSH 密钥；git 使用 osxkeychain，钥匙串中有 github.com 账号 JAzer-M 的凭据（只读取了用户名，未读取或输出密码/令牌）。内置浏览器未登录 GitHub，Claude Code 未代为登录；用户改在 Safari 中自行创建私有仓库 `transformer-lab`。
+- 现状：本地已有 `origin → https://github.com/JAzer-M/transformer-lab.git`（非本条操作添加；本条尝试 `git remote add` 时提示已存在）。`GIT_TERMINAL_PROMPT=0 git ls-remote <url>` 返回 `remote: Write access to repository not granted` 与 HTTP 403：凭据被 GitHub 识别，但对该仓库没有权限，推测是令牌的仓库范围或权限不包含新仓库。未推送任何内容，未修改凭据。
+- 下一步：用户为该令牌授予此仓库的 Contents 读写权限，或自行换用新令牌；之后 Claude Code 推送 main 与 m1-generate 并核对。
+
+### 2026-10-30 16:27（UTC+08:00）｜Claude Code｜推送到 GitHub
+
+- 用户为令牌补充了 transformer-lab 的权限。`git ls-remote origin` 成功且为空仓库；`git push -u origin main` 与 `git push -u origin m1-generate` 均成功，并设置了跟踪分支。
+- 核对：远程 main = 277661b、m1-generate = dbd7c78，与本地一致；m1-generate 树中 43 个文件，不含 data/、runs/、checkpoints/、.pt 或 .bin 文件。
+- 未提交：本文件自 dbd7c78 之后追加的几条记录（推送尝试与本条）仍是本地改动，未推送；Windows 训练不依赖它们，下次提交时一并带上。
+- 下一步：用户在 Windows/WSL 上按对话中的步骤运行并回传结果。
+
+### 2026-10-30 16:31（UTC+08:00）｜Claude Code｜编写 Windows 正式训练手册并交接给 Codex
+
+- 用户确认：用户的 Windows 电脑上只有 Codex，要求把后续流程写成文档并提交推送，由 Codex 执行，之后回到 Mac 让 Claude Code 读取结果。
+- 改动：新增 `docs/m1-windows-run.md`（硬性规则、环境准备、M0 Windows 验收、数据与哈希核对、冒烟、正式训练、生成、结果回写位置与 results.md 行格式、提交推送需用户同意）；本文件更新「当前状态」、重写已过时的「当前任务与下一步」、新增「Codex 接手入口」。手册命令未在 Windows 上执行过。
+- 本次验证：仅 Mac 上 pytest 48 passed、ruff 通过（见前几条记录）；本条未运行训练。
+- 下一步：Codex 执行手册；Claude Code 待用户回来后 `git pull` 核对结果。
 
 ## 后续交接模板
 
