@@ -4,24 +4,24 @@
 
 ## 当前状态
 
-更新时间：2026-10-28 14:08（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-10-30 14:30（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M1 多头因果注意力已提交（ea88109）；进入 block.py：用户手写的 MLP 与 Block 及 6 个 block 测试已提交到 m1-block；下一模块 gpt.py |
-| 本轮范围 | block.py：Claude Code 写测试并讲解 MLP、LayerNorm、Pre-LN、残差；用户手写实现 |
-| 实现方 | 用户手写 block.py（MLP、Block）；Claude Code 负责测试、讲解与 review |
+| 项目阶段 | M1 模型部分完成：注意力（ea88109）、block（555395a）、gpt.py 均由用户手写并已提交到各自分支；下一步数据准备与训练循环 |
+| 本轮范围 | gpt.py：Claude Code 写测试并讲解 dataclass、Embedding、位置编码、weight tying、初始化、forward；用户手写实现 |
+| 实现方 | 用户手写 gpt.py（用户选择亲手写，规范未强制）；Claude Code 负责测试、讲解与 review |
 | 审查方 | 注意力与 block 测试均由 Claude Code 编写，尚无其他 agent 审查；MHA 已由 Claude Code review |
-| Git 分支 / commit | m1-block（从 m1-attention 的 ea88109 分出），新增提交 `add pre-LN transformer block with MLP and tests`（哈希见 `git log`）；m1-attention 与 m1-block 均未合并 main，无远程 |
-| 本轮改动 | 新建 m1-block 分支；新增 `tests/test_block.py`；更新本文件；提交用户手写的 block.py |
+| Git 分支 / commit | m1-gpt（从 m1-block 的 555395a 分出），新增提交 `add GPT model with learnable positions, weight tying and tests`（哈希见 `git log`）；m1-attention、m1-block、m1-gpt 均未合并 main，无远程 |
+| 本轮改动 | 新建 m1-gpt 分支；新增 `tests/test_gpt.py`；提交用户手写的 gpt.py；更新本文件 |
 | 工程代码与依赖 | 项目已可编辑安装；PyTorch 2.9.1、NumPy 2.4.6、pytest 9.1.1、ruff 0.17.2；锁文件共 38 个包条目，包含其他平台的依赖 |
 | 本机环境 | Python 3.11.9，arm64；uv 0.13.5 已安装到 `/Users/j/.local/bin`，未修改 shell 配置 |
 | 范围与保护检查 | 用户手写实现由用户修改和暂存；Claude Code 只读检查 attention.py，只写测试与本文件 |
-| pytest / 代码检查 | 提交前完整 pytest 为 20 passed in 0.93s；ruff check 通过；format --check 为 21 files already formatted；`git diff --check` 通过 |
+| pytest / 代码检查 | 提交前完整 pytest 为 26 passed in 0.93s；ruff check 通过；format --check 为 23 files already formatted；`git diff --check` 通过 |
 | Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
 | 训练 / 实验 | 均未运行；`experiments/results.md` 仅有表头，没有实验结果 |
 | Windows / CUDA | 本轮未访问或验证，不从 Mac 状态推断 |
-| 下一步 | gpt.py：先列计划与测试等用户确认（token embedding、可学习位置编码、L 层 Block、最终 LayerNorm、weight tying、参数量函数）；合并 main 需用户另行授权 |
+| 下一步 | M1 剩余：字符级 Tiny Shakespeare 数据准备、训练循环（主循环由用户手写，外围由 Claude Code 写）、生成函数；先列计划等用户确认。合并 main 需用户另行授权 |
 
 ## 当前任务与下一步
 
@@ -279,6 +279,74 @@
 - 提交前验证：pytest 20 passed in 0.93s（`runs/m1-block/16-`）；ruff check 通过（`17-`）；format --check 为 21 files already formatted（`18-`）；`git diff --check` 退出码 0。
 - 审查状态：Claude Code 已 review Block 与 MLP；block 测试无其他 agent 审查。
 - 下一步：gpt.py 计划；m1-attention 与 m1-block 合并 main 需用户读完 diff 并另行授权。
+
+### 2026-10-28 14:19（UTC+08:00）｜Claude Code｜gpt.py 计划确认与测试先行
+
+- 用户确认：gpt.py 由用户手写；Linear 与 Embedding 权重按 N(0, 0.02) 初始化；forward 只返回 logits，loss 在外部计算；沿用不加 dropout，生成函数另做任务。实现方为用户，测试与讲解由 Claude Code 负责。
+- 接口约定：`GPTConfig(vocab_size, block_size, d_model, n_layers, n_heads)`（dataclass）；`GPT(config)` 含 `tok_emb, pos_emb, blocks, ln_f, lm_head`，`lm_head.weight` 与 `tok_emb.weight` 为同一参数；`forward(idx: (B,T)) -> (B,T,V)`；`count_parameters(model) -> int`。
+- 改动：`git switch -c m1-gpt`；新增 `tests/test_gpt.py`（6 个测试：输出形状及 tok_emb/pos_emb/ln_f 均有梯度、weight tying 为同一对象、参数量等于 V·C + block_size·C + L(12C²+4C) + 2C、多层因果性、T > block_size 抛 AssertionError、V=65 时初始交叉熵与 ln V 相差小于 0.1）。
+- 本次验证：pytest 6 failed, 20 passed in 0.95s，失败均为 `ModuleNotFoundError: tlab.model.gpt`（`runs/m1-gpt/01-pytest-gpt-red.txt`）；ruff check 通过；format --check 为 22 files already formatted。
+- 测试有效性检查（`02-gpt-test-mutation-check.txt`，scratchpad 参考实现注入 sys.modules，未写入项目）：正确版本全部通过；不共享权重被 tying 与参数量测试抓住；默认初始化被初始 loss 测试抓住（实测 21.970 对 ln65=4.174，正确初始化为 4.192）；不加位置编码、漏用 ln_f 均被梯度检查抓住；缺长度断言被过长测试抓住。首版测试抓不住“漏用 ln_f”，已把 ln_f 加入梯度检查并重新验证。
+- 讲解演示：`03-dataclass-embedding-demo.txt`（dataclass 缺字段报 TypeError；Embedding 即按编号取 weight 的行，等价于 one-hot @ weight；浮点编号报 RuntimeError，越界编号报 IndexError）。
+- 审查状态：未请求其他 agent 审查。
+- 下一步：用户写 GPTConfig 与 tok_emb。
+
+### 2026-10-28 14:29（UTC+08:00）｜Claude Code｜检查 GPTConfig 与 tok_emb，讲解 idx 与位置编码
+
+- 范围：用户写完 GPTConfig 与 `tok_emb`，答对 tok_emb 参数量（65×384；约 15 万×1024），不理解 idx 形状 (4, 256) 的含义。Claude Code 只读检查，未改用户文件。
+- 本次验证：自查命令输出 `torch.Size([11, 16])`；`ruff check src/tlab/model/gpt.py` 通过；format --check 提示 gpt.py 待格式化（行尾注释前空格）。
+- 讲解演示（`runs/m1-gpt/04-idx-position-modulelist-demo.txt`）：两条文本 "hello"/"world" 编码为形状 (2,5) 的 int64 idx，查表后 (2,5,4)，同一字符得到同一向量；无位置信息时交换 token0/token1 不改变位置 2 的注意力输出，加上可学习位置向量后会改变；Python list 存放 Block 时登记参数 0 个，nn.ModuleList 为 1600 个。
+- 下一步：用户写 pos_emb、blocks（ModuleList）、ln_f；之后讲 lm_head、weight tying 与初始化。
+
+### 2026-10-30 12:36（UTC+08:00）｜Claude Code｜检查 pos_emb/blocks/ln_f，回答 GPT 整体目标
+
+- 范围：用户写完 `pos_emb`、`blocks`、`ln_f`，问正弦位置编码、config、ModuleList、LayerNorm 参数含义，以及 GPT 要实现什么。Claude Code 只读检查，未改用户文件。
+- 本次验证：自查输出 `torch.Size([8, 16]) 2`；`ruff check` 报 I001（`from tlab...` 应排在 `from torch import nn` 之后的独立分组），可用 `ruff check --fix` 修复。另见第 25 行全角括号、第 27 行注释错字“列表哦”，由用户自行修改。
+- 演示（`runs/m1-gpt/05-repeated-block-demo.txt`）：pos_emb 256×384=98,304，大于 tok_emb 65×384=24,960；推导式三层为不同对象、参数 2400，`[Block]*3` 三层为同一对象、参数 800，修改一层另两层同步改变。
+- 学习状态：用户第二题回答“变成 n 个相同 block”方向正确，已补充“同一对象、参数共享”；对 GPT 整体目标（下一个 token 预测与自回归生成）做了梳理，待用户反馈。
+- 下一步：讲 lm_head、weight tying 与初始化。
+
+### 2026-10-30 12:41（UTC+08:00）｜Claude Code｜讲解 lm_head、weight tying 与初始化
+
+- 范围：用户已修好 gpt.py 的 import 顺序、全角括号与错字（`ruff check src/tlab/model/gpt.py` 通过），请求继续讲 lm_head。Claude Code 只读检查，未改用户文件。
+- 演示（`runs/m1-gpt/06-lm-head-tying-init-demo.txt`）：tok_emb.weight 与 lm_head.weight 形状同为 (V, C)，共用后为同一对象；logits[i] 等于输出向量与第 i 个查表向量的点积；不共用时莎士比亚多 24,960、Qwen3 量级多约 1.536 亿参数；均匀分布交叉熵 = ln65 = 4.174；模拟 ln_f 输出时，权重 std=1.0 的 logits 标准差 5.668、初始 loss 13.897，std=0.02 时为 0.114 与 4.184；`apply` 依次访问 Embedding、LayerNorm、Linear 与模型本身。
+- 下一步：用户写 lm_head、weight tying、`apply(self._init_weights)` 与 `_init_weights`；之后讲 forward 与 count_parameters。
+
+### 2026-10-30 12:55（UTC+08:00）｜Claude Code｜检查 lm_head/tying/初始化并画整体流程图
+
+- 范围：用户已写入 lm_head、`self.lm_head.weight = self.tok_emb.weight`、`self.apply(self._init_weights)` 与 `_init_weights`，并追问 Linear 参数顺序、weight tying、apply、isinstance、nn.init.normal_ 的含义与参数，请求用图梳理 GPT 流程。Claude Code 只读检查，未改用户文件。
+- 本次验证：自查输出 `True 0.021`（共用为同一对象，初始化标准差约 0.02）；`ruff check src/tlab/model/gpt.py` 报 F401：第 5 行 `from torch.nn.modules import module` 未使用，由用户删除。
+- 演示（`runs/m1-gpt/07-linear-args-clone-demo.txt`）：`nn.Linear(3, 5).weight` 为 (5, 3)；用 `.data.clone()` 复制时 `is` 为 False、参数多 24,960 = V·C，修改查表后复制版 lm_head 不随之改变；`_init_weights` 在 1 层模型中处理 2 个 Embedding 与 7 个 Linear（lm_head 与 tok_emb 共用）；isinstance 对 LayerNorm 返回 False。
+- 学习状态：用户第二题答 2VC，已纠正为共用后只有 V·C；第一题（clone 与共用的区别）已讲解。已在对话中用 SVG 图梳理 idx → tok_emb → +pos_emb → Block×L → ln_f → lm_head → logits 及 weight tying。
+- 下一步：用户删掉多余 import；讲 forward 与 count_parameters。
+
+### 2026-10-30 13:56（UTC+08:00）｜Claude Code｜讲解 forward 与 count_parameters
+
+- 范围：用户删掉多余 import 后请求讲 forward。`ruff check src/tlab/model/gpt.py` 仍报 1 个可自动修复问题（import 区多一空行）。Claude Code 只读检查，未改用户文件。
+- 演示（`runs/m1-gpt/08-forward-steps-demo.txt`，用用户已写的子模块逐步计算）：idx (2,5) → pos `[0..4]` (5,) → tok (2,5,16) + pos (5,16) = (2,5,16) → 两层 block 均 (2,5,16) → ln_f (2,5,16) → logits (2,5,11)；`parameters()` 返回 24 个张量，不去重为 25 个，numel 总和 6608 对比 6784（多出 lm_head 共用的 11×16）。首次用 `torch.equal` 检查“两条序列加同一套位置向量”得到 False，系浮点舍入；改用 allclose 复核为 True，两次输出均保留在日志中。
+- 下一步：用户写 forward 与 count_parameters，目标完整 pytest 26 passed；然后 review 并经授权提交 m1-gpt。
+
+### 2026-10-30 14:17（UTC+08:00）｜Claude Code｜gpt.py 通过与答疑（参数量、softmax 位置）
+
+- 范围：用户写完 forward 与 count_parameters；提出今后必要时用可视化图讲解（已存入 Claude 记忆）；问为何要数参数、两道自测题、lm_head 输出分数而不做 softmax 的原因。Claude Code 只读检查，未改用户文件。
+- 本次验证：完整 pytest 26 passed in 0.93s（`runs/m1-gpt/09-`）；ruff check 通过（`10-`）；format --check 23 files already formatted（`11-`）。
+- Review（Claude Code）：forward 与 count_parameters 正确；`x = self.tok_emb(idx) + self.pos_emb(pos)` 与 `x = block(x)` 两行缺形状注释 `# (B, T, C)`，由用户补；一处注释“位置编码 0, 1, ...”实为位置编号，可选修改。
+- 演示（`12-quiz-softmax-demo.txt`）：三维 idx 时 `B, T = idx.shape` 立即报 ValueError，若只取 `shape[1]` 则 tok_emb 输出 (2,5,16,16)、到 block 才报错；莎士比亚配置公式合计与 count_parameters 均为 10,750,080（fp32 约 43 MB，bf16 约 21.5 MB）；F.cross_entropy 与 -ln softmax[正确答案] 同为 0.4493；分数差 200 时先 softmax 再 log 得 -inf，cross_entropy 直接算得 200.0；温度 0.5/1/2 下的分布对比。对话中用两张 SVG 图展示 softmax 在训练/生成两条路中的位置与参数构成。
+- 下一步：用户补注释并授权后提交 m1-gpt。
+
+### 2026-10-30 14:24（UTC+08:00）｜Claude Code｜回顾原论文解码器图与 count_parameters 逐步讲解
+
+- 范围：用户在进入下一步前要求查看原论文解码器图、解释 count_parameters 代码。未改代码。
+- 原论文图：在内置浏览器打开 ar5iv 的论文 HTML 版 Figure 1（https://ar5iv.labs.arxiv.org/html/1706.03762#S3.F1）。首次尝试 arxiv PDF 链接触发了文件下载对话框，未保存文件，已提示用户取消。对话中另画 SVG 对照图：原论文解码器（嵌入+正弦位置编码、带掩码注意力/交叉注意力/前馈网络各接 Add & Norm、Linear、Softmax）与本项目 GPT（可学习位置向量、Pre-LN、去掉交叉注意力、新增 ln_f、lm_head 共用、softmax 在 forward 外）。
+- 演示（`runs/m1-gpt/13-count-parameters-walkthrough.txt`，V=11、block_size=8、C=16、L=1）：parameters() 依次给出 14 个张量，逐个 numel 累加为 3472，与生成器写法、count_parameters 和公式 176+128+(12·256+64)+32 一致。
+- 下一步：用户补 forward 两行形状注释后授权提交 m1-gpt；之后进入数据与训练循环。
+
+### 2026-10-30 14:30（UTC+08:00）｜Claude Code｜提交 m1-gpt
+
+- 范围与用户确认：用户补完 forward 两行形状注释并自行运行 ruff format 后授权提交。提交内容为 `src/tlab/model/gpt.py`（用户手写）、`tests/test_gpt.py`（Claude Code 编写）与本文件；`.idea/`、`runs/` 不提交。
+- 提交前验证：pytest 26 passed in 0.93s（`runs/m1-gpt/14-`）；ruff check 通过（`15-`）；format --check 23 files already formatted（`16-`）；`git diff --check` 退出码 0。上一轮复核时 format --check 未过（行尾注释前一个空格），当时未提交。
+- 审查状态：Claude Code 已 review gpt.py；gpt 测试无其他 agent 审查。
+- 下一步：M1 数据与训练循环计划；三个 M1 分支合并 main 需用户读完 diff 并另行授权。
 
 ## 后续交接模板
 
