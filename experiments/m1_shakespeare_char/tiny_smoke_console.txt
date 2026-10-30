@@ -1,0 +1,5 @@
+设备 cpu，参数量 28,000
+step     0 | train 4.1865 | val 4.1833
+step     5 | train 3.9747 | val 3.9920
+step     9 | train 3.8653 | val 3.8944
+完成：val loss 3.8711，13,796 tokens/s

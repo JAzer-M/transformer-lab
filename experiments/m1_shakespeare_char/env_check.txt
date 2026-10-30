@@ -1,0 +1,14 @@
+M1 Windows/WSL environment verification
+Time: 2026-10-30T17:54:34+08:00
+Platform: Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.43
+Python: 3.12.14
+uv: uv 0.12.14 (x86_64-unknown-linux-gnu)
+NumPy: 2.5.4
+GPU self-check (exit 0):
+2.9.1+cu128 12.8 NVIDIA GeForce RTX 5060 Laptop GPU
+pytest (exit 0):
+48 passed in 4.86s
+Data SHA-256: 86c4e6aa9db7c042ec79f339dcb96d42b0075e16b8fc2e86bf0ca57e2dc565ed
+Protected source/config/lock hashes: unchanged from 5454965.
+run.json git_commit has -dirty because PROGRESS.md was the only tracked change before training.
+The first uv sync attempt was intentionally interrupted with exit 130 after user approval for temporary proxy acceleration. The identical command then succeeded with exit 0. The temporary proxy was closed after installation; system proxy settings were not changed.

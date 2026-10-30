@@ -1,0 +1,28 @@
+{
+  "config": {
+    "data_dir": "data/shakespeare_char",
+    "out_dir": "runs/shakespeare_char",
+    "n_layers": 6,
+    "n_heads": 6,
+    "d_model": 384,
+    "block_size": 256,
+    "batch_size": 64,
+    "learning_rate": 0.001,
+    "weight_decay": 0.01,
+    "max_iters": 2000,
+    "eval_interval": 250,
+    "eval_iters": 50,
+    "seed": 1337,
+    "device": "auto"
+  },
+  "git_commit": "54549658efcc8562b56d2505a1f49034eae79a47-dirty",
+  "device": "cuda",
+  "torch_version": "2.9.1+cu128",
+  "n_params": 10750080,
+  "train_seconds": 309.3888504769998,
+  "tokens_per_sec": 105912.02607812139,
+  "peak_memory_mb": 2596.53515625,
+  "final_train_loss": 1.3002610659599305,
+  "final_val_loss": 1.5858258390426636,
+  "last_step_loss": 1.3064384460449219
+}

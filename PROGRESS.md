@@ -4,27 +4,30 @@
 
 ## 当前状态
 
-更新时间：2026-10-30 16:31（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-10-30 18:09（Asia/Hong_Kong，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M1 代码全部完成并推送（m1-generate）；待 Codex 在 Windows/WSL + RTX 5060 上按 `docs/m1-windows-run.md` 完成 M0 Windows 验收与 M1 正式训练 |
-| 本轮范围 | 交接给 Windows 上的 Codex：执行正式训练并把结果写回仓库；之后用户回到 Mac 让 Claude Code 读取 |
-| 实现方 | 下一轮执行方：Codex（Windows/WSL）；用户手写文件（attention/block/gpt/trainer）不得修改 |
-| 审查方 | M1 代码由 Claude Code review；测试由 Claude Code 编写，尚无其他 agent 审查；Codex 回传结果后由 Claude Code 核对 |
-| Git 分支 / commit | 远程 origin = https://github.com/JAzer-M/transformer-lab.git（私有）；已推送 main（277661b）与 m1-generate（dbd7c78，含全部 M1 提交），均与本地一致；M1 未合并 main；本文件最近几条记录尚未提交 |
-| 本轮改动 | 新增 `docs/m1-windows-run.md`（Windows 操作手册）；更新本文件 |
-| 工程代码与依赖 | 项目已可编辑安装；PyTorch 2.9.1、NumPy 2.4.6、pytest 9.1.1、ruff 0.17.2；锁文件共 38 个包条目，包含其他平台的依赖 |
-| 本机环境 | Python 3.11.9，arm64；uv 0.13.5 已安装到 `/Users/j/.local/bin`，未修改 shell 配置 |
-| 范围与保护检查 | 用户手写实现由用户修改和暂存；Claude Code 只读检查 attention.py，只写测试与本文件 |
-| pytest / 代码检查 | 最新完整 pytest 为 48 passed in 1.46s；ruff check 通过；format --check 为 35 files already formatted |
+| 项目阶段 | M0 的 Mac/WSL 运行验收证据已齐；M1 正式训练与样例已完成，待用户与 Claude Code 最终核对及授权合并 |
+| 本轮范围 | 手册第 1–5 步的运行、生成、归档与交接；用户已明确批准将 8 份结果/文档提交并推送到 m1-generate |
+| 实现方 | Codex（Windows/WSL）执行既有代码与配置；用户手写文件未修改 |
+| 审查方 | 历史 M1 用户实现由 Claude Code review；本次运行证据待用户/Claude Code 核对，未新增独立 agent 审查 |
+| Git 分支 / commit | m1-generate；训练代码来源 54549658efcc8562b56d2505a1f49034eae79a47，本次运行记录提交的哈希以分支 Git 日志为准；main 仍为 277661b，未合并 |
+| 本轮改动 | experiments/m1_shakespeare_char/ 保存 6 份真实产物；experiments/results.md 追加 M1-1；本文件更新交接；源码、测试、配置和锁文件保持不变 |
+| 工程代码与依赖 | Python 3.12.14，torch 2.9.1+cu128 / CUDA 12.8，NumPy 2.5.4，PyYAML 6.0.3，pytest 9.1.1；uv sync --locked 成功，锁文件未变 |
+| 本机环境 | Ubuntu 26.04.1 LTS / WSL2，RTX 5060 Laptop GPU 8151 MiB；uv 0.12.14 (x86_64-unknown-linux-gnu)；工作目录 /home/j/transformer-lab；可见终端显示 runs/m1_windows/live.log |
+| 范围与保护检查 | 用户手写 attention/block/gpt/trainer、全部测试、两份 YAML、pyproject.toml 与 uv.lock 的 SHA-256 与原始提交快照一致；未修改全局 Git 或系统代理设置 |
+| pytest / 代码检查 | WSL 本次：48 passed in 4.86s，退出码 0；未重跑 ruff。结果与元数据检查通过；历史 Mac 的 ruff 结果仍仅属于历史验证 |
 | Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
-| 训练 / 实验 | 仅 Mac CPU 冒烟：tiny_smoke 10 步，val loss 4.1833 → 3.8944（最终评估 3.8711），56,405 tokens/s；正式训练未运行，`experiments/results.md` 仅有表头（冒烟不计入） |
-| Windows / CUDA | 尚未验证：GPU 自检、Windows 上 pytest、CPU 10 步冒烟、正式训练均待 Codex 按手册执行 |
-| 下一步 | Codex 按 `docs/m1-windows-run.md` 执行第 1–5 步，结果写入 `experiments/m1_shakespeare_char/`、`experiments/results.md` 与本文件，经用户同意后推送 m1-generate；用户回到 Mac 让 Claude Code pull 并核对 |
+| 训练 / 实验 | M1-1：2000 步，10,750,080 参数；最终 train 1.3003 / val 1.5858，105,912 tokens/s，显存峰值 2596.54 MiB，训练 309.389s；结果表已追加真实数字 |
+| Windows / CUDA | GPU 自检、CUDA 张量分配、48 项测试、CPU 10 步与 GPU 正式训练均成功；全部正式步骤退出码 0，安装首轮为用户授权中断后再成功 |
+| 下一步 | 用户在 Mac 让 Claude Code 拉取 m1-generate 并核对 PROGRESS、6 份归档和 M1 验收；合并 main 仍需用户另行授权 |
 
 ## 当前任务与下一步
 
+- 2026-10-30 18:09：用户已批准提交与推送，明确沿用 J <j@JdeMacBook-Air.local>；仅通过本次 git -c 参数传入，不写全局 Git 配置。
+- 2026-10-30 17:54：手册运行与归档已完成，M1-1 证据见 experiments/m1_shakespeare_char/；等待用户批准提交/推送及提供 Git 身份。以下旧条目按日期保留。
+- 2026-10-30 16:50 接手核对：Ubuntu 主目录代码已就绪，分支 m1-generate、提交 5454965；本轮只完成拉取、全文件阅读与静态检查，依赖安装和运行验收仍待执行。
 - 计划位置：`docs/PLAN.md` 的「M1 最小 GPT」。代码部分全部完成，剩余验收：5060 上训练出格式像剧本的文本、val loss 稳定下降。
 - 代码分支：`m1-attention`（ea88109）→ `m1-block`（555395a）→ `m1-gpt`（1b481bc）→ `m1-data`（39a0c13）→ `m1-train`（21d2f29）→ `m1-generate`（dbd7c78 及之后的文档提交），链式分出；远程 `origin` 为私有仓库 https://github.com/JAzer-M/transformer-lab ，已推送 `main` 与 `m1-generate`。M1 尚未合并 `main`，合并需用户读完 diff 后另行授权。
 - 用户手写：`attention.py`（多头因果注意力）、`block.py`（MLP + Pre-LN Block）、`gpt.py`（GPT）、`trainer.py`（`train()` 主循环）。Claude Code 编写：数据、训练外围、生成、全部测试。
@@ -445,6 +448,49 @@
 - 改动：新增 `docs/m1-windows-run.md`（硬性规则、环境准备、M0 Windows 验收、数据与哈希核对、冒烟、正式训练、生成、结果回写位置与 results.md 行格式、提交推送需用户同意）；本文件更新「当前状态」、重写已过时的「当前任务与下一步」、新增「Codex 接手入口」。手册命令未在 Windows 上执行过。
 - 本次验证：仅 Mac 上 pytest 48 passed、ruff 通过（见前几条记录）；本条未运行训练。
 - 下一步：Codex 执行手册；Claude Code 待用户回来后 `git pull` 核对结果。
+
+### 2026-10-30 16:50（UTC+08:00）｜Codex｜Ubuntu 拉取与全仓进度核对
+
+- 范围与用户确认：用户要求先访问 GitHub，在 Ubuntu 拉取仓库并查看全部文件，核实项目进度；用户随后提供 JAzer-M/transformer-lab 完整地址。本轮未执行正式训练。
+- 工作区与设备：Ubuntu 26.04.1 LTS / WSL2，/home/j/transformer-lab；Windows 查看副本位于 C:\Users\J\Documents\ChatGPT\transformer\transformer-lab。两份代码均在 m1-generate / 54549658efcc8562b56d2505a1f49034eae79a47；main 仍为 277661b，落后 7 个提交。检查起点均为干净工作区，结束时仅本文件为未提交修改。
+- 拉取：Ubuntu Git 通过已有 Windows Git Credential Manager 认证成功从 GitHub 克隆到工作区，未读取或输出令牌。再次直接克隆到 Linux 主目录网络超时后，改从已完整拉取的副本本地克隆，并将 origin 指回原 GitHub 地址。
+- 本次验证：Git 拉取及分支/提交核对成功；读取全部 44 个 Git 管理文件，29 个 Python 文件按 3.11 语法解析成功，pyproject.toml 与 uv.lock 解析成功（当前 39 个包条目）；两份副本文本一致，仅 24 个文件存在 CRLF/LF 差异。nvidia-smi 识别 NVIDIA GeForce RTX 5060 Laptop GPU、8151 MiB；Git 2.53.0、Python 3.14.4、uv 可用。文件清单、行数、SHA-256 与静态检查写入父目录 repository-audit.json，结论写入 PROJECT_STATUS.md。
+- 进度结论：M1 模型、数据、训练、生成代码齐备，正式训练与验收未完成；M0 缺 WSL 运行证据；M2–M6 仍待推进，部分基础训练设施已在 M1 前置。README 的当前阶段落后于实际代码；已据实际分支与锁文件更新顶部摘要，历史记录保留。
+- 未验证与失败：GitHub 匿名访问返回 404；无凭据的 Ubuntu HTTPS 访问提示 could not read Username；后续一次网络克隆报 Failed to connect to github.com port 443 after 134956 ms。以上已通过现有认证和完整副本解决代码获取问题。项目依赖未安装，未运行 pytest/ruff、PyTorch CUDA 自检、CPU 冒烟、数据准备、正式训练或生成；本机已有 Python 3.13/3.14 不满足项目的 3.11/3.12 要求。历史 Mac 48 passed、tiny_smoke 和 tiny_demo 的数字均来自既有交接记录，本次未复测，原始 runs 日志不在 Git 中。
+- 保护与审查：源码、测试、配置、锁文件及实验表保持不变；未提交、推送、合并或改动全局 Git 配置。本轮执行者为 Codex，未发起其他 agent 审查，用户理解验收状态不作新增判断。
+- 下一步：按 docs/m1-windows-run.md 建立兼容解释器与锁定依赖，再核对 CUDA、pytest、数据哈希、CPU 10 步、正式训练与样例；只有真实跑出正式结果后才追加 experiments/results.md。
+
+### 2026-10-30 17:54（UTC+08:00）｜Codex｜M1 Windows/WSL 正式训练与结果归档
+
+- 范围与用户确认：用户明确要求严格执行 docs/m1-windows-run.md 第 1–5 步，不改超参数或用户手写文件，提交推送前先问；下载期间另明确批准临时代理加速与原命令重试。未获提交推送或合并许可。
+- 工作区与设备：/home/j/transformer-lab，Ubuntu 26.04.1 LTS / WSL2 + NVIDIA GeForce RTX 5060 Laptop GPU（8151 MiB），m1-generate / 54549658efcc8562b56d2505a1f49034eae79a47。训练前仅 PROGRESS.md 有 tracked 改动，因此 run.json 如实记录 54549658efcc8562b56d2505a1f49034eae79a47-dirty；源码和配置哈希均未改变。
+- 环境与失败保留：uv 自动选择符合约束的 Python 3.12.14；首轮 uv sync --locked 直连下载缓慢，用户批准后仅向该 uv 进程发送 SIGINT（命令退出 130，WSL 宿主工具返回 1），原始输出保存在 runs/m1_windows/01-env-attempt1.txt，完整过程在 live.log。Windows 代理只监听本机，WSL 端口测试超时；改用临时本机进程通道后，原样 uv sync --locked 成功（退出 0，安装 35 个包）。临时通道在安装后已关闭，系统代理、防火墙、全局 Git 设置均未修改；未关闭证书校验。一次只读下载进度查询因自动权限审批超时未执行，随后直接读取既有安装会话继续观察，未影响安装。
+- 第 2 步（均退出 0）：GPU 自检原始输出为 `2.9.1+cu128 12.8 NVIDIA GeForce RTX 5060 Laptop GPU`，CUDA 张量实际分配成功；pytest 原始结论为 `48 passed in 4.86s`。
+- 第 3.1 步（数据准备与 sha256sum 均退出 0）：原文 1,115,394 字符，字表 65；train 1,003,854、val 111,540 token；SHA-256 `86c4e6aa9db7c042ec79f339dcb96d42b0075e16b8fc2e86bf0ca57e2dc565ed`，与手册一致。直接下载成功，无需 SSL 备用命令。
+- 第 3.2 步（退出 0）：原样 configs/tiny_smoke.yaml，在 CPU 上 10 步、28,000 参数；step 0/5/9 的 train/val 分别为 4.1865/4.1833、3.9747/3.9920、3.8653/3.8944；最终 val 3.8711，13,796 tokens/s。
+- 第 3.3 步（退出 0）：原样 configs/shakespeare_char.yaml，设备 cuda、参数 10,750,080，seed 1337，完整 2000 步。周期评估：
+  - step 0：train 4.1896，val 4.1913。
+  - step 250：train 2.8585，val 2.8741。
+  - step 500：train 2.4591，val 2.4777。
+  - step 750：train 2.2696，val 2.3380。
+  - step 1000：train 1.7318，val 1.8866。
+  - step 1250：train 1.5356，val 1.7246。
+  - step 1500：train 1.4154，val 1.6332。
+  - step 1750：train 1.3575，val 1.6154。
+  - step 1999：train 1.3011，val 1.5856。
+- 最终元数据：train loss 1.30026107，val loss 1.58582584，tokens/s 105912.026078，显存峰值 2596.53515625 MiB，主循环耗时 309.388850s（约 5 分 9 秒）。周期评估 val 严格下降，未见先降后升、NaN 或明显发散；最后一次更新后的最终 val 与 step 1999 的更新前评估有微小差异。tokens/s 计时包含循环内评估，沿用现有实现。
+- 第 3.4 步（退出 0）：原样 sample 命令，ROMEO: 开头、500 个新字符；出现 DERBY: 和分行，已有剧本格式，仍有 bridegrous 等错误词形及不稳定语义。原文见 sample.txt，不将其描述为高质量或连贯文本。
+- 第 4 步：复制 run.json、metrics.csv、train_console.txt、sample.txt、tiny_smoke_console.txt，新增 env_check.txt；在 experiments/results.md 只追加一行 M1-1，旧内容前缀字节保留。data/、runs/ 和 checkpoint 未复制到归档，也未加入 Git。
+- 验证与保护：现有训练 YAML 与 run.json 完整配置逐项一致；用户手写文件、全部测试、pyproject.toml 与 uv.lock 的原始 SHA-256 均未改变；生成长度与评估步数符合手册。完整原始命令输出及退出码留在 runs/m1_windows/；本轮未运行 ruff、未改代码或做新的独立代码审查，用户理解验收未作新增判断。
+- 第 5 步与下一步：运行证据和本地交接材料已准备；等待用户批准提交/推送到 m1-generate，并提供 Git 姓名/邮箱（Ubuntu 尚未配置）。之后由用户回到 Mac 让 Claude Code git pull 读取这 6 份产物与本记录，核对 M1 验收，再由用户另行决定合并 main。
+
+### 2026-10-30 18:09（UTC+08:00）｜Codex｜用户批准运行记录提交与推送
+
+- 用户明确选择：批准提交并推送，沿用旧身份 J <j@JdeMacBook-Air.local>。授权范围为本次 8 份结果和文档，目标为 origin/m1-generate；未授权合并 main。
+- 提交内容：experiments/m1_shakespeare_char/ 下的 6 份小型归档，以及 experiments/results.md、PROGRESS.md。用户手写文件、测试、配置和依赖锁文件未改动，数据及 checkpoint 不纳入 Git。
+- 最终验证：48 项测试通过；两份副本的归档逐字节一致；旧实验表内容保留；source/config/lock 哈希一致；Git 差异检查通过；临时代理监听已关闭、Windows 转接子进程为 0。
+- Git 身份通过本次命令的 user.name/user.email 参数传入，未修改全局配置。提交和推送的实际版本以本分支 Git 日志与远端 ref 为准；完成后在对话中回传实际 commit。
+- 交接：用户回到 Mac 后让 Claude Code 拉取 m1-generate，读取本文件和归档，核对 loss 趋势、样例与 M1 验收；合并 main 另行决定。
 
 ## 后续交接模板
 
