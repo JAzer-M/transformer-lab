@@ -1,0 +1,20 @@
+# M1 正式训练：字符级 Tiny Shakespeare，在 RTX 5060 上运行
+# 参数量 10,750,080；显存粗估 2–3 GB（待实测）
+data_dir: data/shakespeare_char
+out_dir: runs/shakespeare_char
+
+n_layers: 6
+n_heads: 6
+d_model: 384
+block_size: 256
+
+batch_size: 64
+learning_rate: 1.0e-3
+weight_decay: 0.01
+max_iters: 2000
+
+eval_interval: 250
+eval_iters: 50
+
+seed: 1337
+device: auto

@@ -4,24 +4,24 @@
 
 ## 当前状态
 
-更新时间：2026-10-30 14:51（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-10-30 15:25（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M1 模型部分已提交（ea88109、555395a、1b481bc）；任务 A 数据（m1-data）已实现并通过测试，待用户阅读与授权提交；之后任务 B 训练、任务 C 生成 |
+| 项目阶段 | M1：模型与数据已提交；用户手写的 `train()` 主循环通过全部测试（41 passed），Mac 上 tiny_smoke 10 步冒烟已跑通；待提交 m1-train，之后任务 C 生成 |
 | 本轮范围 | M1 剩余：A 字符级数据（Claude 写）→ B 训练（主循环用户手写）→ C 生成（Claude 写） |
 | 实现方 | 任务 A：Claude Code；任务 B 主循环：用户；任务 B 外围与任务 C：Claude Code |
 | 审查方 | 注意力与 block 测试均由 Claude Code 编写，尚无其他 agent 审查；MHA 已由 Claude Code review |
-| Git 分支 / commit | m1-data（从 m1-gpt 的 1b481bc 分出）；char.py、prepare 脚本、test_char_data.py 未追踪，本文件未提交；M1 各分支均未合并 main，无远程 |
-| 本轮改动 | 新增 `src/tlab/data/char.py`、`scripts/prepare_shakespeare_char.py`、`tests/test_char_data.py`；本地生成 `data/shakespeare_char/`（不进 git） |
+| Git 分支 / commit | m1-train（从 m1-data 的 39a0c13 分出）；pyproject/uv.lock 已改、训练外围与测试未提交；M1 各分支均未合并 main，无远程 |
+| 本轮改动 | 加入 pyyaml 6.0.3；新增 `src/tlab/train/{config,utils,run}.py`、`scripts/train.py`、`configs/{shakespeare_char,tiny_smoke}.yaml`、`tests/test_trainer.py` |
 | 工程代码与依赖 | 项目已可编辑安装；PyTorch 2.9.1、NumPy 2.4.6、pytest 9.1.1、ruff 0.17.2；锁文件共 38 个包条目，包含其他平台的依赖 |
 | 本机环境 | Python 3.11.9，arm64；uv 0.13.5 已安装到 `/Users/j/.local/bin`，未修改 shell 配置 |
 | 范围与保护检查 | 用户手写实现由用户修改和暂存；Claude Code 只读检查 attention.py，只写测试与本文件 |
-| pytest / 代码检查 | 最新完整 pytest 为 34 passed；ruff check 通过；format --check 为 26 files already formatted |
+| pytest / 代码检查 | 最新完整 pytest 为 41 passed in 1.42s；ruff check 通过；format --check 为 32 files already formatted |
 | Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
-| 训练 / 实验 | 均未运行；Tiny Shakespeare 数据已在 Mac 本地准备好；`experiments/results.md` 仅有表头 |
+| 训练 / 实验 | 仅 Mac CPU 冒烟：tiny_smoke 10 步，val loss 4.1833 → 3.8944（最终评估 3.8711），56,405 tokens/s；正式训练未运行，`experiments/results.md` 仅有表头（冒烟不计入） |
 | Windows / CUDA | 本轮未访问或验证，不从 Mac 状态推断 |
-| 下一步 | 用户阅读任务 A 并授权提交 m1-data；然后任务 B：新增 pyyaml 依赖（用户已同意），写训练外围与测试，用户手写主循环 |
+| 下一步 | 经用户授权提交 m1-train；任务 C 生成函数；然后用户在 Windows 5060 跑 shakespeare_char 并回传日志 |
 
 ## 当前任务与下一步
 
@@ -362,6 +362,34 @@
 - 用户确认：用户阅读 char.py 后提问（char 是否“按单词加入词表并嵌入”），已讲清字符级编号与模型内 tok_emb 嵌入的分工；用户表示可以进行下一步，视为授权提交 m1-data 并开始任务 B。
 - 提交内容：`src/tlab/data/char.py`、`scripts/prepare_shakespeare_char.py`、`tests/test_char_data.py` 与本文件；`data/`、`runs/`、`.idea/` 不提交。提交前 pytest 34 passed、ruff check 通过、format --check 26 files already formatted。
 - 下一步：任务 B（m1-train）。
+
+### 2026-10-30 14:54（UTC+08:00）｜Claude Code｜任务 B：训练外围与测试先行
+
+- 范围：用户同意进入任务 B。实现方：主循环为用户（规范规定），外围由 Claude Code。
+- 依赖：`uv add "pyyaml>=6,<7"`，安装 pyyaml 6.0.3，pyproject 与 uv.lock 更新（`runs/m1-train/01-`）。
+- 改动：`git switch -c m1-train`；先写 `tests/test_trainer.py`（7 个：YAML 读取与命令行覆盖及类型转换、未知字段报错、estimate_loss 恢复训练模式且不留梯度、RunLogger 写 CSV、train() 返回每步 float loss 且更新参数并在第 0/5/9 步评估、train() 能记住 0..4 循环序列（末 10 步平均 loss < 0.1）、run() 端到端写 metrics.csv/run.json/ckpt.pt），确认 7 failed, 34 passed（`02-`）；再写 `config.py`（TrainConfig + load_config）、`utils.py`（bf16 autocast 仅 CUDA、cross_entropy_loss、estimate_loss 用固定种子 seed+1 取评估 batch、RunLogger、save_checkpoint、git_commit 含 -dirty、peak_memory_mb、write_run_info）、`run.py`（组装数据/模型/AdamW/主循环/记录）、`scripts/train.py`、两个 YAML 配置。
+- 未经讨论而采用的默认值，需用户知悉：AdamW `weight_decay=0.01`（PyTorch 默认），作用于全部参数（含 LayerNorm 与嵌入）；betas 用默认 (0.9, 0.999)；M1 的 checkpoint 不存优化器状态；tokens/s 计时包含主循环内的评估。
+- 本次验证：完整 pytest 3 failed, 38 passed（`05-`），失败均为 `ModuleNotFoundError: tlab.train.trainer`；ruff check 通过；format --check 31 files already formatted。
+- 测试有效性检查（`03-train-test-mutation-check.txt`，scratchpad 参考主循环注入 sys.modules，未写入项目）：参考版 3 个依赖主循环的测试全部通过（tiny 端到端 CPU 30,347 tokens/s）；漏 backward/step 被两个测试抓住；漏 zero_grad 被记忆测试抓住；返回张量而非 float 被两个测试抓住。讲解演示 `04-grad-accumulate-demo.txt`。
+- 注意：ruff 当前把测试中 `from tlab.train.trainer import train` 归为第三方导入分组（模块尚不存在）；用户创建 trainer.py 后需对测试文件再跑一次 `ruff check --fix`。
+- 审查状态：外围代码由 Claude Code 实现，尚无其他 agent 审查。
+- 下一步：用户手写 `train()`。
+
+### 2026-10-30 15:18（UTC+08:00）｜Claude Code｜用户主循环通过，tiny 冒烟跑通（补 M0 CPU 10 步验收）
+
+- 范围：用户写完 `src/tlab/train/trainer.py` 的 `train()`（含 USER-WRITTEN 标记），并就 TrainConfig、utils、RunLogger、autocast_context、评估条件、get_batch 参数、with 语句、model(x)、backward、step、item 提问。Claude Code 只读检查，未改用户文件。
+- 本次验证：完整 pytest 41 passed in 1.42s（`runs/m1-train/06-`）；ruff check 通过（`07-`）；format --check 32 files already formatted（`08-`）。
+- 冒烟训练（`09-tiny-smoke-run.txt`）：`.venv/bin/python scripts/train.py --config configs/tiny_smoke.yaml` 退出码 0；CPU、参数 28,000；step 0/5/9 的 val loss 为 4.1833/3.9920/3.8944，最终评估 3.8711，56,405 tokens/s；写出 metrics.csv、run.json（git_commit 为 39a0c13…-dirty，因训练代码未提交）、ckpt.pt。这满足 M0 验收中“tiny 配置在 CPU 上跑 10 步训练”（Mac）；Windows 上未验证。
+- Review（Claude Code）：主循环顺序与内容正确，形状注释齐全。
+- 讲解演示（`10-quiz-autograd-demo.txt`）：zero_grad 放在 backward 与 step 之间时参数 3 步不变；冒烟模型 50 个单独 batch 的 val loss 介于 3.827–3.945，平均 3.875；自动求导例子 w.grad=42、b.grad=14 与手算一致。对话中用 SVG 图展示 forward 记录计算图、backward 链式法则。
+- 学习状态：第一题用户答“结果不准确”，已纠正为“梯度被清空、参数完全不更新”；第二题方向正确，已补充单 batch 噪声与验证集的作用。
+- 下一步：用户授权后提交 m1-train；任务 C。
+
+### 2026-10-30 15:25（UTC+08:00）｜Claude Code｜提交 m1-train
+
+- 用户确认：讲解 val loss 后用户表示开始下一步，视为授权提交 m1-train 并开始任务 C。
+- 提交内容：pyproject.toml、uv.lock（pyyaml）、`src/tlab/train/{config,utils,run}.py`（Claude Code）、`src/tlab/train/trainer.py`（用户手写）、`scripts/train.py`、`configs/{shakespeare_char,tiny_smoke}.yaml`、`tests/test_trainer.py` 与本文件；`runs/`、`data/`、`.idea/` 不提交。提交前 pytest 41 passed、ruff check 通过、format --check 通过、`git diff --check` 通过。
+- 下一步：任务 C（m1-generate）。
 
 ## 后续交接模板
 
