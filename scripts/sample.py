@@ -1,0 +1,63 @@
+"""从 checkpoint 载入模型，给一个开头，生成文本。
+
+用法：
+    uv run python scripts/sample.py --ckpt runs/shakespeare_char/ckpt.pt
+    uv run python scripts/sample.py --ckpt ... --prompt "ROMEO:" --temperature 0.8
+"""
+
+import argparse
+from pathlib import Path
+
+import torch
+
+from tlab.data.char import CharTokenizer
+from tlab.device import get_device
+from tlab.eval.generate import generate
+from tlab.model.gpt import GPT, GPTConfig
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--ckpt", type=Path, required=True)
+    parser.add_argument("--prompt", default="\n", help="开头文字，默认一个换行")
+    parser.add_argument("--max-new-tokens", type=int, default=500)
+    parser.add_argument("--temperature", type=float, default=1.0)
+    parser.add_argument("--top-k", type=int, default=None)
+    parser.add_argument("--seed", type=int, default=1337)
+    parser.add_argument("--device", default="auto")
+    args = parser.parse_args()
+
+    device = get_device() if args.device == "auto" else torch.device(args.device)
+
+    # 按 checkpoint 里保存的配置重建模型，再载入参数
+    ckpt = torch.load(args.ckpt, map_location=device, weights_only=False)
+    config = ckpt["config"]
+    model = GPT(
+        GPTConfig(
+            vocab_size=ckpt["vocab_size"],
+            block_size=config["block_size"],
+            d_model=config["d_model"],
+            n_layers=config["n_layers"],
+            n_heads=config["n_heads"],
+        )
+    ).to(device)
+    model.load_state_dict(ckpt["model"])
+
+    # 字表来自训练时的数据目录
+    tokenizer = CharTokenizer.load(Path(config["data_dir"]) / "meta.json")
+    prompt = torch.tensor([tokenizer.encode(args.prompt)], device=device)  # (1, T)
+    generator = torch.Generator(device=device).manual_seed(args.seed)
+
+    out = generate(
+        model,
+        prompt,
+        args.max_new_tokens,
+        temperature=args.temperature,
+        top_k=args.top_k,
+        generator=generator,
+    )  # (1, T + max_new_tokens)
+    print(tokenizer.decode(out[0].tolist()))
+
+
+if __name__ == "__main__":
+    main()

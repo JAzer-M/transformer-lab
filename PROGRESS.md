@@ -4,24 +4,24 @@
 
 ## 当前状态
 
-更新时间：2026-10-30 15:25（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-10-30 16:15（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M1：模型与数据已提交；用户手写的 `train()` 主循环通过全部测试（41 passed），Mac 上 tiny_smoke 10 步冒烟已跑通；待提交 m1-train，之后任务 C 生成 |
+| 项目阶段 | M1 代码全部提交：注意力 ea88109、block 555395a、GPT 1b481bc、数据 39a0c13、训练 21d2f29、生成（m1-generate 最新提交）；待在 Windows 5060 正式训练 |
 | 本轮范围 | M1 剩余：A 字符级数据（Claude 写）→ B 训练（主循环用户手写）→ C 生成（Claude 写） |
-| 实现方 | 任务 A：Claude Code；任务 B 主循环：用户；任务 B 外围与任务 C：Claude Code |
+| 实现方 | 任务 C 生成：Claude Code（用户选择阅读） |
 | 审查方 | 注意力与 block 测试均由 Claude Code 编写，尚无其他 agent 审查；MHA 已由 Claude Code review |
-| Git 分支 / commit | m1-train（从 m1-data 的 39a0c13 分出）；pyproject/uv.lock 已改、训练外围与测试未提交；M1 各分支均未合并 main，无远程 |
-| 本轮改动 | 加入 pyyaml 6.0.3；新增 `src/tlab/train/{config,utils,run}.py`、`scripts/train.py`、`configs/{shakespeare_char,tiny_smoke}.yaml`、`tests/test_trainer.py` |
+| Git 分支 / commit | m1-generate 包含全部 M1 提交（链式分支 m1-attention → m1-block → m1-gpt → m1-data → m1-train → m1-generate）；均未合并 main；无远程 |
+| 本轮改动 | 提交 `src/tlab/eval/generate.py`、`scripts/sample.py`、`tests/test_generate.py` |
 | 工程代码与依赖 | 项目已可编辑安装；PyTorch 2.9.1、NumPy 2.4.6、pytest 9.1.1、ruff 0.17.2；锁文件共 38 个包条目，包含其他平台的依赖 |
 | 本机环境 | Python 3.11.9，arm64；uv 0.13.5 已安装到 `/Users/j/.local/bin`，未修改 shell 配置 |
 | 范围与保护检查 | 用户手写实现由用户修改和暂存；Claude Code 只读检查 attention.py，只写测试与本文件 |
-| pytest / 代码检查 | 最新完整 pytest 为 41 passed in 1.42s；ruff check 通过；format --check 为 32 files already formatted |
+| pytest / 代码检查 | 最新完整 pytest 为 48 passed in 1.46s；ruff check 通过；format --check 为 35 files already formatted |
 | Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
 | 训练 / 实验 | 仅 Mac CPU 冒烟：tiny_smoke 10 步，val loss 4.1833 → 3.8944（最终评估 3.8711），56,405 tokens/s；正式训练未运行，`experiments/results.md` 仅有表头（冒烟不计入） |
 | Windows / CUDA | 本轮未访问或验证，不从 Mac 状态推断 |
-| 下一步 | 经用户授权提交 m1-train；任务 C 生成函数；然后用户在 Windows 5060 跑 shakespeare_char 并回传日志 |
+| 下一步 | 用户在 Mac 建 GitHub 私有仓库并推送 m1-generate（需用户操作或明确授权）；Windows/WSL 上 clone → uv sync → GPU 自检 → pytest → 准备数据 → tiny_smoke（补 Windows 端 M0 验收）→ shakespeare_char 正式训练 → sample；回传终端输出、metrics.csv、run.json 与生成样例 |
 
 ## 当前任务与下一步
 
@@ -390,6 +390,37 @@
 - 用户确认：讲解 val loss 后用户表示开始下一步，视为授权提交 m1-train 并开始任务 C。
 - 提交内容：pyproject.toml、uv.lock（pyyaml）、`src/tlab/train/{config,utils,run}.py`（Claude Code）、`src/tlab/train/trainer.py`（用户手写）、`scripts/train.py`、`configs/{shakespeare_char,tiny_smoke}.yaml`、`tests/test_trainer.py` 与本文件；`runs/`、`data/`、`.idea/` 不提交。提交前 pytest 41 passed、ruff check 通过、format --check 通过、`git diff --check` 通过。
 - 下一步：任务 C（m1-generate）。
+
+### 2026-10-30 15:26（UTC+08:00）｜Claude Code｜任务 C：生成函数
+
+- 范围：用户表示开始下一步（任务 C）。生成函数由 Claude Code 实现，用户阅读。
+- 改动：`git switch -c m1-generate`；先写 `tests/test_generate.py`（7 个：输出为 (B, T+N) 且保留开头、top_k=1 等于逐步 argmax、开头超过 block_size 时截断不报错、top_k=2 只抽到最高两项、低温度集中到最高项、同种子可复现、temperature≤0 报错且结束后恢复训练模式），确认 7 failed, 41 passed（`runs/m1-generate/01-`）；再写 `src/tlab/eval/generate.py` 与 `scripts/sample.py`（按 checkpoint 中的配置重建模型、从 data_dir 读取字表）。
+- 本次验证：完整 pytest 48 passed in 1.46s（`02-`）；ruff check 通过（`03-`）；format --check 35 files already formatted（`04-`）。
+- 冒烟生成（`05-sample-tiny-smoke.txt`）：用 tiny_smoke 的 10 步 checkpoint，温度 1 时输出为随机字符；top_k=1 时新生成的 60 个字符全是空格（模型只学到“空格最常见”），符合预期。正式模型的生成效果尚未验证。
+- 审查状态：任务 C 由 Claude Code 实现，尚无其他 agent 审查；待用户阅读。
+- 下一步：用户授权提交 m1-generate；Windows 正式训练。
+
+### 2026-10-30 15:47（UTC+08:00）｜Claude Code｜生成函数答疑（采样参数与逐行讲解）
+
+- 范围：用户问是否需要 top-p 与重复惩罚，以及 generate.py 中切片、`[:, -1, :]`、温度、`size(-1)`、`torch.topk` 与 `.values[:, -1:]`、softmax 的 dim、multinomial、cat、training 标志、返回值的含义。未改代码。
+- 结论：M1 计划只要求 temperature 与 top-k；top-p 可作为后续小练习；重复惩罚不适合字符级模型。对话中用 SVG 图展示四种采样参数对同一组分数的影响，以及切片、取最后位置、top-k 门槛。
+- 演示（`runs/m1-generate/06-generate-line-by-line-demo.txt`）：切片 `[:, -4:]`、`[:, -1, :]` 形状 (1, V)、不同温度下的分布、topk 的 values/indices、multinomial 1000 次抽样计数 716/172/112、cat 拼接、training 标志切换。首次演示中“values[:, -1] 不能与 (1, 5) 比较”的说法不准确，已追加更正：B=1 时可以广播且碰巧正确，B=2 报错，B=5 时会静默按列比较得到错误结果，因此需要 `[:, -1:]` 保留维度。
+- 下一步：用户读懂 generate.py 后授权提交 m1-generate，再给出 Windows 正式训练步骤。
+
+### 2026-10-30 16:00（UTC+08:00）｜Claude Code｜生成过程逐步追踪与抽样的必要性
+
+- 范围：用户仍不理解生成的整体流程、为何要 multinomial 抽样（认为原论文 softmax 后直接生成）、以及维度变化。未改代码。
+- 演示模型（`runs/m1-generate/07-tiny-demo-train.txt`）：用 tiny_smoke 配置加命令行覆盖 `max_iters=600 eval_interval=200 d_model=64 n_heads=4 block_size=64 batch_size=16 out_dir=runs/tiny_demo` 在 Mac CPU 上训练，参数 107,200，val loss 4.1904 → 2.3113（最终评估 2.3091），147,212 tokens/s。仅为讲解用，不是正式实验，不写入 results.md。
+- 逐步追踪（`08-generate-trace.txt`）：开头 "ROMEO" → 第 1 步冒号概率 0.56 抽中冒号；第 2 步换行 0.96、空格 0.03，抽中空格；第 3 步 t 0.10、w 0.08、m 0.07 抽中 w。同一开头 "ROMEO:\n" 生成 150 字：top_k=1 陷入 "the the the…" 循环；按概率抽样（种子 1、2）出现人名加冒号、换行等剧本格式。对话中用两张 SVG 图展示三步追踪与一步内的形状速查。
+- 讲解要点：原论文翻译任务用 beam search（不是直接取 softmax 最大值）；GPT 类开放式生成常用抽样。
+- 下一步：用户读懂后授权提交 m1-generate，再给 Windows 正式训练步骤。
+
+### 2026-10-30 16:15（UTC+08:00）｜Claude Code｜提交 m1-generate，整理 Windows 正式训练步骤
+
+- 用户确认：用户讲解后表示“提交并给步骤”。提交 `src/tlab/eval/generate.py`、`scripts/sample.py`、`tests/test_generate.py`（Claude Code 编写）与本文件；`runs/`、`data/`、`.idea/` 不提交。提交前 pytest 48 passed、ruff check 通过、format --check 通过、`git diff --check` 通过。
+- 讲解补充：multinomial 三个参数与 (B,V)→(B,1) 形状（`runs/m1-generate/09-`），torch.cat 沿 dim=1/dim=0 拼接及两种报错（`10-`）。
+- 现状核对：仓库没有远程；`docs/PLAN.md` 规定两台电脑以 GitHub 为唯一代码来源，因此 Windows 训练前需先建远程并推送，属对外操作，等待用户决定。
+- 下一步：用户按对话中给出的步骤在 Windows/WSL 上运行并回传结果；Claude Code 据真实结果追加 `experiments/results.md`。
 
 ## 后续交接模板
 
