@@ -12,7 +12,7 @@
 | 本轮范围 | 核对 Codex 的 Windows 结果、M1 自测、经用户授权把 m1-generate 快进合并到 main 并推送 |
 | 实现方 | M1 已结束；M2 尚未开始分工 |
 | 审查方 | Codex 运行结果由 Claude Code 于 Mac 核对（见交接记录）；M1 代码由 Claude Code review；测试无其他 agent 审查 |
-| Git 分支 / commit | main 快进到 m1-generate 的最新提交（含本条记录），已推送 origin/main 与 origin/m1-generate；M1 链式分支保留未删 |
+| Git 分支 / commit | main = 7c33947 + 测试导入顺序修复提交，已推送 origin/main；origin/m1-generate = 7c33947；M1 链式分支保留未删 |
 | 本轮改动 | 本文件：核对与自测记录、状态更新；合并 main |
 | 工程代码与依赖 | Python 3.12.14，torch 2.9.1+cu128 / CUDA 12.8，NumPy 2.5.4，PyYAML 6.0.3，pytest 9.1.1；uv sync --locked 成功，锁文件未变 |
 | 本机环境 | Ubuntu 26.04.1 LTS / WSL2，RTX 5060 Laptop GPU 8151 MiB；uv 0.12.14 (x86_64-unknown-linux-gnu)；工作目录 /home/j/transformer-lab；可见终端显示 runs/m1_windows/live.log |
@@ -530,6 +530,7 @@
 - 用户确认：自测结束后用户明确要求“合并并推送”。
 - 操作：在 m1-generate 提交本文件（核对、自测与本条记录），`git switch main` 后 `git merge --ff-only m1-generate`（main 277661b 为 m1-generate 祖先，快进无合并提交），在 main 上复跑 pytest 与 ruff 后推送 main 与 m1-generate。具体结果见下一条或 git 日志与远端 ref。
 - 保留：m1-attention、m1-block、m1-gpt、m1-data、m1-train、m1-generate 分支均保留，未删除。
+- 结果：快进成功，main = m1-generate = 7c33947；main 上 pytest 48 passed，但 `ruff check` 报 2 个 I001（tests/test_trainer.py 中 `from tlab.train.trainer import train` 的导入分组，即任务 B 时记下的遗留项）。该文件由 Claude Code 编写，已用 `ruff check --fix` 只调整这两处导入顺序，另做一个提交；修复后 pytest 48 passed、ruff check 通过、format --check 36 files already formatted（`runs/m1-review/08-`、`09-`）。m1-generate 停在 7c33947，main 比它多这一个修复提交。
 
 ## 后续交接模板
 

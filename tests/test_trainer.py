@@ -122,9 +122,8 @@ def test_run_logger_writes_csv_rows(tmp_path: Path) -> None:
 
 
 def test_train_runs_and_returns_one_loss_per_step(tmp_path: Path) -> None:
-    from tlab.train.trainer import train
-
     from tlab.model.gpt import GPT, GPTConfig
+    from tlab.train.trainer import train
     from tlab.train.utils import RunLogger
 
     torch.manual_seed(0)
@@ -150,9 +149,8 @@ def test_train_runs_and_returns_one_loss_per_step(tmp_path: Path) -> None:
 
 
 def test_train_can_memorize_a_repeating_sequence(tmp_path: Path) -> None:
-    from tlab.train.trainer import train
-
     from tlab.model.gpt import GPT, GPTConfig
+    from tlab.train.trainer import train
     from tlab.train.utils import RunLogger
 
     torch.manual_seed(0)
