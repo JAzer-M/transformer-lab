@@ -4,16 +4,16 @@
 
 ## 当前状态
 
-更新时间：2026-10-30 18:09（Asia/Hong_Kong，UTC+08:00）。
+更新时间：2026-10-31 11:59（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M0 的 Mac/WSL 运行验收证据已齐；M1 正式训练与样例已完成，待用户与 Claude Code 最终核对及授权合并 |
-| 本轮范围 | 手册第 1–5 步的运行、生成、归档与交接；用户已明确批准将 8 份结果/文档提交并推送到 m1-generate |
-| 实现方 | Codex（Windows/WSL）执行既有代码与配置；用户手写文件未修改 |
-| 审查方 | 历史 M1 用户实现由 Claude Code review；本次运行证据待用户/Claude Code 核对，未新增独立 agent 审查 |
-| Git 分支 / commit | m1-generate；训练代码来源 54549658efcc8562b56d2505a1f49034eae79a47，本次运行记录提交的哈希以分支 Git 日志为准；main 仍为 277661b，未合并 |
-| 本轮改动 | experiments/m1_shakespeare_char/ 保存 6 份真实产物；experiments/results.md 追加 M1-1；本文件更新交接；源码、测试、配置和锁文件保持不变 |
+| 项目阶段 | M1 完成并合并到 main：验收达成（5060 上 5.2 分钟，val 1.5856，样例有剧本格式）；M0 的 Mac 与 WSL 运行验收均有证据；自测第 1、4 题建议日后复测 |
+| 本轮范围 | 核对 Codex 的 Windows 结果、M1 自测、经用户授权把 m1-generate 快进合并到 main 并推送 |
+| 实现方 | M1 已结束；M2 尚未开始分工 |
+| 审查方 | Codex 运行结果由 Claude Code 于 Mac 核对（见交接记录）；M1 代码由 Claude Code review；测试无其他 agent 审查 |
+| Git 分支 / commit | main 快进到 m1-generate 的最新提交（含本条记录），已推送 origin/main 与 origin/m1-generate；M1 链式分支保留未删 |
+| 本轮改动 | 本文件：核对与自测记录、状态更新；合并 main |
 | 工程代码与依赖 | Python 3.12.14，torch 2.9.1+cu128 / CUDA 12.8，NumPy 2.5.4，PyYAML 6.0.3，pytest 9.1.1；uv sync --locked 成功，锁文件未变 |
 | 本机环境 | Ubuntu 26.04.1 LTS / WSL2，RTX 5060 Laptop GPU 8151 MiB；uv 0.12.14 (x86_64-unknown-linux-gnu)；工作目录 /home/j/transformer-lab；可见终端显示 runs/m1_windows/live.log |
 | 范围与保护检查 | 用户手写 attention/block/gpt/trainer、全部测试、两份 YAML、pyproject.toml 与 uv.lock 的 SHA-256 与原始提交快照一致；未修改全局 Git 或系统代理设置 |
@@ -21,7 +21,7 @@
 | Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
 | 训练 / 实验 | M1-1：2000 步，10,750,080 参数；最终 train 1.3003 / val 1.5858，105,912 tokens/s，显存峰值 2596.54 MiB，训练 309.389s；结果表已追加真实数字 |
 | Windows / CUDA | GPU 自检、CUDA 张量分配、48 项测试、CPU 10 步与 GPU 正式训练均成功；全部正式步骤退出码 0，安装首轮为用户授权中断后再成功 |
-| 下一步 | 用户在 Mac 让 Claude Code 拉取 m1-generate 并核对 PROGRESS、6 份归档和 M1 验收；合并 main 仍需用户另行授权 |
+| 下一步 | 规划 M2（手写 BPE、TinyStories 预处理、训练基建：bf16、梯度累积、warmup+cosine、梯度裁剪、断点续训等）：先列计划等用户确认；自测第 1、4 题择机复测 |
 
 ## 当前任务与下一步
 
@@ -491,6 +491,45 @@
 - 最终验证：48 项测试通过；两份副本的归档逐字节一致；旧实验表内容保留；source/config/lock 哈希一致；Git 差异检查通过；临时代理监听已关闭、Windows 转接子进程为 0。
 - Git 身份通过本次命令的 user.name/user.email 参数传入，未修改全局配置。提交和推送的实际版本以本分支 Git 日志与远端 ref 为准；完成后在对话中回传实际 commit。
 - 交接：用户回到 Mac 后让 Claude Code 拉取 m1-generate，读取本文件和归档，核对 loss 趋势、样例与 M1 验收；合并 main 另行决定。
+
+### 2026-10-31 10:57（UTC+08:00）｜Claude Code｜核对 Codex 的 M1 Windows 训练结果
+
+- 范围：用户告知 Codex 已完成并推送，请 Claude Code 拉取核对。`git fetch` 得到 760000c（作者 J <j@JdeMacBook-Air.local>，与此前提交一致），`git pull --ff-only` 成功。
+- 改动范围核对：5454965..760000c 只改动 `experiments/`（6 份归档 + results.md 一行）与 PROGRESS.md；未触及源码、测试、配置、锁文件与用户手写文件。results.md 仅追加 M1-1，表头保留。
+- 本次验证（Mac）：pull 后完整 pytest 48 passed（`runs/m1-review/01-`）。逐项核对（`02-results-check.txt`）：results.md 的 val 1.5858、105912 tokens/s、2597 MB 与 run.json 一致；run.json 配置与 configs/shakespeare_char.yaml 一致；metrics.csv 9 次评估 val 严格单调下降（4.1913 → 1.5856），val−train 差距从 0.0017 增至 0.2845，最后两段 val 降幅 0.0178、0.0297；训练 309.4 s（5.2 分钟），总 token 32,768,000；tiny_smoke 在 WSL CPU 上与 Mac 的 step 0/5/9 loss 完全一致；样例 15 行，含 ROMEO:/DERBY: 人名行与分段。
+- M1 验收判断（对照 docs/PLAN.md）：“5060 上几分钟内训练出格式像剧本的文本，val loss 稳定下降”——三项均满足。附带观察：train/val 差距随训练扩大、val 降幅变小，提示继续训练可能开始过拟合，但本次 2000 步内尚未出现 val 回升；样例词形与语义仍有错误（如 bridegrous），不能称为连贯文本。git_commit 为 5454965…-dirty，原因是训练前 PROGRESS.md 有改动，Codex 已核对源码与配置哈希未变。
+- 未验证：GPU 上的逐次可复现性（最终评估 1.5858 与 step 1999 评估 1.5856 的差异来自最后一次参数更新，属正常）；单种子结果，不作对比结论。
+- 下一步：用户 M1 自测与授权合并 main；本条记录尚未提交。
+
+### 2026-10-31 11:36（UTC+08:00）｜Claude Code｜M1 自测进行中（第 1–3 题）
+
+- 范围：用户选择先做学习护栏 M1 自测，Claude Code 逐题提问、点评。未改代码。
+- 第 1 题（多头注意力形状）：用户把输入 x 和 q_proj 输出误写为 (B, T, h, C/h)，未写出多数步骤的具体形状，不知道合头前为何再转置；已用 SVG 表给出 B=2,T=5,C=8,h=2 的标准答案并讲解。复练题只回答了 d=2，其余由 Claude Code 给出答案；记为“部分掌握”，之后可再复测。
+- 第 2 题（为什么除以 √d）：首答不会；讲解后用户用 Var(aX)=a²Var(X) 复述，基本正确，补充了“softmax 饱和导致梯度变小”。演示（`runs/m1-review/03-sqrt-d-demo.txt`）：点积标准差 d=4/64/512 为 1.99/8.06/22.79；不缩放时最大权重 0.53/0.88/0.96、softmax 雅可比范数 0.340/0.148/0.060；÷√d 时 0.344–0.362 与 0.360–0.366；÷d 时接近均匀。另推导了 Var(q·k)=d。
+- 第 3 题（因果掩码）：用户答出 (T,T)、上三角填 -inf、masked_fill、e^-inf=0；遗漏 torch.triu 及 diagonal=1（对角线可见）；加分题答“去掉会过拟合”不准确。演示（`04-`、`05-no-mask-demo-1500.txt`，scratchpad 中仅在内存替换 forward 去掉掩码，未改 attention.py）：同一小模型 1500 步，有掩码 val 2.0206，无掩码 train 0.0467 / val 0.0489，但生成退化为 "EO:::: OMEEO:::…"，说明是信息泄露（作弊）而非过拟合。300 步时差距很小（2.4705 vs 2.4351），两次结果均保留。
+- 下一步：第 4–6 题（残差与 LayerNorm、参数量 12·L·d²、weight tying）。
+
+### 2026-10-31 11:45（UTC+08:00）｜Claude Code｜M1 自测第 4 题（残差、LayerNorm、Pre/Post-LN）与小实验
+
+- 用户回答：残差“保留之前的特征、防止遗忘”（部分正确，缺梯度通路）；LayerNorm 对最后一维归一化、使数值在 0 附近、更稳定（基本正确）；Pre/Post-LN 区别答成“何时做残差”（应为 LN 相对残差相加的位置），为何用 Pre-LN 不知道。
+- 演示（`runs/m1-review/06-residual-ln-demo.txt`，scratchpad 中定义 Post-LN 与无残差变体，复用用户的 CausalSelfAttention/MLP/Block，未改任何项目文件）：
+  - 初始化时 24 层各层梯度范数：Pre-LN 第 1/24 层 3.57e-01/8.92e-02，Post-LN 1.27e-02/1.23e-02，无残差 6.76e-01/5.46e-01。这一快照未显示“无残差梯度消失”，不作为证据使用。
+  - 24 层、C=64、400 步、单种子：lr 1e-3 时 val Pre-LN 2.468、Post-LN 2.283、无残差 3.368；lr 3e-3 时 Pre-LN 3.357（停滞）、Post-LN 2.219；lr 1e-2 时 Pre-LN 2.738、Post-LN 3.370（停滞）。
+  - 结论：无残差在三种情形下均基本学不动（仅测了 lr 1e-3）；Pre-LN 与 Post-LN 的优劣随学习率变化且为单种子短训练，不能据此下结论，留给 M3 消融 A2（至少 2 个种子）。讲解中如实说明了这一点，并把文献结论（Post-LN 初始时靠近输出层的梯度大、依赖 warmup）标为文献观点而非本项目实测。
+- 下一步：第 5 题（参数量 12·L·d²）、第 6 题（weight tying）。
+
+### 2026-10-31 11:58（UTC+08:00）｜Claude Code｜M1 自测第 5–6 题与总结
+
+- 第 5 题（参数量）：用户忘记 Block 结构、不会计算；Claude Code 用 SVG 图列出每个零件的权重形状，逐项推导 Block = 12C²+4C、整模型 = 12·L·C² + 4·L·C + V·C + block_size·C + 2C，代入 L=6、C=384 得 10,616,832 + 133,248 = 10,750,080（与 count_parameters 一致，估算误差约 1.2%）。复练 L=2、C=10 用户答 2400，正确。
+- 第 6 题（weight tying）：用户答出共用 tok_emb 与输出层权重、形状均为 (V, C)、省 V·C 参数、代码是绑定引用；未给出具体数字，并表示仍不理解原理。演示（`runs/m1-review/07-weight-tying-demo.txt`，tiny_demo checkpoint）：lm_head.weight is tok_emb.weight 为 True；logits[i] 与 h·W[i] 一致；"ROMEO" 后 h 点积最大的三行为 ":"、"R"、"L"；训练后查表向量的余弦相似近邻：a→i,o,e,y；A→O,E,I,B；.→?,!,;,,。对话中用 SVG 图展示一张表的两种用法。
+- 自测总评：第 2、3、5 题经讲解后掌握；第 6 题待用户复述；第 1 题（形状）与第 4 题（残差梯度、Pre/Post-LN）为部分掌握，建议在 M2 开始前或面试准备时复测。Pre-LN/Post-LN 的实证留待 A2 消融。
+- 未提交：本文件自 760000c 之后的核对与自测记录仍为本地改动。
+
+### 2026-10-31 11:59（UTC+08:00）｜Claude Code｜M1 合并到 main
+
+- 用户确认：自测结束后用户明确要求“合并并推送”。
+- 操作：在 m1-generate 提交本文件（核对、自测与本条记录），`git switch main` 后 `git merge --ff-only m1-generate`（main 277661b 为 m1-generate 祖先，快进无合并提交），在 main 上复跑 pytest 与 ruff 后推送 main 与 m1-generate。具体结果见下一条或 git 日志与远端 ref。
+- 保留：m1-attention、m1-block、m1-gpt、m1-data、m1-train、m1-generate 分支均保留，未删除。
 
 ## 后续交接模板
 
