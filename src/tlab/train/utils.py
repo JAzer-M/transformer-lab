@@ -3,6 +3,7 @@
 import contextlib
 import csv
 import json
+import os
 import subprocess
 from dataclasses import asdict
 from pathlib import Path
@@ -58,30 +59,80 @@ def estimate_loss(
 
 
 class RunLogger:
-    """把每次评估的 train/val loss 追加到 out_dir/metrics.csv，并打印到终端。"""
+    """把每次评估的 train/val loss 与学习率追加到 out_dir/metrics.csv，并打印到终端。"""
 
-    def __init__(self, out_dir: str | Path) -> None:
+    def __init__(
+        self, out_dir: str | Path, resume: bool = False, start_step: int | None = None
+    ) -> None:
         self.path = Path(out_dir) / "metrics.csv"
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        header = ["step", "train_loss", "val_loss", "lr"]
+        # 续训时保留旧记录；给了 start_step 时，该步及以后的会重新跑，先删掉以免重复
+        kept: list[list[str]] = []
+        if resume and self.path.exists():
+            with open(self.path, newline="") as f:
+                rows = list(csv.reader(f))[1:]  # 去掉表头
+            kept = [r for r in rows if start_step is None or int(r[0]) < start_step]
         with open(self.path, "w", newline="") as f:
-            csv.writer(f).writerow(["step", "train_loss", "val_loss"])
+            csv.writer(f).writerows([header, *kept])
 
-    def log_eval(self, step: int, losses: dict[str, float]) -> None:
+    def log_eval(
+        self, step: int, losses: dict[str, float], lr: float | None = None
+    ) -> None:
+        row = [step, losses["train"], losses["val"], "" if lr is None else lr]
         with open(self.path, "a", newline="") as f:
-            csv.writer(f).writerow([step, losses["train"], losses["val"]])
-        print(f"step {step:5d} | train {losses['train']:.4f} | val {losses['val']:.4f}")
+            csv.writer(f).writerow(row)
+        line = f"step {step:5d} | train {losses['train']:.4f} | val {losses['val']:.4f}"
+        print(line if lr is None else f"{line} | lr {lr:.2e}")
 
 
 def save_checkpoint(
-    path: Path, model: nn.Module, config: TrainConfig, vocab_size: int
+    path: Path,
+    model: nn.Module,
+    config: TrainConfig,
+    vocab_size: int,
+    optimizer: torch.optim.Optimizer | None = None,
+    step: int | None = None,
+    generator: torch.Generator | None = None,
 ) -> None:
-    # 保存参数和重建模型所需的配置；M1 不做断点续训，暂不存优化器状态
+    """保存参数与重建模型所需的配置；给了 optimizer 等时，还能据此断点续训。"""
     payload = {
         "model": model.state_dict(),
         "config": asdict(config),
         "vocab_size": vocab_size,
+        # 以下用于续训：step 是“下一步从哪开始”
+        "step": step,
+        "optimizer": None if optimizer is None else optimizer.state_dict(),
+        "generator": None if generator is None else generator.get_state(),
+        "torch_rng": torch.get_rng_state(),
+        "cuda_rng": torch.cuda.get_rng_state_all()
+        if torch.cuda.is_available()
+        else None,
     }
-    torch.save(payload, path)
+    # 先写临时文件再改名：存到一半被打断，也不会留下损坏的 ckpt.pt
+    tmp_path = path.with_name(path.name + ".tmp")
+    torch.save(payload, tmp_path)
+    os.replace(tmp_path, path)
+
+
+def load_checkpoint(
+    path: Path,
+    model: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    generator: torch.Generator,
+) -> int:
+    """把模型、优化器、训练用生成器与全局随机数恢复到存档时的状态，返回下一步的 step。"""
+    # 先读到 CPU：随机数状态必须是 CPU 张量；参数与优化器状态在 load 时会搬到各自设备
+    ckpt = torch.load(path, map_location="cpu", weights_only=False)
+    if ckpt.get("optimizer") is None or ckpt.get("step") is None:
+        raise ValueError(f"{path} 只存了模型参数，不能用来续训")
+    model.load_state_dict(ckpt["model"])
+    optimizer.load_state_dict(ckpt["optimizer"])
+    generator.set_state(ckpt["generator"])
+    torch.set_rng_state(ckpt["torch_rng"])
+    if ckpt["cuda_rng"] is not None and torch.cuda.is_available():
+        torch.cuda.set_rng_state_all(ckpt["cuda_rng"])
+    return ckpt["step"]
 
 
 def git_commit() -> str:
@@ -108,7 +159,15 @@ def peak_memory_mb(device: torch.device) -> float | None:
     return None
 
 
-def write_run_info(out_dir: Path, config: TrainConfig, extra: dict) -> None:
+def write_run_info(
+    out_dir: Path, config: TrainConfig, extra: dict, keep_previous: bool = False
+) -> None:
+    """写 run.json；keep_previous=True（续训）时，把旧的记录放进 previous_runs 保留。"""
     info = {"config": asdict(config), "git_commit": git_commit(), **extra}
+    path = out_dir / "run.json"
+    if keep_previous and path.exists():
+        old = json.loads(path.read_text(encoding="utf-8"))
+        # 更早的几段已经在旧记录的 previous_runs 里，按时间顺序接在前面
+        info["previous_runs"] = [*old.pop("previous_runs", []), old]
     text = json.dumps(info, ensure_ascii=False, indent=2)
-    (out_dir / "run.json").write_text(text, encoding="utf-8")
+    path.write_text(text, encoding="utf-8")

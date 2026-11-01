@@ -205,6 +205,14 @@ CPU 训练 10 步依赖 M1 的最小模型与可运行训练路径。相关代�
 - Mac 只下载 V2 valid（约 21.5 MiB）做端到端冒烟；全量下载与编码写入任务 D 的 Windows 手册，由 Codex 执行。冒烟配置 `configs/tinystories_smoke.yaml` 的超参数与 `tiny_smoke.yaml` 相同，只改 `data_dir` 与 `out_dir`。
 - `get_batch` 移到 `src/tlab/data/batch.py`，同时支持张量与 `np.memmap`，起点抽取方式与 M1 相同；`char.py` 保留同名导入，用户手写的 `trainer.py` 不改。
 
+任务 C 的决定（2026-11-01 用户确认）：
+
+- `TrainConfig` 新增 `grad_accum_steps`（默认 1）、`grad_clip`（默认 0，表示不裁剪）、`lr_schedule`（`constant` / `cosine`，默认 `constant`）、`warmup_iters`（默认 0）、`min_lr`（默认 0）、`ckpt_interval`（默认 0，表示只在结束时存）、`resume`（默认 False）。默认值与 M1 行为相同，已有配置文件不改。
+- agent 写 `src/tlab/train/schedule.py` 的 `get_lr(step, config)`：前 `warmup_iters` 步线性升到 `learning_rate`；warmup 对 constant 与 cosine 都生效；cosine 在剩余步数内从 `learning_rate` 降到 `min_lr`，循环的最后一步（第 `max_iters - 1` 步）恰为 `min_lr`（2026-11-01 提交前审查后用户确认）。`lr_schedule` 在建配置时检查，拼错立即报错。
+- agent 写 utils 中的存档与读档（模型、优化器、下一步的 step、训练用随机数生成器与全局随机数状态；先写临时文件再改名），`RunLogger` 增加 `lr` 列并支持续训时追加；`run.py` 负责读档、把起始步数与生成器交给 `train()`，tokens 统计计入梯度累积。
+- 用户在 `trainer.py` 主循环中写：每步调用 `get_lr` 设定学习率、梯度累积（loss 除以累积次数）、梯度裁剪，并把 lr 传给 `logger.log_eval`。用户写完后，经用户同意由 agent 在 `trainer.py` 中加入断点续训的三处外围改动（起始步数、外部传入的生成器、按 `ckpt_interval` 调用存档），并标注“agent 编写”。
+- TinyStories 正式训练的超参数与 `tinystories_base.yaml` 留到任务 D，实测吞吐后由用户确认。
+
 ### M3 现代组件 + 消融（W3）——MVP 关口
 
 1. 实现 RoPE、RMSNorm、SwiGLU、GQA/MQA、KV cache，全部可通过配置开关切换。

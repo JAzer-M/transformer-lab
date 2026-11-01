@@ -4,24 +4,24 @@
 
 ## 当前状态
 
-更新时间：2026-11-01 12:55（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-01 14:03（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M2 任务 A、B 已合并 main：任务 B 经 Codex 审查（无需修复的确定问题），已按其非阻塞建议修复 EOT 计数内存。Mac 上用 V2 valid 小样本端到端跑通；Windows 真实数据冒烟与全量数据均未做。下一个是任务 C |
-| 本轮范围 | M2 任务 B：TinyStories V2 数据、HF 8192 词表、uint16 `.bin`、memmap 与 get_batch（决定见 PLAN「任务 B 的决定」） |
-| 实现方 | 任务 B：Claude Code（全部为 agent 实现，不涉及用户手写文件） |
+| 项目阶段 | M2 任务 A、B 已合并 main：任务 B 经 Codex 审查（无需修复的确定问题），已按其非阻塞建议修复 EOT 计数内存。Mac 上用 V2 valid 小样本端到端跑通；Windows 真实数据冒烟与全量数据均未做。任务 C 已提交到 m2-infra（未合并、未推送）：用户写的学习率、梯度累积、裁剪通过测试，agent 加入续训外围并改 run.py；经 code-review 自查后修复了 cosine 终点与 3 个续训边界问题，109 个测试全过 |
+| 本轮范围 | M2 任务 C：学习率调度、梯度累积、梯度裁剪、断点续训（决定见 PLAN「任务 C 的决定」） |
+| 实现方 | 任务 C：调度、存档、日志、run.py、续训外围由 Claude Code；trainer.py 中学习率调用、梯度累积、梯度裁剪由用户 |
 | 审查方 | Codex 运行结果由 Claude Code 于 Mac 核对（见交接记录）；M1 代码由 Claude Code review；任务 A 代码与测试未经其他 agent 审查，用户决定直接合并；任务 B 已由 Codex 于 2026-11-01 12:30 在 Windows/WSL 审查（报告 docs/reviews/m2-data-6ecc28f.md），2 条非阻塞建议中 1 条已由 Claude Code 修复，另 1 条涉及用户手写的 trainer.py，留给用户 |
-| Git 分支 / commit | m2-data = 2ba9784；main 由 bd46e1a 快进到 2ba9784，再加一个只改本文件的记录提交；推送 main 与 m2-data 的结果以远端 ref 为准；m2-bpe = origin/m2-bpe = cc3dbec；`.idea/` 未提交 |
-| 本轮改动 | 新增 tokenizer/hf_bpe.py、data/batch.py、data/tinystories.py、data/loader.py、scripts/prepare_tinystories.py、configs/tinystories_smoke.yaml 与 4 份测试；修改 data/char.py（get_batch 改为再导出）、train/run.py、train/utils.py、scripts/sample.py；pyproject.toml 与 uv.lock 显式声明 huggingface-hub；docs/PLAN.md「任务 B 的决定」；用户手写文件未改 |
+| Git 分支 / commit | m2-infra（从 main 的 da3b515 分出），任务 C 已提交一次（哈希见 git log），未推送；main = origin/main = da3b515；m2-data = origin/m2-data = 2ba9784；`.idea/` 未提交 |
+| 本轮改动 | config.py 新字段；新增 train/schedule.py；utils.py 的 RunLogger lr 列与续训追加、save_checkpoint/load_checkpoint；trainer.py（用户写学习率、梯度累积、裁剪；agent 加标注的续训外围）；run.py 读档、续训与 tokens 统计；新增 tests/test_schedule.py、test_checkpoint.py、test_trainer_loop.py；PLAN「任务 C 的决定」 |
 | 工程代码与依赖 | PyTorch 2.9.1、NumPy、PyYAML 6.0.3、tokenizers 0.23.3、huggingface-hub 2.4.0（2026-11-01 起显式声明 `>=0.23,<3`）、pytest 9.1.1、ruff 0.17.2；uv.lock 已更新 |
 | 本机环境 | Mac（本轮）：macOS 26.6.2 arm64，Python 3.11.9，uv 0.13.5，工作目录 /Users/j/Desktop/transformer-lab。Windows（Codex 2026-10-30 记录）：Ubuntu 26.04.1 LTS / WSL2，RTX 5060 Laptop GPU 8151 MiB，uv 0.12.14，工作目录 /home/j/transformer-lab |
 | 范围与保护检查 | Codex 2026-10-30 记录：用户手写 attention/block/gpt/trainer、全部测试、两份 YAML、pyproject.toml 与 uv.lock 的 SHA-256 与原始提交快照一致；其后 M2 任务 A 已按用户同意修改 pyproject.toml 与 uv.lock（新增 tokenizers） |
-| pytest / 代码检查 | main 上（2ba9784，Mac）`uv sync --locked` 成功，pytest 85 passed in 1.67s，ruff check 通过，format --check 为 52 files already formatted。Codex 在 WSL 上对 6ecc28f 实测 84 passed |
+| pytest / 代码检查 | m2-infra（Mac）：109 passed in 2.03s；ruff check 通过；format --check 为 56 files already formatted |
 | Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
 | 训练 / 实验 | M1-1：2000 步，10,750,080 参数；最终 train 1.3003 / val 1.5858，105,912 tokens/s，显存峰值 2596.54 MiB，训练 309.389s；结果表已追加真实数字 |
 | Windows / CUDA | GPU 自检、CUDA 张量分配、48 项测试、CPU 10 步与 GPU 正式训练均成功；全部正式步骤退出码 0，安装首轮为用户授权中断后再成功 |
-| 下一步 | 任务 C（m2-infra，从 main 分出）先给计划：warmup + cosine 学习率、checkpoint 保存恢复由 agent 写；梯度累积、梯度裁剪与主循环调用学习率由用户改 trainer.py。Windows 真实数据冒烟与全量准备放进任务 D 手册（需先确认代理可用） |
+| 下一步 | 合并 m2-infra 前是否请 Codex 审查由用户决定；然后任务 D（基线训练手册：Windows 全量数据准备、吞吐短跑、由用户确认模型大小与超参数）。Windows 真实数据冒烟与全量准备放进任务 D 手册（需先确认代理可用） |
 
 ## 当前任务与下一步
 
@@ -30,6 +30,25 @@
 - 已确认：BPE 核心由用户手写；与 HF 对照看无损还原与压缩率差 ≤5%；新增 tokenizers；TinyStories 仅 Windows 全量下载；梯度累积、裁剪与学习率调用由用户改 trainer.py；模型大小待实测吞吐后再定（计划例子约 14.0M 参数）。
 - 用户手写文件（不得由 agent 修改）：attention.py、block.py、gpt.py、trainer.py、tokenizer/bpe.py。
 - M1 自测第 1 题（多头形状）与第 4 题（残差梯度、Pre/Post-LN）为部分掌握，建议择机复测；Pre/Post-LN 的实证留给 A2。
+
+## 会话约定：插件（2026-11-01 用户要求）
+
+用户要求：每次开启新的 Claude Code 对话，都在本次对话中使用账号已启用的两个插件 **matt-pocock-skills** 与 **shushu-internship-tool**，让思路更严谨。
+
+- 两个插件在 claude.ai 账号上启用，每个 Claude Code 会话自动可用（能看到各技能的简介）。“使用”指在对应阶段调用相应技能：技能被调用时才加载完整说明，并按其流程执行，所以不在会话开头一次性全部调用。
+- 新会话开始时先确认两个插件仍在可用技能列表中，再按下表在对应阶段调用；某阶段不调用时说明原因。
+
+| 阶段 | 调用的技能 |
+| --- | --- |
+| 写计划、拿不准的设计决定 | `matt-pocock-skills:grilling`（对计划连续追问） |
+| 先写测试再实现 | `matt-pocock-skills:tdd` |
+| 提交或合并前自查 | `matt-pocock-skills:code-review`（不替代 Codex 的交叉审查） |
+| 定位 bug、训练报错或 loss 异常 | `matt-pocock-skills:diagnosing-bugs` |
+| 查一手资料（如 Qwen3 的 config、论文细节） | `matt-pocock-skills:research` |
+| 简历、面试材料（M6 及投递准备） | `shushu-internship-tool:shushu-internship-tool` |
+
+- 技能流程与 `AGENTS.md` 冲突时以 `AGENTS.md` 为准，例如：用户手写文件不由 agent 改、先计划后代码、只记录真实结果。
+- 这两个是 Claude 账号插件，Codex 不使用；Codex 的接手与审查流程不变。
 
 ## Codex 接手入口（Windows 正式训练，2026-10-30）
 
@@ -686,6 +705,61 @@
 - 保留：m2-data 分支保留，停在 2ba9784；main 比它多本条记录这一个提交。
 - 未验证：Windows 上的真实数据冒烟、全量数据准备与资源占用（留给任务 D）。
 - 下一步：任务 C（m2-infra）先给计划。
+
+### 2026-11-01 13:08（UTC+08:00）｜Claude Code｜任务 C 计划确认，agent 部分实现与主循环测试先行
+
+- 范围与用户确认：用户确认任务 C 计划的 3 个推荐选项——断点续训的 3 处外围改动由 agent 在用户写完核心后加入 trainer.py（标注“agent 编写”）；warmup 对 constant 也生效；metrics.csv 增加 lr 列。用户之前声明不做工程管道类任务的自测题。决定写入 PLAN「任务 C 的决定」。实现方：agent 部分 Claude Code；主循环核心（学习率调用、梯度累积、梯度裁剪）由用户写。
+- 工作区与设备：Mac，/Users/j/Desktop/transformer-lab；`git switch -c m2-infra`（从 main da3b515）；改动未提交。
+- 改动：`config.py` 新增 grad_accum_steps、grad_clip、lr_schedule、warmup_iters、min_lr、ckpt_interval、resume（默认值与 M1 相同）；新增 `train/schedule.py` 的 `get_lr`；`utils.py` 的 RunLogger 增加 lr 列与 resume 追加模式，`save_checkpoint` 增加可选的 optimizer/step/generator 并保存全局与 CUDA 随机数状态、先写临时文件再改名，新增 `load_checkpoint`。`run.py` 与 `trainer.py` 尚未改：run.py 要把 start_step/generator/checkpoint 交给 train()，需等 trainer.py 接受这些参数后再改。
+- 新增测试：`tests/test_schedule.py`（5）、`tests/test_checkpoint.py`（5：配置默认值、存档读档恢复模型/AdamW 状态/生成器/全局随机数、保留 sample.py 所需键且不留临时文件、lr 列、续训追加日志）、`tests/test_trainer_loop.py`（10：默认配置与 M1 主循环逐步完全相同、梯度累积等于 micro batch 平均、每步只 step 一次、梯度裁剪使 SGD 更新量等于 clip、学习率逐步等于 get_lr 且记入 metrics.csv、存档回调每 ckpt_interval 步一次、中断后续训与不中断结果完全相同、run() 续训与 tokens 统计、无存档时 resume 报错）。原有测试文件未改。
+- 本次验证：pytest 8 failed, 97 passed（`runs/m2-infra/01-`）。失败原因逐个核对：梯度累积、裁剪、学习率 3 个为数值不符（等用户的主循环）；存档回调与续训 2 个为 train() 不接受 checkpoint/generator 参数（等外围改动）；run() 的 3 个为 step 为 None、无 train_tokens、未报错（等 run.py）。默认配置与 M1 一致、每步只 step 一次这 2 个在当前 M1 循环上已通过。agent 部分的测试有效性（`02-`）：warmup 少算一步、cosine 忽略 warmup、不拒绝未知调度、续训覆盖日志、不恢复生成器/全局随机数/优化器、留下临时文件、默认累积改为 2，共 9/9 被抓到。ruff check 通过。用户手写文件 `git diff` 为空。
+- 下一步：用户在 trainer.py 中写学习率调用、梯度累积、梯度裁剪；Claude Code 检查后加入续训外围改动并改 run.py。
+
+### 2026-11-01 13:31（UTC+08:00）｜Claude Code｜检查用户 trainer.py 初稿
+
+- 范围：用户写完 trainer.py 初稿请求检查，并提出：终端报 `command not found: uv`；自测题留到本节结束再做；请解释 grad_accum_steps、grad_clip 与 `torch.nn.utils.clip_grad_norm_`。Claude Code 只读检查，未改用户文件。
+- 核对：`tests/test_trainer_loop.py` 的修改时间 13:07:03 来自 Claude Code 上一轮的 `ruff format`，用户未改测试。
+- 本次验证（`runs/m2-infra/04-`）：pytest 7 failed, 98 passed。用户负责的 3 个中，裁剪已通过；梯度累积、学习率两个未通过；其余 5 个为等待续训外围与 run.py 的预期失败。ruff check 报 F401（导入了 numpy 未使用）；`ruff format --diff` 仅有引号、注释空格与换行差异。
+- 发现的问题（已告知用户，由用户修改）：① 前向、反向、`step_loss +=` 这几行缩进在 micro batch 循环之外，循环只取 K 个 batch 并保留最后一个，前向反向只做一次且 loss 除以 K（K=1 时与 M1 相同，所以 M1 一致性测试通过）；② `losses.append(loss.item())` 应为 `step_loss`，否则 K>1 时只记下最后一个 micro batch 的 1/K（测试中实际记录 1.197，约为参照值 2.400 的一半）；③ `logger.log_eval(step, val)` 未传 lr，metrics.csv 的 lr 列为空；④ numpy 已导入但类型标注未改。在 scratchpad 副本中只改这 4 处后，pytest 5 failed, 100 passed（剩余均为预期），ruff check 通过。
+- uv：`/Users/j/.local/bin/uv` 存在，但 ~/.zshrc、~/.zprofile、~/.zshenv 中都没有把 `~/.local/bin` 加入 PATH；未改用户的 shell 配置，只给出命令供用户选择。
+- 学习状态：用户要求“问题到本节结束之后再做”，两道思考题（不除以 K 的后果、为何整体缩放而非逐分量截断）留到任务 C 结束时。
+- 下一步：用户修改上述 4 处并运行 pytest；通过后 Claude Code 加续训外围并改 run.py。
+
+### 2026-11-01 13:41（UTC+08:00）｜Claude Code｜用户主循环通过，加入续训外围并改 run.py
+
+- 范围与用户确认：用户改完 trainer.py 请求复查。按已确认的任务 C 决定 1，用户写完核心后由 Claude Code 在 trainer.py 中加入断点续训的外围改动。
+- 复查用户版本（`runs/m2-infra/05-`）：4 处问题均已改正；pytest 5 failed, 100 passed（剩余 5 个为等待续训外围与 run.py 的预期失败）；ruff check、format --check 通过；tiny_smoke 第 9 步 val 3.8944，与 M1 相同。用户版本快照：`runs/m2-infra/trainer-user-version.py`（SHA-256 a728cfb3…）。
+- 改动：trainer.py 顶部增加一行例外说明；`train()` 增加 `start_step`、`generator`、`checkpoint` 三个带默认值的参数；生成器为 None 时才按种子新建（用户原有的注释与语句保留，只缩进进 if）；循环改为 `range(start_step, config.max_iters)`；每 `ckpt_interval` 步调用 `checkpoint(step + 1)`。以上各处均标注“agent 编写（断点续训）”。与用户版本 diff：仅这些新增行及一处缩进，用户写的学习率、梯度累积、裁剪、记录逻辑未改。run.py：在 run 中创建训练用生成器；`resume=True` 时读档（无存档则抛 FileNotFoundError 并说明 resume=True），日志以续训模式追加；定义 checkpoint 闭包并传给 train()；结束时按 max_iters 存可续训的存档；run.json 新增 `start_step`、`train_tokens`（= 新跑步数 × batch_size × block_size × grad_accum_steps），tokens/s 按此计算，`last_step_loss` 在未跑任何步时为 None。
+- 测试修改（本任务新写、未提交的测试）：`test_run_resume_without_checkpoint_is_an_error` 增加 `match="resume=True"`。原因：有效性检查中去掉显式检查后 `torch.load` 同样抛 FileNotFoundError，测试抓不到；先试 `match="resume"`，因 pytest 临时目录名含 “resume” 仍抓不到，最终改为 `resume=True`。
+- 本次验证：pytest 105 passed in 1.89s，ruff check、format --check（56 files）通过（`10-`）。tiny_smoke 用 main（da3b515）代码与新代码各跑一次，metrics.csv 的 step/train/val 三列逐字相同（去掉 csv 的 `\r` 后比较，`07-`）。主循环与 run.py 的测试有效性（`08-`、`09-`）：zero_grad 放进 micro 循环、step 放进 micro 循环、loss 不除以 K、只记最后一个 micro loss、不设学习率、日志不传 lr、裁剪条件写成 >= 0、忽略 start_step、忽略传入的生成器、存档步数少 1、tokens 不算累积、续训覆盖日志、无存档也续训，补测后 13/13 被抓到。
+- 未验证：真实 GPU 上的 bf16 + 梯度累积 + 裁剪、TinyStories 上的续训；留到任务 D。
+- 学习状态：两道思考题（不除以 K 的后果、为何整体缩放）按用户要求在任务 C 结束时做。
+- 下一步：用户授权后提交 m2-infra；合并前是否请 Codex 审查由用户决定。
+
+### 2026-11-01 13:50（UTC+08:00）｜Claude Code｜任务 C 思考题与插件答疑
+
+- 用户自行把 trainer.py 的两处注释改为“梯度累积”“反向”（只改注释），复查 pytest 105 passed、ruff 通过。
+- 思考题（演示见 `runs/m2-infra/11-thinking-questions-demo.txt`）：① 用户答“除以 K 相当于求平均，SGD 受影响更大”，结论正确；纠正点是不除以 K 时每步梯度系统性地变成 K 倍（并非个别大 loss 的问题）。实测 K=4：SGD 三步更新量比值 4.000，AdamW 为 1.000（Adam 按梯度量级归一化）；补充说明本项目开了裁剪时，K 倍梯度会更频繁触发裁剪，且日志 loss 会变 K 倍，所以仍须除以 K。② 用户答“只改局部会改变整体”，方向正确；补充为逐分量截断会改变分量比例从而改变方向（(3, 0.5) 截断为 (1, 0.5)，方向 9.5° → 26.6°），按范数整体缩放只改长度。
+- 插件：用户问到两个插件是否全局调用。ListPlugins 显示账号启用了 shushu-internship-tool 与 matt-pocock-skills；本会话没有调用过任何 skill，本机 ~/.claude 下也没有 settings.json 或插件 hooks 配置。
+- 下一步：用户授权后提交 m2-infra。
+
+### 2026-11-01 13:58（UTC+08:00）｜Claude Code（matt-pocock-skills:code-review，两个只读子 agent）｜提交前自查 m2-infra
+
+- 范围与用户确认：用户要求在本文件声明插件使用约定，并让 Claude Code 现在使用两个插件，之后提交。已新增「会话约定：插件」一节。按该约定，提交前自查阶段调用 `matt-pocock-skills:code-review`；`shushu-internship-tool` 对应简历与面试阶段，本次没有对口任务，未调用。审查依据：Standards 用 AGENTS.md 加技能自带的代码坏味道基线；Spec 用 PLAN「任务 C 的决定」与 M2 第 3 项。改动未提交，所以审查对象是 `git diff main` 加上 4 个未跟踪的新文件。项目里没有 `docs/agents/issue-tracker.md`，需求直接取自 PLAN。这是 Claude 自己的子 agent 审查，不替代 Codex 的交叉审查。
+- Standards 结论：既有测试未改，未使用禁用模块，用户写的逻辑未被改。问题有三条：① 新测试的参照循环等处缺形状注释（AGENTS 规则 5）；② trainer.py 中 agent 加的 `from collections.abc import Callable` 没有标注“agent 编写”。**更正**：13:41 记录写“以上各处均标注”与实际不符，应为“除这一行导入外”；③ 续训时 `write_run_info` 覆盖 run.json，第一段的 commit、tokens/s、显存峰值丢失。另列若干坏味道（判断题）：测试辅助函数重复、存档字段靠字符串键对齐、`lr_schedule` 要到 get_lr 才校验、`checkpoint` 回调的命名。
+- Spec 结论：(a) 存档没有保存 MPS 的随机数状态，影响小；(b) 无实质性范围扩张；(c) ① cosine 的分母是 `max_iters - warmup`，循环最后一步（max_iters−1）的 lr 高于 min_lr；② 续训覆盖 run.json；③ 续训时 max_iters 小于存档步数不报错；④ 从较早的存档续训，metrics.csv 会有重复的步。
+- Claude Code 核实（`runs/m2-infra/12-review-findings-check.txt`）：上面 4 条全部复现。max_iters=10、min_lr=0.1 时第 9 步 lr = 0.122；存档在第 4 步、用 max_iters=2 续训，train_tokens=-64、存档 step=2；从第 3 步的存档续训，metrics.csv 的 step 为 0, 2, 4, 5, 4, 5；run.json 的 start_step 由 0 变 3，第一段记录未保留。
+- 下一步：把修复计划交给用户确认（cosine 终点需用户决定）；修复后再提交。
+
+### 2026-11-01 14:03（UTC+08:00）｜Claude Code｜按自查结果修复并提交 m2-infra
+
+- 用户确认：用户选择“修完再提交”，对 cosine 终点未另作说明，按事先说明的默认方案 A（循环最后一步恰为 min_lr）实现，并同步到 PLAN「任务 C 的决定」。
+- 先写测试（`runs/m2-infra/13-`，7 failed, 102 passed）：test_schedule 中两个 cosine 测试改为断言第 `max_iters - 1` 步为 min_lr（max_iters 用 101，使中点仍为第 55 步）。这两个测试是本任务新写、尚未提交的，修改原因是落实用户选定的方案，并非为让实现通过。原 `test_unknown_schedule_is_rejected`（经 get_lr 报错）改为建配置时报错。新增：RunLogger 续训时删掉存档之后的行；run() 续训时把上一段 run.json 放进 previous_runs；max_iters 小于存档步数时报错；从较早的存档续训，metrics.csv 不出现重复的步。补上测试中参照循环等处的形状注释。
+- 实现：`TrainConfig.__post_init__` 检查 lr_schedule（`LR_SCHEDULES`），get_lr 去掉重复的检查；cosine 分母改为 `max(1, max_iters - 1 - warmup)`；`RunLogger(..., start_step=None)` 在续训时只保留 step < start_step 的行；`write_run_info(..., keep_previous=False)` 续训时把旧记录按时间顺序放进 previous_runs；run.py 读档后若 max_iters < start_step 则抛 ValueError，并把 start_step 交给 RunLogger、`keep_previous=config.resume`。trainer.py 只给 agent 加的 `Callable` 导入补了“agent 编写”标注；与用户版本对比，其余差异仍为 agent 标注行，以及用户自己改的两处注释。
+- 不修（已向用户说明）：MPS 随机数状态（无 dropout、Mac 不做正式训练）；测试辅助函数去重、存档结构化、回调改名（判断题，AGENTS 要求优先简单可读）。
+- 本次验证：pytest 109 passed in 2.03s，ruff check、format --check（56 files）通过（`14-`）。把 6 处修复分别改回原样，6/6 被测试抓到（`15-`）。tiny_smoke 用 main 代码与修复后代码各跑一次，step/train/val 三列逐字相同（`16-`）。
+- 提交：用户授权“修完再提交”，提交到 m2-infra（哈希见 git log），未推送、未合并。
+- 下一步：合并前是否请 Codex 审查由用户决定；然后任务 D（基线训练手册）。
 
 ## 后续交接模板
 
