@@ -109,6 +109,19 @@ def test_open_tokens_returns_read_only_memmap(tmp_path: Path) -> None:
         data[0] = 1
 
 
+def test_count_token_does_not_depend_on_chunk_size(tmp_path: Path) -> None:
+    from tlab.data.tinystories import count_token, write_tokens
+
+    path = tmp_path / "train.bin"
+    write_tokens([f"story {i}" for i in range(25)], ByteTokenizer(), path)
+
+    # 每篇末尾一个 256，数出来就是篇数；块与块的交界处不能漏数或重复数
+    for chunk_size in (1, 7, 1000):
+        assert count_token(path, 256, chunk_size=chunk_size) == 25
+    # 每篇都只有一个 "s"（来自 "story"）
+    assert count_token(path, ord("s"), chunk_size=7) == 25
+
+
 # ---------- 下载校验 ----------
 
 

@@ -18,9 +18,9 @@ from pathlib import Path
 from tlab.data.tinystories import (
     REVISION,
     SOURCE_FILES,
+    count_token,
     download,
     iter_stories,
-    open_tokens,
     write_tokens,
 )
 from tlab.tokenizer.hf_bpe import train_hf_tokenizer
@@ -68,11 +68,10 @@ def main() -> None:
     n_val_tokens = write_tokens(val_stories, tokenizer, out_dir / "val.bin")
     encode_seconds = time.perf_counter() - t0
 
-    # 每篇故事末尾恰好一个结束标记，数一数就是故事篇数，顺便检查文件能读回
-    n_train_stories = int(
-        (open_tokens(out_dir / "train.bin") == tokenizer.eot_id).sum()
-    )
-    n_val_stories = int((open_tokens(out_dir / "val.bin") == tokenizer.eot_id).sum())
+    # 每篇故事末尾恰好一个结束标记，数一数就是故事篇数，顺便检查文件能读回；
+    # 分块计数，全量约 5 亿 token 时也不会多占 0.5 GB 内存
+    n_train_stories = count_token(out_dir / "train.bin", tokenizer.eot_id)
+    n_val_stories = count_token(out_dir / "val.bin", tokenizer.eot_id)
 
     info = {
         "mode": "sample" if args.sample else "full",

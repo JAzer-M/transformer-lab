@@ -4,24 +4,24 @@
 
 ## 当前状态
 
-更新时间：2026-11-01 12:12（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-01 12:53（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M2 任务 B 已提交到 m2-data（未合并 main、未推送）：测试全绿，Mac 上用 V2 valid 小样本端到端跑通（准备数据 → 10 步训练 → 生成）；全量数据未下载 |
+| 项目阶段 | M2 任务 B 已经 Codex 审查（无需修复的确定问题），按其非阻塞建议修复了 EOT 计数内存；未合并 main。Mac 上用 V2 valid 小样本端到端跑通；Windows 真实数据冒烟与全量数据均未做 |
 | 本轮范围 | M2 任务 B：TinyStories V2 数据、HF 8192 词表、uint16 `.bin`、memmap 与 get_batch（决定见 PLAN「任务 B 的决定」） |
 | 实现方 | 任务 B：Claude Code（全部为 agent 实现，不涉及用户手写文件） |
-| 审查方 | Codex 运行结果由 Claude Code 于 Mac 核对（见交接记录）；M1 代码由 Claude Code review；任务 A 代码与测试未经其他 agent 审查，用户决定直接合并；任务 B 待 Codex 审查（入口见「Codex 审查入口（m2-data）」），尚未开始 |
-| Git 分支 / commit | m2-data（从 main 的 bd46e1a 分出），任务 B 全部改动已在 m2-data 上提交一次（哈希见 git log），未推送；main = origin/main = bd46e1a；m2-bpe = origin/m2-bpe = cc3dbec；`.idea/` 未提交 |
+| 审查方 | Codex 运行结果由 Claude Code 于 Mac 核对（见交接记录）；M1 代码由 Claude Code review；任务 A 代码与测试未经其他 agent 审查，用户决定直接合并；任务 B 已由 Codex 于 2026-11-01 12:30 在 Windows/WSL 审查（报告 docs/reviews/m2-data-6ecc28f.md），2 条非阻塞建议中 1 条已由 Claude Code 修复，另 1 条涉及用户手写的 trainer.py，留给用户 |
+| Git 分支 / commit | m2-data：本次修复在 ee22124（含 Codex 审查记录）之上提交一次，未推送；origin/m2-data = ee22124；main = origin/main = bd46e1a；m2-bpe = origin/m2-bpe = cc3dbec；`.idea/` 未提交 |
 | 本轮改动 | 新增 tokenizer/hf_bpe.py、data/batch.py、data/tinystories.py、data/loader.py、scripts/prepare_tinystories.py、configs/tinystories_smoke.yaml 与 4 份测试；修改 data/char.py（get_batch 改为再导出）、train/run.py、train/utils.py、scripts/sample.py；pyproject.toml 与 uv.lock 显式声明 huggingface-hub；docs/PLAN.md「任务 B 的决定」；用户手写文件未改 |
 | 工程代码与依赖 | PyTorch 2.9.1、NumPy、PyYAML 6.0.3、tokenizers 0.23.3、huggingface-hub 2.4.0（2026-11-01 起显式声明 `>=0.23,<3`）、pytest 9.1.1、ruff 0.17.2；uv.lock 已更新 |
 | 本机环境 | Mac（本轮）：macOS 26.6.2 arm64，Python 3.11.9，uv 0.13.5，工作目录 /Users/j/Desktop/transformer-lab。Windows（Codex 2026-10-30 记录）：Ubuntu 26.04.1 LTS / WSL2，RTX 5060 Laptop GPU 8151 MiB，uv 0.12.14，工作目录 /home/j/transformer-lab |
 | 范围与保护检查 | Codex 2026-10-30 记录：用户手写 attention/block/gpt/trainer、全部测试、两份 YAML、pyproject.toml 与 uv.lock 的 SHA-256 与原始提交快照一致；其后 M2 任务 A 已按用户同意修改 pyproject.toml 与 uv.lock（新增 tokenizers） |
-| pytest / 代码检查 | 最新完整 pytest 为 84 passed in 1.93s；ruff check 通过；format --check 为 51 files already formatted |
+| pytest / 代码检查 | 最新完整 pytest 为 85 passed in 1.68s（Mac）；ruff check 通过；format --check 为 52 files already formatted。Codex 在 WSL 上对 6ecc28f 实测 84 passed |
 | Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
 | 训练 / 实验 | M1-1：2000 步，10,750,080 参数；最终 train 1.3003 / val 1.5858，105,912 tokens/s，显存峰值 2596.54 MiB，训练 309.389s；结果表已追加真实数字 |
 | Windows / CUDA | GPU 自检、CUDA 张量分配、48 项测试、CPU 10 步与 GPU 正式训练均成功；全部正式步骤退出码 0，安装首轮为用户授权中断后再成功 |
-| 下一步 | Codex 按「Codex 审查入口（m2-data）」review；Claude Code 按其意见修复后，用户授权再合并 main 并推送；然后任务 C（m2-infra）先给计划 |
+| 下一步 | 提交本次修复到 m2-data；用户决定是否合并 main 并推送；然后任务 C（m2-infra）先给计划。Windows 真实数据冒烟与全量准备放进任务 D 手册（需先确认代理可用） |
 
 ## 当前任务与下一步
 
@@ -644,25 +644,6 @@
 - 改动：审查入口第 1 条改为 Windows 的取代码方式；提交本文件后推送 m2-data 到 origin（新分支）。推送结果以远端 ref 为准。
 - Codex 审查的代码即 619bbdd；之后的提交只改本文件。
 
-## 后续交接模板
-
-每次结束或切换任务时，先更新当前状态，再在「交接记录」末尾追加一条。审查结果可以使用同一模板，署名实际审查者。
-
-```markdown
-### YYYY-MM-DD HH:MM（UTC+08:00）｜实际执行者｜任务
-
-- 范围与用户确认：本次任务、已确认的计划；实现方 / 审查方。
-- 工作区与设备：绝对路径；Mac 或 Windows/WSL；分支、commit、未提交改动。
-- 改动：文件与行为；关联计划、diff 或提交。
-- 本次验证：实际命令、退出码、结果摘要与证据位置。
-- 未验证与失败：未运行项、失败证据、当前限制；历史或转述结果注明来源。
-- 决策与原因：影响后续实现的选择；需要更正的旧记录与依据。
-- 审查状态：未请求 / 待审查 / 已审查；实际审查者、问题与修复状态。
-- 学习状态：用户仍需亲手实现或理解的内容。
-- 下一步：具体动作、负责人、所需确认或前置条件。
-```
-
-
 ### 2026-11-01 12:30（UTC+08:00）｜Codex｜m2-data 独立审查（Windows/WSL）
 
 - 范围与用户确认：用户要求在 Ubuntu 再次拉取 GitHub、读取 Claude 规范并 review；已按本文件「Codex 审查入口（m2-data）」执行。实现方为 Claude Code；主审查与运行验证为 Codex，另由 Codex 子 agent review_standards / review_spec 分别只读检查规范与需求。
@@ -683,3 +664,33 @@
 - 验证与保护：代码未变，沿用同一源码版本已通过的 pytest（84 passed）、ruff 与行为对照；本次检查文档链接、git diff --check 和暂存范围。用户手写文件、超参数、测试、依赖与实验表均不改动，数据和 runs 不提交。
 - 交接：Claude 在 Mac 上拉取 m2-data 后，读取本文件末尾两条记录与完整报告。真实 valid 冒烟和全量资源验证尚待补做，不将其写成通过；是否合并由用户决定。
 - Git：本次沿用仓库已有作者 J <j@JdeMacBook-Air.local>，仅通过单次命令参数传入，不配置全局身份。实际提交哈希、推送成功与否以 Git 日志和远端 ref 为准。
+
+### 2026-11-01 12:53（UTC+08:00）｜Claude Code｜读取 Codex 审查并修复 EOT 计数内存
+
+- 范围与用户确认：用户要求拉取并读取 Codex 的审查结果；Claude Code 汇报后用户选择“按计划修复”。实现方 Claude Code，审查方 Codex（上两条）。
+- 工作区与设备：Mac，/Users/j/Desktop/transformer-lab；`git pull --ff-only` 把 m2-data 从 6ecc28f 快进到 ee22124（Codex 只新增 `docs/reviews/m2-data-6ecc28f.md` 与本文件两条记录，未改源码、测试、配置）。
+- 审查状态：Codex 结论为规范、需求两轴均无需要修复的确定问题，另有 2 条非阻塞建议。① `prepare_tinystories.py` 用 `(memmap == eot_id).sum()` 统计篇数，会生成与文件等长的布尔数组：Claude Code 实测比较结果为 ndarray、每个 token 1 字节，全量约 5.4 亿 token 时额外约 0.5 GiB，属实，已修复；② `trainer.py` 第 20–21 行的 `torch.Tensor` 注解与实际可能传入的 memmap 不一致：用户手写文件，未改，留给用户自行决定。
+- 改动：先写 `test_count_token_does_not_depend_on_chunk_size`（分块大小 1、7、1000 时 EOT 计数都等于篇数，另数一个普通字节），确认因 `count_token` 不存在而失败（`runs/m2-data/15-`）；在 `tinystories.py` 新增 `count_token(path, token_id, chunk_size=1 << 24)` 分块计数；`prepare_tinystories.py` 改为调用它（不再导入 open_tokens）。整理本文件：Codex 的两条记录原写在「后续交接模板」一节之后，现把模板移回文件末尾，两条记录内容一字未改。
+- 本次验证：pytest 85 passed in 1.68s、ruff check 通过、format --check 为 52 files already formatted（`16-`）。Mac 上重跑 `prepare_tinystories.py --sample`（文件已存在，未联网，`17-`），vocab_size、eot_id、train/val 的 token 数与篇数与修复前 info.json 完全一致。tracemalloc 实测（`18-`）：在 4,868,032 个 token 的 train.bin 上，整体比较额外峰值 4.72 MiB，每块 2^20 个时为 1.06 MiB，篇数都是 24,867。
+- 未验证与失败：Codex 在 Windows 上因网络不通（HF 请求 `Network is unreachable`，curl 超时，系统代理未开启）未能做真实 valid 冒烟；全量下载、编码的内存与耗时及 huggingface-hub 0.23 下限均未实测。这些留到任务 D 的 Windows 手册，执行前需确认代理可用。
+- 决策与原因：huggingface-hub 下限暂不改——项目用 `uv sync --locked` 安装，实际使用的是锁定且测过的 2.4.0。
+- 学习状态：Codex 自测题——uint16 为什么转 int64、移动 get_batch 后要保持哪些随机数行为、为什么 memmap 上的 `==` 仍会分配整长数组——待用户回答。
+- 下一步：按用户确认的计划把本次修复提交到 m2-data（哈希见 git log，未推送）；用户决定是否合并 main 并推送；然后任务 C（m2-infra）先给计划。
+
+## 后续交接模板
+
+每次结束或切换任务时，先更新当前状态，再在「交接记录」末尾追加一条。审查结果可以使用同一模板，署名实际审查者。
+
+```markdown
+### YYYY-MM-DD HH:MM（UTC+08:00）｜实际执行者｜任务
+
+- 范围与用户确认：本次任务、已确认的计划；实现方 / 审查方。
+- 工作区与设备：绝对路径；Mac 或 Windows/WSL；分支、commit、未提交改动。
+- 改动：文件与行为；关联计划、diff 或提交。
+- 本次验证：实际命令、退出码、结果摘要与证据位置。
+- 未验证与失败：未运行项、失败证据、当前限制；历史或转述结果注明来源。
+- 决策与原因：影响后续实现的选择；需要更正的旧记录与依据。
+- 审查状态：未请求 / 待审查 / 已审查；实际审查者、问题与修复状态。
+- 学习状态：用户仍需亲手实现或理解的内容。
+- 下一步：具体动作、负责人、所需确认或前置条件。
+```

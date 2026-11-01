@@ -153,3 +153,15 @@ def write_tokens(
 def open_tokens(path: Path) -> np.memmap:
     # 只读映射：不把整个文件读进内存，取 batch 时才从硬盘读用到的几段
     return np.memmap(path, dtype=np.uint16, mode="r")  # (N,)
+
+
+def count_token(path: Path, token_id: int, chunk_size: int = 1 << 24) -> int:
+    """数 path 中 token_id 出现了几次；分块比较，额外内存只有一块那么大。"""
+    data = open_tokens(path)  # (N,)
+    total = 0
+    for start in range(0, len(data), chunk_size):
+        # data == token_id 会得到和 data 一样长的布尔数组（每个元素 1 字节）；
+        # 一次只比较一块，布尔数组就只有 chunk_size 长（默认约 1600 万，16 MB）
+        block = data[start : start + chunk_size]  # (≤ chunk_size,)
+        total += int((block == token_id).sum())
+    return total
