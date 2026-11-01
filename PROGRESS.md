@@ -661,3 +661,25 @@
 - 学习状态：用户仍需亲手实现或理解的内容。
 - 下一步：具体动作、负责人、所需确认或前置条件。
 ```
+
+
+### 2026-11-01 12:30（UTC+08:00）｜Codex｜m2-data 独立审查（Windows/WSL）
+
+- 范围与用户确认：用户要求在 Ubuntu 再次拉取 GitHub、读取 Claude 规范并 review；已按本文件「Codex 审查入口（m2-data）」执行。实现方为 Claude Code；主审查与运行验证为 Codex，另由 Codex 子 agent review_standards / review_spec 分别只读检查规范与需求。
+- 工作区与版本：/home/j/transformer-lab，WSL2 Ubuntu、Python 3.12.14、PyTorch 2.9.1+cu128 / CUDA 12.8；git fetch origin 后创建跟踪分支 m2-data，再 git pull --ff-only origin m2-data，确认 HEAD = origin/m2-data = 6ecc28f712ca3175dccc1533b1f45f0663eb0522；固定基线 bd46e1a783ea544ef03c0803a3868702c8a938e4，18 个文件，实际代码提交 619bbdd。审查开始及本条追加前 tracked 工作区均干净。
+- 审查结论：规范轴 0 个、需求轴 0 个需要修复的确定问题，未发现阻塞合并的问题。用户手写 attention/block/gpt/trainer/bpe、全部旧测试、两份旧配置、实验结果表共 18 个受保护文件与基线逐字节一致；新 smoke 配置除 data_dir/out_dir 外参数一致；无大文件入 Git。
+- 本次实际验证：uv sync --locked 退出 0；uv run --locked pytest -q 为 84 passed in 5.66s、退出 0；ruff check 退出 0；ruff format --check 退出 0、51 files already formatted；git diff --check 通过。证据在 runs/m2_data_review_6ecc28f/01–04、07。
+- 补充行为验证：直接加载 main 基线的 get_batch 作为参考，40 种种子 × 5 种形状 × 连续 3 次，共 600 组，旧实现、新张量路径与 memmap 路径逐个相同且返回连续 int64 张量；真实 RTX 5060 上 CUDA 转移与 CPU 一致；9 组故事边界（CRLF、内部空行、空文件、同行/连续分隔符等）、Unicode/EOT 还原及逐篇追加 EOT、固定 revision 参数与本地校验均通过。下载行为探针使用临时假下载，不能当作真实联网成功，详见 06-behavior-probes.txt。
+- 未验证与失败：真实 --sample 在 HF HEAD 请求报 [Errno 101] Network is unreachable，定向 SIGINT 停止无效重试，命令退出 130，原始错误保留于 05-prepare-sample.txt。Windows curl 下载同一固定 revision 的 valid 文件也连接超时（退出 28，HTTP 000，0 字节）；当前系统代理关闭、7897 无监听，本轮未启动代理或改网络设置。因此本轮未完成真实 valid 数据准备、原样 10 步冒烟与 sample.py 生成；pytest 中的合成数据 3 步集成测试通过，但不替代真实冒烟。Claude Mac 记录仍仅为历史证据。没有全量下载、正式训练或新增实验数字。
+- 非阻塞建议：prepare_tinystories.py:73/75 的全长 EOT 布尔掩码按约 5.4 亿 token 估算额外约 0.54 GB，正式全量运行需测峰值，尚未实证 OOM；trainer.py:20/21 的 Tensor 注解可由用户后续补上 memmap 支持，本轮未改用户文件。全量耗时/内存与 huggingface-hub 0.23 下限版本未验证，不把这些待测项认定为已通过或确定缺陷。
+- 改动与保护：只追加本条，原 PROGRESS 内容完整保留；未编辑源码、测试、配置、依赖声明和实验结果表。父工作区新增 M2_DATA_REVIEW.md，副本在忽略目录 runs/m2_data_review_6ecc28f/REVIEW.md。本轮未提交、推送或合并，未创建/修改全局 Git 身份。
+- 学习与下一步：理解 uint16→int64、随机流可复现性及 memmap 临时数组分配。网络恢复后补真实 valid 冒烟，任务 D 实测全量资源；用户决定是否合并。此条为本轮最新审查状态，不改写顶部及历史记录。
+
+
+### 2026-11-01 12:46（UTC+08:00）｜Codex｜按用户要求提交 m2-data 审查报告
+
+- 用户确认：用户要求提交本次审查结果，供 Claude 拉取读取；本次仅将审查文档提交并推送到 m2-data，不合并 main。
+- 范围：归档完整报告 [docs/reviews/m2-data-6ecc28f.md](docs/reviews/m2-data-6ecc28f.md)，并保留上一条完整审查记录；本条只追加，不改写已有 PROGRESS 内容。报告涵盖两个审查轴、84 项测试与补充探针、网络失败和未验证项。
+- 验证与保护：代码未变，沿用同一源码版本已通过的 pytest（84 passed）、ruff 与行为对照；本次检查文档链接、git diff --check 和暂存范围。用户手写文件、超参数、测试、依赖与实验表均不改动，数据和 runs 不提交。
+- 交接：Claude 在 Mac 上拉取 m2-data 后，读取本文件末尾两条记录与完整报告。真实 valid 冒烟和全量资源验证尚待补做，不将其写成通过；是否合并由用户决定。
+- Git：本次沿用仓库已有作者 J <j@JdeMacBook-Air.local>，仅通过单次命令参数传入，不配置全局身份。实际提交哈希、推送成功与否以 Git 日志和远端 ref 为准。
