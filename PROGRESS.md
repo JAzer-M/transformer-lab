@@ -4,31 +4,31 @@
 
 ## 当前状态
 
-更新时间：2026-11-01 11:26（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-01 12:01（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M2 任务 A 完成并快进合并到 main：用户手写 BPE 通过测试；保存加载与 HF 对照已实现，莎士比亚对照压缩率差 0.67%（≤5%），两边无损还原 |
-| 本轮范围 | M2 任务 A：手写 byte-level BPE（用户写核心，Claude Code 写测试、保存加载、对照脚本） |
-| 实现方 | 任务 A 核心：用户；测试与外围：Claude Code |
+| 项目阶段 | M2 任务 B 已提交到 m2-data（未合并 main、未推送）：测试全绿，Mac 上用 V2 valid 小样本端到端跑通（准备数据 → 10 步训练 → 生成）；全量数据未下载 |
+| 本轮范围 | M2 任务 B：TinyStories V2 数据、HF 8192 词表、uint16 `.bin`、memmap 与 get_batch（决定见 PLAN「任务 B 的决定」） |
+| 实现方 | 任务 B：Claude Code（全部为 agent 实现，不涉及用户手写文件） |
 | 审查方 | Codex 运行结果由 Claude Code 于 Mac 核对（见交接记录）；M1 代码由 Claude Code review；任务 A 代码与测试未经其他 agent 审查，用户决定直接合并 |
-| Git 分支 / commit | m2-bpe = cc3dbec；main 由 c881061 快进到 cc3dbec，再加一个只改本文件的记录提交；推送 main 与 m2-bpe 的结果以远端 ref 为准；`.idea/` 未提交 |
-| 本轮改动 | docs/PLAN.md「M2 实施计划」；新增依赖 tokenizers 0.23.3；用户新增 bpe.py；Claude Code 新增 bpe_io.py、hf_compare.py、scripts/compare_bpe.py、tests/test_bpe.py、tests/test_bpe_io.py |
-| 工程代码与依赖 | PyTorch 2.9.1、NumPy、PyYAML 6.0.3、tokenizers 0.23.3（连带 huggingface-hub 2.4.0 等）、pytest 9.1.1、ruff 0.17.2；uv.lock 已更新 |
+| Git 分支 / commit | m2-data（从 main 的 bd46e1a 分出），任务 B 全部改动已在 m2-data 上提交一次（哈希见 git log），未推送；main = origin/main = bd46e1a；m2-bpe = origin/m2-bpe = cc3dbec；`.idea/` 未提交 |
+| 本轮改动 | 新增 tokenizer/hf_bpe.py、data/batch.py、data/tinystories.py、data/loader.py、scripts/prepare_tinystories.py、configs/tinystories_smoke.yaml 与 4 份测试；修改 data/char.py（get_batch 改为再导出）、train/run.py、train/utils.py、scripts/sample.py；pyproject.toml 与 uv.lock 显式声明 huggingface-hub；docs/PLAN.md「任务 B 的决定」；用户手写文件未改 |
+| 工程代码与依赖 | PyTorch 2.9.1、NumPy、PyYAML 6.0.3、tokenizers 0.23.3、huggingface-hub 2.4.0（2026-11-01 起显式声明 `>=0.23,<3`）、pytest 9.1.1、ruff 0.17.2；uv.lock 已更新 |
 | 本机环境 | Mac（本轮）：macOS 26.6.2 arm64，Python 3.11.9，uv 0.13.5，工作目录 /Users/j/Desktop/transformer-lab。Windows（Codex 2026-10-30 记录）：Ubuntu 26.04.1 LTS / WSL2，RTX 5060 Laptop GPU 8151 MiB，uv 0.12.14，工作目录 /home/j/transformer-lab |
 | 范围与保护检查 | Codex 2026-10-30 记录：用户手写 attention/block/gpt/trainer、全部测试、两份 YAML、pyproject.toml 与 uv.lock 的 SHA-256 与原始提交快照一致；其后 M2 任务 A 已按用户同意修改 pyproject.toml 与 uv.lock（新增 tokenizers） |
-| pytest / 代码检查 | 最新完整 pytest 为 60 passed in 1.54s；ruff check 通过；format --check 为 42 files already formatted |
+| pytest / 代码检查 | 最新完整 pytest 为 84 passed in 1.93s；ruff check 通过；format --check 为 51 files already formatted |
 | Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
 | 训练 / 实验 | M1-1：2000 步，10,750,080 参数；最终 train 1.3003 / val 1.5858，105,912 tokens/s，显存峰值 2596.54 MiB，训练 309.389s；结果表已追加真实数字 |
 | Windows / CUDA | GPU 自检、CUDA 张量分配、48 项测试、CPU 10 步与 GPU 正式训练均成功；全部正式步骤退出码 0，安装首轮为用户授权中断后再成功 |
-| 下一步 | 任务 B（m2-data，从 main 分出）：先给计划等用户确认；核实 TinyStories 文件名与大小、HF tokenizers 8k 词表、uint16 memmap 与 get_batch |
+| 下一步 | 合并前由 Codex review m2-data（或用户决定直接合并），用户授权后合并 main 并推送；然后任务 C（m2-infra）先给计划 |
 
 ## 当前任务与下一步
 
 - 计划位置：`docs/PLAN.md` 的「M2」及「M2 实施计划（2026-10-31 用户确认）」。M0、M1 已完成并合并 main（c881061），M1-1 结果见 `experiments/results.md`。
 - M2 顺序：A 手写 BPE（m2-bpe）→ B TinyStories 数据（m2-data）→ C 训练基建（m2-infra）→ D 基线训练（Codex 在 5060 上）。
 - 已确认：BPE 核心由用户手写；与 HF 对照看无损还原与压缩率差 ≤5%；新增 tokenizers；TinyStories 仅 Windows 全量下载；梯度累积、裁剪与学习率调用由用户改 trainer.py；模型大小待实测吞吐后再定（计划例子约 14.0M 参数）。
-- 用户手写文件（不得由 agent 修改）：attention.py、block.py、gpt.py、trainer.py，以及即将编写的 tokenizer/bpe.py。
+- 用户手写文件（不得由 agent 修改）：attention.py、block.py、gpt.py、trainer.py、tokenizer/bpe.py。
 - M1 自测第 1 题（多头形状）与第 4 题（残差梯度、Pre/Post-LN）为部分掌握，建议择机复测；Pre/Post-LN 的实证留给 A2。
 
 ## Codex 接手入口（Windows 正式训练，2026-10-30）
@@ -572,6 +572,44 @@
 - 本次验证：main 在 cc3dbec 上 pytest 60 passed in 1.61s，ruff check 通过，format --check 显示 42 files already formatted（`runs/m2-bpe/13-main-after-merge-checks.txt`）。
 - 保留：m2-bpe 分支保留，停在 cc3dbec；main 比它多本条记录这一个提交。
 - 下一步：任务 B（m2-data）先给计划。
+
+### 2026-11-01 11:43（UTC+08:00）｜Claude Code｜任务 B 计划确认
+
+- 核实（HF API，数据集 revision f54c09fd，lastModified 2024-08-12）：`TinyStoriesV2-GPT4-train.txt` 2,227,753,162 B，SHA-256 `6418d412de72888f52b5142c761ac21a582f7d1166f0bfbdb5f03ccfdec90443`；`TinyStoriesV2-GPT4-valid.txt` 22,502,601 B，SHA-256 `6874bae9a4c1a4e7edcf0e53b86c17817e9cf881fc75ff2368da457b80c0585d`；V1 train 1,924,281,556 B、valid 19,447,282 B。只读取了 V2 valid 开头约 1.5 KB 查看格式（故事之间用单独一行的 `<|endoftext|>` 分隔，夹有空行），未下载完整文件。
+- 估算（未实测）：V2 训练集约 5–6 亿 token（按约 4 字节/token），`train.bin` 约 1.0–1.2 GB；若整体读成 int64 约需 4.4 GB 内存，因此改用 memmap。
+- 答疑：用户表示看不懂计划，已用通俗说法讲解项目目标、M2 与任务 B 的作用，以及 Mac 与 Windows 分工（小训练可在 Mac 跑，写进结果表的正式数字在 5060 上跑）。
+- 用户确认（AskUserQuestion 四项均选推荐）：数据用 V2；先用 GPT-2 正则预分词；Mac 下载 V2 valid 做端到端冒烟；trainer.py 不改，get_batch 移到 data/batch.py。词表 8192 在完整训练集上训练、冒烟配置照抄 tiny_smoke 超参数两项未单独提问，按计划默认执行，已在答复中告知用户。决定已写入 PLAN「任务 B 的决定」。
+- 改动：`git switch -c m2-data`（从 main bd46e1a）；PLAN.md、本文件。未写代码与测试。
+- 下一步：测试先行。
+
+### 2026-11-01 11:48（UTC+08:00）｜Claude Code｜任务 B 测试先行（红灯）
+
+- 用户确认“开始写测试”。新增 4 份测试，共 22 个：
+  - `tests/test_hf_bpe.py`（7）：词表大小 = 256 字节 + 1 个结束标记 + 合并次数；任意文本（换行、连续空格、中文、emoji）无损还原；`<|endoftext|>` 编码为单个 token 且解码保留；片段不跨词（不存在“非空白 + 空格”的片段，用来区分是否开启 GPT-2 正则预分词）；encode_batch 与逐条 encode 一致；训练两次结果一致；保存加载后编码一致。
+  - `tests/test_tinystories_data.py`（8）：按 `<|endoftext|>` 拆故事（开头分隔符、空行、分隔符与文字同行、结尾无分隔符）；写 `.bin` 时每篇后加 EOT；结果与分块大小无关；重跑覆盖旧文件而非追加；词表超过 65536 报错；memmap 只读、dtype uint16；下载校验大小与 SHA-256；SOURCE_FILES 与 HF 核实的文件名、大小、哈希一致。
+  - `tests/test_batch.py`（4）：同种子下 memmap 与张量取到相同 batch；y 是 x 后移一位；大于 32767 的 uint16 编号读成正数；`char.get_batch is batch.get_batch`。
+  - `tests/test_data_loader.py`（3）：字符级目录加载为 CharTokenizer 与张量；BPE 目录加载为 HFTokenizer 与 memmap；run() 在 BPE 目录上训练 3 步，checkpoint 的 vocab_size 来自 tokenizer.json。
+- 接口约定：`tlab.tokenizer.hf_bpe` 提供 `EOT`、`train_hf_tokenizer(texts, vocab_size)`、`HFTokenizer`（`vocab_size`、`eot_id`、`encode`、`encode_batch`、`decode`、`save`、`load`）；`tlab.data.tinystories` 提供 `iter_stories`、`write_tokens(stories, tokenizer, path, chunk_size)`、`open_tokens`、`verify_file`、`SOURCE_FILES`；`tlab.data.batch.get_batch`；`tlab.data.loader` 提供 `load_tokenizer`、`load_splits`。计划中未列出的 `loader.py` 是为让 run.py 与 sample.py 共用加载逻辑而加。
+- 本次验证：pytest 22 failed, 60 passed（`runs/m2-data/01-pytest-red.txt`），22 个失败均为 ModuleNotFoundError / ImportError；原有 60 个测试通过。ruff check 报 1 个 I001（`tests/test_data_loader.py` 中尚不存在的 `tlab.data.loader` 被当作第三方模块排序，`02-`），与 M1 时 test_trainer 的情况相同，模块建好后复查；format --check 通过。
+- 未做：实现代码、测试有效性检查（需实现后进行）。
+
+### 2026-11-01 11:59（UTC+08:00）｜Claude Code｜任务 B 实现、测试转绿与 Mac 冒烟
+
+- 用户确认“开始写实现”。实现：`tokenizer/hf_bpe.py`（ByteLevel 预分词 use_regex=True，特殊 token `<|endoftext|>`，解码保留特殊 token）；`data/batch.py`（get_batch 同时支持张量与 memmap，起点抽取与 M1 相同，x、y 为连续张量）；`data/tinystories.py`（SOURCE_FILES 与固定 revision、verify_file、download、iter_stories、write_tokens、open_tokens）；`data/loader.py`；`char.py` 删去 get_batch 定义、改为 `from tlab.data.batch import get_batch as get_batch` 再导出；`run.py`、`sample.py` 改用 loader；`utils.py` 改从 batch 导入并放宽类型标注。用户手写的 attention/block/gpt/trainer/bpe 与原有测试文件 `git diff` 为空。
+- 测试修改（均为本任务新写、尚未提交的测试）：① `test_iter_stories_splits_on_eot_and_skips_blanks` 的输入有误——"B." 与 "Last one" 之间缺分隔符，按约定的行为本应合成一篇，已在两者之间补一行 `<|endoftext|>`，断言未改；② 有效性检查发现“改变起点抽取范围”无法被抓到（memmap 与张量走同一函数，会一起错），新增 `test_starts_are_drawn_exactly_as_in_m1`；③ Mac 首次下载失败后新增 `test_download_skips_network_when_file_exists`。新测试共 24 个。
+- 本次验证：pytest 84 passed（`runs/m2-data/07-`，补测后为 84）；ruff check、format --check 通过。测试有效性（`04-`、`06-`，scratchpad 复制 src 后注入 11 种错误实现）：关闭正则预分词、解码丢 EOT、不加 EOT、追加写、不查词表上限、只认独占一行的分隔符、memmap 可写、不校验哈希、按 int16 读、改起点范围、BPE 目录按字符级加载，补测后 11/11 被抓到。与 main 上 M1 的 get_batch 对照（`05-`）：20 个种子 × 3 种形状 × 连续 5 次共 300 组 batch 逐个相同且为连续张量。tiny_smoke 用 main 代码与新代码各跑一次（`12-`），metrics.csv 完全相同（val 3.8944）。
+- Mac 下载问题与修正：首次运行 `prepare_tinystories.py --sample` 报 `ImportError: Using SOCKS proxy, but the 'socksio' package is not installed`（本机 `ALL_PROXY` 为 socks5，HTTPS_PROXY 为 http；curl 可正常访问）。未安装新包、未改系统代理设置；改 `download()` 为文件已存在时只核对不联网（原 docstring 已如此承诺，实现未做到），本次运行用 `env -u ALL_PROXY -u all_proxy` 让下载走 HTTP 代理。Windows 若遇同样问题，可同样处理或手动下载到 `data/tinystories/raw/` 后重跑。
+- Mac 冒烟（`08-`–`11-`）：下载 V2 valid 22,502,601 B 并通过 SHA-256 核对；27,630 篇中前 24,867 篇训练词表（8192，EOT id 0，0.7s）并写入 train.bin 4,868,032 token，后 2,763 篇写入 val.bin 543,395 token，编码 1.1s；约 4.16 字节/token（含分隔符）。27,630 篇真实故事逐篇编码解码全部一致；"Once upon a time, there was a little girl named Lily." 为 13 个 token；train.bin 中 EOT 个数 = 训练篇数。`tinystories_smoke.yaml` 训练 10 步：288,064 参数，step 0 val 9.0168（≈ ln 8192 = 9.011）→ step 9 val 8.7450，CPU 8,917 tokens/s；sample.py 用 BPE 词表生成，输出为乱词（10 步预期如此）。`data/` 未出现在 git status 中。
+- 估算更新（未实测）：按 4.16 字节/token，V2 训练集约 5.4 亿 token、train.bin 约 1.07 GB；全量词表在训练集上训练，实际压缩率可能略有不同。
+- 待用户决定：`download()` 直接导入 `huggingface_hub`，它目前只是 tokenizers 的间接依赖（`huggingface-hub>=0.16.4,<3.0`），建议在 pyproject 显式声明。
+- 未做：提交、其他 agent 审查、Windows 全量下载与编码（属任务 D 手册）。
+
+### 2026-11-01 12:01（UTC+08:00）｜Claude Code｜声明 huggingface-hub 并提交 m2-data
+
+- 用户授权：用户选择“声明依赖并提交”；未授权合并与推送。
+- 依赖：`uv add "huggingface-hub>=0.23,<3"`（`runs/m2-data/13-`）。pyproject 多一行依赖；uv.lock 只多出 transformer-lab 的 dependencies 与 requires-dist 两行，未新增或升级任何包，`uv pip freeze` 前后一致（仍为 2.4.0）。下限取 0.23：此后 `local_dir` 下载直接把文件放在目录中，代码依赖这一点；实际只在 2.4.0 上验证过。
+- 本次验证：提交前 pytest 84 passed、ruff check 通过、format --check 通过（`14-precommit-checks.txt`）。
+- 提交范围：任务 B 的源码、脚本、配置、4 份测试、pyproject.toml、uv.lock、PLAN.md 与本文件；`.idea/`、`data/`、`runs/` 不提交。
 
 ## 后续交接模板
 

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import torch
 
-from tlab.data.char import CharTokenizer, load_ids
+from tlab.data.loader import load_splits, load_tokenizer
 from tlab.device import get_device
 from tlab.model.gpt import GPT, GPTConfig, count_parameters
 from tlab.train.config import TrainConfig
@@ -24,11 +24,10 @@ def run(config: TrainConfig) -> Path:
     torch.manual_seed(config.seed)
     device = get_device() if config.device == "auto" else torch.device(config.device)
 
-    # 数据：字表决定 vocab_size
+    # 数据：词表决定 vocab_size；字符级整个读进内存，BPE 用 memmap 按需读
     data_dir = Path(config.data_dir)
-    tokenizer = CharTokenizer.load(data_dir / "meta.json")
-    train_data = load_ids(data_dir / "train.bin")  # (N_train,)
-    val_data = load_ids(data_dir / "val.bin")  # (N_val,)
+    tokenizer = load_tokenizer(data_dir)
+    train_data, val_data = load_splits(data_dir)  # (N_train,), (N_val,)
 
     # 模型与优化器
     model_config = GPTConfig(

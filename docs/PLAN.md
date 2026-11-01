@@ -198,6 +198,13 @@ CPU 训练 10 步依赖 M1 的最小模型与可运行训练路径。相关代�
 - 模型大小以实测吞吐为准：计划例子（6 层、d_model 384、6 头、上下文 512、8k 词表）按公式约为 13,969,152 参数，而非 20M；先用该配置在 5060 上短跑测吞吐，再按“1–2 小时内完成”确定层数、宽度与步数，调整前需用户确认。
 - 上下文 512 时注意力表每层每份约 96 MB（bf16，batch 32），batch 不足时用梯度累积补足。
 
+任务 B 的决定（2026-11-01 用户确认）：
+
+- 数据用 TinyStories V2（`TinyStoriesV2-GPT4-train.txt` / `-valid.txt`，全部由 GPT-4 生成）；验证集直接用官方 valid 文件，不从训练集切分。
+- 正式词表用 HF `tokenizers` 训练：字节级 BPE，先用 GPT-2 正则预分词，总大小 8192（含 `<|endoftext|>`），在完整训练集上训练。编码时每篇故事末尾加 `<|endoftext|>`。
+- Mac 只下载 V2 valid（约 21.5 MiB）做端到端冒烟；全量下载与编码写入任务 D 的 Windows 手册，由 Codex 执行。冒烟配置 `configs/tinystories_smoke.yaml` 的超参数与 `tiny_smoke.yaml` 相同，只改 `data_dir` 与 `out_dir`。
+- `get_batch` 移到 `src/tlab/data/batch.py`，同时支持张量与 `np.memmap`，起点抽取方式与 M1 相同；`char.py` 保留同名导入，用户手写的 `trainer.py` 不改。
+
 ### M3 现代组件 + 消融（W3）——MVP 关口
 
 1. 实现 RoPE、RMSNorm、SwiGLU、GQA/MQA、KV cache，全部可通过配置开关切换。

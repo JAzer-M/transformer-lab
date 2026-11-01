@@ -1,10 +1,13 @@
-"""字符级分词、数据切分与批次采样（Tiny Shakespeare 用）。"""
+"""字符级分词与数据切分（Tiny Shakespeare 用）；批次采样见 batch.py。"""
 
 import json
 from pathlib import Path
 
 import numpy as np
 import torch
+
+# get_batch 已移到 batch.py；trainer.py 等仍从这里导入，保留同名的再导出
+from tlab.data.batch import get_batch as get_batch
 
 
 class CharTokenizer:
@@ -59,21 +62,3 @@ def save_ids(ids: torch.Tensor, path: Path) -> None:
 def load_ids(path: Path) -> torch.Tensor:
     # 读回 uint16，再转成 embedding 需要的 int64
     return torch.from_numpy(np.fromfile(path, dtype=np.uint16).astype(np.int64))  # (N,)
-
-
-def get_batch(
-    data: torch.Tensor,
-    batch_size: int,
-    block_size: int,
-    generator: torch.Generator | None = None,
-    device: torch.device | str = "cpu",
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """随机截取 batch_size 段长为 block_size 的文本；y 是 x 往后挪一位。"""
-    assert len(data) > block_size, "数据长度必须大于 block_size"
-    # 起点最大取 len - block_size - 1，保证 y 的最后一个位置不越界
-    starts = torch.randint(
-        len(data) - block_size, (batch_size,), generator=generator
-    )  # (B,)
-    x = torch.stack([data[s : s + block_size] for s in starts])  # (B, T)
-    y = torch.stack([data[s + 1 : s + 1 + block_size] for s in starts])  # (B, T)
-    return x.to(device), y.to(device)

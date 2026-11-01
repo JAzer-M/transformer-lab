@@ -683,6 +683,7 @@ name = "transformer-lab"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "huggingface-hub" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pyyaml" },
@@ -699,6 +700,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "huggingface-hub", specifier = ">=0.23,<3" },
     { name = "numpy", specifier = ">=1.26,<3" },
     { name = "pyyaml", specifier = ">=6,<7" },
     { name = "tokenizers", specifier = ">=0.20,<1" },

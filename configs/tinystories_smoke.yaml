@@ -1,0 +1,20 @@
+# 冒烟测试：Mac 上用 TinyStories V2 valid 小样本跑通 BPE 数据流程，只检查流程能跑通
+# 先运行 scripts/prepare_tinystories.py --sample；超参数与 tiny_smoke.yaml 相同，只改两个目录
+data_dir: data/tinystories_sample
+out_dir: runs/tinystories_smoke
+
+n_layers: 2
+n_heads: 2
+d_model: 32
+block_size: 32
+
+batch_size: 8
+learning_rate: 1.0e-3
+weight_decay: 0.01
+max_iters: 10
+
+eval_interval: 5
+eval_iters: 2
+
+seed: 1337
+device: cpu

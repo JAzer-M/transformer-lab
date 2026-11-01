@@ -7,11 +7,12 @@ import subprocess
 from dataclasses import asdict
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
 
-from tlab.data.char import get_batch
+from tlab.data.batch import get_batch
 from tlab.train.config import TrainConfig
 
 
@@ -31,8 +32,8 @@ def cross_entropy_loss(logits: torch.Tensor, targets: torch.Tensor) -> torch.Ten
 @torch.no_grad()
 def estimate_loss(
     model: nn.Module,
-    train_data: torch.Tensor,
-    val_data: torch.Tensor,
+    train_data: torch.Tensor | np.ndarray,
+    val_data: torch.Tensor | np.ndarray,
     config: TrainConfig,
     device: torch.device,
 ) -> dict[str, float]:

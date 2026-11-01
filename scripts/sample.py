@@ -3,6 +3,8 @@
 用法：
     uv run python scripts/sample.py --ckpt runs/shakespeare_char/ckpt.pt
     uv run python scripts/sample.py --ckpt ... --prompt "ROMEO:" --temperature 0.8
+    uv run python scripts/sample.py --ckpt runs/tinystories_smoke/ckpt.pt \
+        --prompt "Once upon a time"
 """
 
 import argparse
@@ -10,7 +12,7 @@ from pathlib import Path
 
 import torch
 
-from tlab.data.char import CharTokenizer
+from tlab.data.loader import load_tokenizer
 from tlab.device import get_device
 from tlab.eval.generate import generate
 from tlab.model.gpt import GPT, GPTConfig
@@ -43,8 +45,8 @@ def main() -> None:
     ).to(device)
     model.load_state_dict(ckpt["model"])
 
-    # 字表来自训练时的数据目录
-    tokenizer = CharTokenizer.load(Path(config["data_dir"]) / "meta.json")
+    # 词表来自训练时的数据目录：字符级是 meta.json，BPE 是 tokenizer.json
+    tokenizer = load_tokenizer(Path(config["data_dir"]))
     prompt = torch.tensor([tokenizer.encode(args.prompt)], device=device)  # (1, T)
     generator = torch.Generator(device=device).manual_seed(args.seed)
 
