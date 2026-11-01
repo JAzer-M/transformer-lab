@@ -4,24 +4,24 @@
 
 ## 当前状态
 
-更新时间：2026-11-01 14:03（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-01 14:09（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M2 任务 A、B 已合并 main：任务 B 经 Codex 审查（无需修复的确定问题），已按其非阻塞建议修复 EOT 计数内存。Mac 上用 V2 valid 小样本端到端跑通；Windows 真实数据冒烟与全量数据均未做。任务 C 已提交到 m2-infra（未合并、未推送）：用户写的学习率、梯度累积、裁剪通过测试，agent 加入续训外围并改 run.py；经 code-review 自查后修复了 cosine 终点与 3 个续训边界问题，109 个测试全过 |
-| 本轮范围 | M2 任务 C：学习率调度、梯度累积、梯度裁剪、断点续训（决定见 PLAN「任务 C 的决定」） |
-| 实现方 | 任务 C：调度、存档、日志、run.py、续训外围由 Claude Code；trainer.py 中学习率调用、梯度累积、梯度裁剪由用户 |
-| 审查方 | Codex 运行结果由 Claude Code 于 Mac 核对（见交接记录）；M1 代码由 Claude Code review；任务 A 代码与测试未经其他 agent 审查，用户决定直接合并；任务 B 已由 Codex 于 2026-11-01 12:30 在 Windows/WSL 审查（报告 docs/reviews/m2-data-6ecc28f.md），2 条非阻塞建议中 1 条已由 Claude Code 修复，另 1 条涉及用户手写的 trainer.py，留给用户 |
-| Git 分支 / commit | m2-infra（从 main 的 da3b515 分出），任务 C 已提交一次（哈希见 git log），未推送；main = origin/main = da3b515；m2-data = origin/m2-data = 2ba9784；`.idea/` 未提交 |
-| 本轮改动 | config.py 新字段；新增 train/schedule.py；utils.py 的 RunLogger lr 列与续训追加、save_checkpoint/load_checkpoint；trainer.py（用户写学习率、梯度累积、裁剪；agent 加标注的续训外围）；run.py 读档、续训与 tokens 统计；新增 tests/test_schedule.py、test_checkpoint.py、test_trainer_loop.py；PLAN「任务 C 的决定」 |
+| 项目阶段 | M2 任务 A、B、C 已合并 main（8056ac0）。任务 D（TinyStories 基线训练）手册与吞吐短跑配置已写好，在 m2-baseline 分支，等 Codex 在 Windows 上执行；Windows 上尚未用真实 TinyStories 数据跑过任何一步 |
+| 本轮范围 | M2 任务 D：全量数据准备 → 吞吐短跑 → 用户确认正式配置 → 1–2 小时基线训练 → 生成样例（手册 docs/m2-windows-run.md） |
+| 实现方 | 任务 D：手册与短跑配置由 Claude Code；Windows 上执行由 Codex；正式配置由用户在短跑后确认 |
+| 审查方 | Codex 运行结果由 Claude Code 于 Mac 核对（见交接记录）；M1 代码由 Claude Code review；任务 A 代码与测试未经其他 agent 审查，用户决定直接合并；任务 B 已由 Codex 于 2026-11-01 12:30 在 Windows/WSL 审查（报告 docs/reviews/m2-data-6ecc28f.md），2 条非阻塞建议中 1 条已由 Claude Code 修复，另 1 条涉及用户手写的 trainer.py，已由用户改完类型标注；任务 C 经 Claude 自己的 code-review 子 agent 自查（13:58 记录），用户决定不再请 Codex 审查、直接合并 |
+| Git 分支 / commit | main = origin/main = m2-infra = origin/m2-infra = 8056ac0；m2-baseline 从 main 分出，含任务 D 手册与短跑配置（提交与推送结果以 git log 和远端 ref 为准）；`.idea/` 未提交 |
+| 本轮改动 | 新增 docs/m2-windows-run.md（任务 D 手册）、configs/tinystories_probe.yaml（吞吐短跑，PLAN 的例子模型，参数量 13,969,152）；本文件新增「Codex 接手入口（M2 任务 D）」 |
 | 工程代码与依赖 | PyTorch 2.9.1、NumPy、PyYAML 6.0.3、tokenizers 0.23.3、huggingface-hub 2.4.0（2026-11-01 起显式声明 `>=0.23,<3`）、pytest 9.1.1、ruff 0.17.2；uv.lock 已更新 |
 | 本机环境 | Mac（本轮）：macOS 26.6.2 arm64，Python 3.11.9，uv 0.13.5，工作目录 /Users/j/Desktop/transformer-lab。Windows（Codex 2026-10-30 记录）：Ubuntu 26.04.1 LTS / WSL2，RTX 5060 Laptop GPU 8151 MiB，uv 0.12.14，工作目录 /home/j/transformer-lab |
 | 范围与保护检查 | Codex 2026-10-30 记录：用户手写 attention/block/gpt/trainer、全部测试、两份 YAML、pyproject.toml 与 uv.lock 的 SHA-256 与原始提交快照一致；其后 M2 任务 A 已按用户同意修改 pyproject.toml 与 uv.lock（新增 tokenizers） |
-| pytest / 代码检查 | m2-infra（Mac）：109 passed in 2.03s；ruff check 通过；format --check 为 56 files already formatted |
+| pytest / 代码检查 | main（8056ac0，Mac）：`uv sync --locked` 成功，109 passed in 2.12s，ruff check 通过，format --check 为 56 files already formatted |
 | Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
 | 训练 / 实验 | M1-1：2000 步，10,750,080 参数；最终 train 1.3003 / val 1.5858，105,912 tokens/s，显存峰值 2596.54 MiB，训练 309.389s；结果表已追加真实数字 |
 | Windows / CUDA | GPU 自检、CUDA 张量分配、48 项测试、CPU 10 步与 GPU 正式训练均成功；全部正式步骤退出码 0，安装首轮为用户授权中断后再成功 |
-| 下一步 | 合并 m2-infra 前是否请 Codex 审查由用户决定；然后任务 D（基线训练手册：Windows 全量数据准备、吞吐短跑、由用户确认模型大小与超参数）。Windows 真实数据冒烟与全量准备放进任务 D 手册（需先确认代理可用） |
+| 下一步 | 用户在 Codex 中按「Codex 接手入口（M2 任务 D）」执行；Codex 在手册第 4 步停下，把短跑的 tokens/s 与显存交给用户确认正式配置后再训练。之后 Claude Code 在 Mac 上 pull 核对结果，判断 M2 验收与是否合并 |
 
 ## 当前任务与下一步
 
@@ -50,7 +50,16 @@
 - 技能流程与 `AGENTS.md` 冲突时以 `AGENTS.md` 为准，例如：用户手写文件不由 agent 改、先计划后代码、只记录真实结果。
 - 这两个是 Claude 账号插件，Codex 不使用；Codex 的接手与审查流程不变。
 
+## Codex 接手入口（M2 任务 D：TinyStories 基线训练，2026-11-01）
+
+1. 在 WSL2 Ubuntu 的 `~/transformer-lab` 中工作：`git fetch origin && git switch m2-baseline && git pull --ff-only`。先读 `AGENTS.md`、`docs/PLAN.md`、本文件「当前状态」。
+2. 严格按 `docs/m2-windows-run.md` 执行：环境检查（预期 109 passed）→ 网络检查 → 全量数据准备 → 两次吞吐短跑（`configs/tinystories_probe.yaml`，batch 16 与 32）→ **第 4 步停下，把实测数字交给用户确认正式配置** → 用户确认后才写 `configs/tinystories_base.yaml` 并正式训练 → 生成样例 → 回写结果。
+3. 不改超参数、已有配置与用户手写文件；网络不通时请用户开代理或决定是否用镜像，不改系统网络设置；出错、OOM、loss NaN 或发散时立即停止并记录原文，不自行调参。
+4. 结果写入 `experiments/m2_tinystories_base/`，正式训练正常完成后在 `experiments/results.md` 追加 M2-1 一行，并在本文件追加署名 Codex 的交接记录；提交与推送前征得用户同意。
+
 ## Codex 接手入口（Windows 正式训练，2026-10-30）
+
+> 2026-11-01 注：本节是 M1 的入口，已执行完毕，保留作为历史；M2 任务 D 见上一节。
 
 1. 在 WSL2 Ubuntu 中工作，目录放在 `~` 下；`git clone` 后 `git checkout m1-generate`。先读 `AGENTS.md`、`docs/PLAN.md`、本文件顶部「当前状态」。
 2. 严格按 `docs/m1-windows-run.md` 的第 1–5 步执行：uv sync → GPU 自检 → pytest（预期 48 passed）→ 准备数据（核对 sha256）→ tiny_smoke → shakespeare_char 正式训练（首行必须是 `设备 cuda，参数量 10,750,080`）→ sample。
@@ -760,6 +769,16 @@
 - 本次验证：pytest 109 passed in 2.03s，ruff check、format --check（56 files）通过（`14-`）。把 6 处修复分别改回原样，6/6 被测试抓到（`15-`）。tiny_smoke 用 main 代码与修复后代码各跑一次，step/train/val 三列逐字相同（`16-`）。
 - 提交：用户授权“修完再提交”，提交到 m2-infra（哈希见 git log），未推送、未合并。
 - 下一步：合并前是否请 Codex 审查由用户决定；然后任务 D（基线训练手册）。
+
+### 2026-11-01 14:09（UTC+08:00）｜Claude Code｜m2-infra 合并 main 并推送，编写任务 D 手册
+
+- 用户确认：用户要求“直接合并并推送”，不再请 Codex 审查任务 C；并要求把需要 Codex 做的事直接写进文档，之后由用户在 Codex 上操作。
+- 合并：`git fetch` 后确认 main = origin/main = da3b515 且为 m2-infra 的祖先；`git merge --ff-only m2-infra`，main 快进到 8056ac0。在 main 上 `uv sync --locked` 成功，pytest 109 passed in 2.12s，ruff check 与 format --check 通过（`runs/m2-infra/17-`）。推送后 main = origin/main = m2-infra = origin/m2-infra = 8056ac0。
+- 任务 D 准备：从 main 新建 m2-baseline；新增 `docs/m2-windows-run.md`（环境检查 → 网络检查 → 全量数据准备 → 两次吞吐短跑 → 第 4 步停下等用户确认正式配置 → 正式训练与 3 个样例 → 回写结果），新增 `configs/tinystories_probe.yaml`（PLAN 的例子模型：6 层、6 头、d_model 384、上下文 512、8192 词表；batch 16、200 步、只在首尾评估，仅测吞吐与显存）。手册中的正式超参数表是 Claude Code 的建议，标明尚未确认，需用户在短跑后确认；`tinystories_base.yaml` 未创建。
+- 本次验证：在 Mac 上用 V2 valid 小样本读取 probe 配置并在 CPU 上跑 2 步（命令行临时覆盖 data_dir、out_dir、max_iters、device，仅用于检查配置能跑，不是实验）：参数量 13,969,152，第 0 步 val 9.0957（≈ ln 8192），CPU 约 1,210 tokens/s（`runs/m2-infra/18-`）。pytest 109 passed。
+- 估算（未实测）：显存按 M1 实测 2597 MB 外推，batch 16 约 3 GB，batch 32 约 5–6 GB；全量训练集约 5.4 亿 token。
+- 交接：Codex 按「Codex 接手入口（M2 任务 D）」执行；Claude Code 之后在 Mac 上 pull 核对结果。M1 的旧入口已加注为历史。
+- 提交：用户授权把任务 D 文档交给 Codex，因此提交并推送 m2-baseline（哈希与推送结果以 git log 和远端 ref 为准）。
 
 ## 后续交接模板
 
