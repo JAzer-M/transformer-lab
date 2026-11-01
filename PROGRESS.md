@@ -4,24 +4,24 @@
 
 ## 当前状态
 
-更新时间：2026-11-01 12:53（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-01 12:55（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M2 任务 B 已经 Codex 审查（无需修复的确定问题），按其非阻塞建议修复了 EOT 计数内存；未合并 main。Mac 上用 V2 valid 小样本端到端跑通；Windows 真实数据冒烟与全量数据均未做 |
+| 项目阶段 | M2 任务 A、B 已合并 main：任务 B 经 Codex 审查（无需修复的确定问题），已按其非阻塞建议修复 EOT 计数内存。Mac 上用 V2 valid 小样本端到端跑通；Windows 真实数据冒烟与全量数据均未做。下一个是任务 C |
 | 本轮范围 | M2 任务 B：TinyStories V2 数据、HF 8192 词表、uint16 `.bin`、memmap 与 get_batch（决定见 PLAN「任务 B 的决定」） |
 | 实现方 | 任务 B：Claude Code（全部为 agent 实现，不涉及用户手写文件） |
 | 审查方 | Codex 运行结果由 Claude Code 于 Mac 核对（见交接记录）；M1 代码由 Claude Code review；任务 A 代码与测试未经其他 agent 审查，用户决定直接合并；任务 B 已由 Codex 于 2026-11-01 12:30 在 Windows/WSL 审查（报告 docs/reviews/m2-data-6ecc28f.md），2 条非阻塞建议中 1 条已由 Claude Code 修复，另 1 条涉及用户手写的 trainer.py，留给用户 |
-| Git 分支 / commit | m2-data：本次修复在 ee22124（含 Codex 审查记录）之上提交一次，未推送；origin/m2-data = ee22124；main = origin/main = bd46e1a；m2-bpe = origin/m2-bpe = cc3dbec；`.idea/` 未提交 |
+| Git 分支 / commit | m2-data = 2ba9784；main 由 bd46e1a 快进到 2ba9784，再加一个只改本文件的记录提交；推送 main 与 m2-data 的结果以远端 ref 为准；m2-bpe = origin/m2-bpe = cc3dbec；`.idea/` 未提交 |
 | 本轮改动 | 新增 tokenizer/hf_bpe.py、data/batch.py、data/tinystories.py、data/loader.py、scripts/prepare_tinystories.py、configs/tinystories_smoke.yaml 与 4 份测试；修改 data/char.py（get_batch 改为再导出）、train/run.py、train/utils.py、scripts/sample.py；pyproject.toml 与 uv.lock 显式声明 huggingface-hub；docs/PLAN.md「任务 B 的决定」；用户手写文件未改 |
 | 工程代码与依赖 | PyTorch 2.9.1、NumPy、PyYAML 6.0.3、tokenizers 0.23.3、huggingface-hub 2.4.0（2026-11-01 起显式声明 `>=0.23,<3`）、pytest 9.1.1、ruff 0.17.2；uv.lock 已更新 |
 | 本机环境 | Mac（本轮）：macOS 26.6.2 arm64，Python 3.11.9，uv 0.13.5，工作目录 /Users/j/Desktop/transformer-lab。Windows（Codex 2026-10-30 记录）：Ubuntu 26.04.1 LTS / WSL2，RTX 5060 Laptop GPU 8151 MiB，uv 0.12.14，工作目录 /home/j/transformer-lab |
 | 范围与保护检查 | Codex 2026-10-30 记录：用户手写 attention/block/gpt/trainer、全部测试、两份 YAML、pyproject.toml 与 uv.lock 的 SHA-256 与原始提交快照一致；其后 M2 任务 A 已按用户同意修改 pyproject.toml 与 uv.lock（新增 tokenizers） |
-| pytest / 代码检查 | 最新完整 pytest 为 85 passed in 1.68s（Mac）；ruff check 通过；format --check 为 52 files already formatted。Codex 在 WSL 上对 6ecc28f 实测 84 passed |
+| pytest / 代码检查 | main 上（2ba9784，Mac）`uv sync --locked` 成功，pytest 85 passed in 1.67s，ruff check 通过，format --check 为 52 files already formatted。Codex 在 WSL 上对 6ecc28f 实测 84 passed |
 | Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
 | 训练 / 实验 | M1-1：2000 步，10,750,080 参数；最终 train 1.3003 / val 1.5858，105,912 tokens/s，显存峰值 2596.54 MiB，训练 309.389s；结果表已追加真实数字 |
 | Windows / CUDA | GPU 自检、CUDA 张量分配、48 项测试、CPU 10 步与 GPU 正式训练均成功；全部正式步骤退出码 0，安装首轮为用户授权中断后再成功 |
-| 下一步 | 提交本次修复到 m2-data；用户决定是否合并 main 并推送；然后任务 C（m2-infra）先给计划。Windows 真实数据冒烟与全量准备放进任务 D 手册（需先确认代理可用） |
+| 下一步 | 任务 C（m2-infra，从 main 分出）先给计划：warmup + cosine 学习率、checkpoint 保存恢复由 agent 写；梯度累积、梯度裁剪与主循环调用学习率由用户改 trainer.py。Windows 真实数据冒烟与全量准备放进任务 D 手册（需先确认代理可用） |
 
 ## 当前任务与下一步
 
@@ -676,6 +676,16 @@
 - 决策与原因：huggingface-hub 下限暂不改——项目用 `uv sync --locked` 安装，实际使用的是锁定且测过的 2.4.0。
 - 学习状态：Codex 自测题——uint16 为什么转 int64、移动 get_batch 后要保持哪些随机数行为、为什么 memmap 上的 `==` 仍会分配整长数组——待用户回答。
 - 下一步：按用户确认的计划把本次修复提交到 m2-data（哈希见 git log，未推送）；用户决定是否合并 main 并推送；然后任务 C（m2-infra）先给计划。
+- 结果：已提交为 2ba9784。
+
+### 2026-11-01 12:55（UTC+08:00）｜Claude Code｜m2-data 合并到 main 并推送
+
+- 用户确认：用户要求“合并并推送”。
+- 操作：`git fetch origin` 后确认 main = origin/main = bd46e1a 且为 m2-data 的祖先、origin/m2-data（ee22124）为本地 m2-data 的祖先；`git switch main`、`git merge --ff-only m2-data`，main 快进到 2ba9784，无合并提交。随后在 main 上提交本条记录，再推送 main 与 m2-data。推送结果以远端 ref 为准。
+- 本次验证：main 在 2ba9784 上 `uv sync --locked` 成功，pytest 85 passed in 1.67s，ruff check 通过，format --check 为 52 files already formatted（`runs/m2-data/19-main-after-merge-checks.txt`）。
+- 保留：m2-data 分支保留，停在 2ba9784；main 比它多本条记录这一个提交。
+- 未验证：Windows 上的真实数据冒烟、全量数据准备与资源占用（留给任务 D）。
+- 下一步：任务 C（m2-infra）先给计划。
 
 ## 后续交接模板
 
