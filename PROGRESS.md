@@ -4,14 +4,14 @@
 
 ## 当前状态
 
-更新时间：2026-11-01 12:01（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-01 12:12（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
 | 项目阶段 | M2 任务 B 已提交到 m2-data（未合并 main、未推送）：测试全绿，Mac 上用 V2 valid 小样本端到端跑通（准备数据 → 10 步训练 → 生成）；全量数据未下载 |
 | 本轮范围 | M2 任务 B：TinyStories V2 数据、HF 8192 词表、uint16 `.bin`、memmap 与 get_batch（决定见 PLAN「任务 B 的决定」） |
 | 实现方 | 任务 B：Claude Code（全部为 agent 实现，不涉及用户手写文件） |
-| 审查方 | Codex 运行结果由 Claude Code 于 Mac 核对（见交接记录）；M1 代码由 Claude Code review；任务 A 代码与测试未经其他 agent 审查，用户决定直接合并 |
+| 审查方 | Codex 运行结果由 Claude Code 于 Mac 核对（见交接记录）；M1 代码由 Claude Code review；任务 A 代码与测试未经其他 agent 审查，用户决定直接合并；任务 B 待 Codex 审查（入口见「Codex 审查入口（m2-data）」），尚未开始 |
 | Git 分支 / commit | m2-data（从 main 的 bd46e1a 分出），任务 B 全部改动已在 m2-data 上提交一次（哈希见 git log），未推送；main = origin/main = bd46e1a；m2-bpe = origin/m2-bpe = cc3dbec；`.idea/` 未提交 |
 | 本轮改动 | 新增 tokenizer/hf_bpe.py、data/batch.py、data/tinystories.py、data/loader.py、scripts/prepare_tinystories.py、configs/tinystories_smoke.yaml 与 4 份测试；修改 data/char.py（get_batch 改为再导出）、train/run.py、train/utils.py、scripts/sample.py；pyproject.toml 与 uv.lock 显式声明 huggingface-hub；docs/PLAN.md「任务 B 的决定」；用户手写文件未改 |
 | 工程代码与依赖 | PyTorch 2.9.1、NumPy、PyYAML 6.0.3、tokenizers 0.23.3、huggingface-hub 2.4.0（2026-11-01 起显式声明 `>=0.23,<3`）、pytest 9.1.1、ruff 0.17.2；uv.lock 已更新 |
@@ -21,7 +21,7 @@
 | Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
 | 训练 / 实验 | M1-1：2000 步，10,750,080 参数；最终 train 1.3003 / val 1.5858，105,912 tokens/s，显存峰值 2596.54 MiB，训练 309.389s；结果表已追加真实数字 |
 | Windows / CUDA | GPU 自检、CUDA 张量分配、48 项测试、CPU 10 步与 GPU 正式训练均成功；全部正式步骤退出码 0，安装首轮为用户授权中断后再成功 |
-| 下一步 | 合并前由 Codex review m2-data（或用户决定直接合并），用户授权后合并 main 并推送；然后任务 C（m2-infra）先给计划 |
+| 下一步 | Codex 按「Codex 审查入口（m2-data）」review；Claude Code 按其意见修复后，用户授权再合并 main 并推送；然后任务 C（m2-infra）先给计划 |
 
 ## 当前任务与下一步
 
@@ -37,6 +37,26 @@
 2. 严格按 `docs/m1-windows-run.md` 的第 1–5 步执行：uv sync → GPU 自检 → pytest（预期 48 passed）→ 准备数据（核对 sha256）→ tiny_smoke → shakespeare_char 正式训练（首行必须是 `设备 cuda，参数量 10,750,080`）→ sample。
 3. 不改超参数、配置与用户手写文件；出错、CUDA 不可用、loss NaN 或发散时立即停止并记录原文，不自行调参。
 4. 结果写入 `experiments/m1_shakespeare_char/`（run.json、metrics.csv、控制台输出、样例、env_check.txt），在 `experiments/results.md` 追加一行真实数字，并在本文件追加交接记录；提交与推送前征得用户同意。
+
+## Codex 审查入口（m2-data，2026-11-01）
+
+角色：审查方。只列问题，不修改代码、不提交、不推送；修复由实现方 Claude Code 完成。
+
+1. 准备：读 `AGENTS.md`、`docs/PLAN.md` 的「M2 实施计划」与「任务 B 的决定」、本文件「当前状态」及交接记录中 2026-11-01 11:43 起的各条。本次在 Windows/WSL 上审查：在 `~/transformer-lab` 中 `git fetch origin && git switch m2-data`，确认与 `origin/m2-data` 一致。代码改动全部在 619bbdd，其后只有本文件的文档提交。
+2. 范围：`git diff main...m2-data`（main = bd46e1a），18 个文件。核心是 `src/tlab/data/{batch,tinystories,loader,char}.py`、`src/tlab/tokenizer/hf_bpe.py`、`src/tlab/train/{run,utils}.py`、`scripts/{prepare_tinystories,sample}.py`、`configs/tinystories_smoke.yaml`、4 份新测试（test_hf_bpe、test_tinystories_data、test_batch、test_data_loader）、pyproject.toml 与 uv.lock。
+3. 重点检查：
+   - 规范：是否违反 AGENTS.md——用户手写的 attention/block/gpt/trainer/bpe 是否被改；原有测试断言是否被改；形状注释；是否改了已有配置的超参数；大文件是否进 git。
+   - 可复现：`batch.get_batch` 与 main 上 M1 的 `get_batch` 是否对任意种子逐个相同；x、y 是否为连续张量（`cross_entropy_loss` 用 `view`）；uint16 → int64 与 device 转移。
+   - 拆故事：`iter_stories` 对同一行多个分隔符、分隔符前后有空白、CRLF、空文件、故事内部空行的处理；`strip()` 是否会去掉有意义的内容。
+   - 编码写盘：`write_tokens` 的分块、覆盖写、uint16 上限，以及 2 GB 全量时的内存与耗时；每篇是否恰好一个 EOT。
+   - 词表：`ByteLevel(add_prefix_space=False, use_regex=True)` 与特殊 token 的处理（故事正文若出现字面 `<|endoftext|>` 会怎样）；`decode` 保留特殊 token 的影响；训练是否可复现。
+   - 下载：固定 revision；文件已存在时只核对不联网（下载中断留下残缺文件时，报错是否清楚）；`hf_hub_download` 的 `local_dir` 行为与 `huggingface-hub>=0.23,<3` 的下限是否合理；`HF_ENDPOINT` 镜像；Mac 上 SOCKS 代理的处理（见 11:59 记录）。
+   - 全量模式：`prepare_tinystories.py` 对训练集读两遍、词表在完整训练集上训练、`info.json` 的字段，在 WSL 上可能出问题的地方（内存、耗时、路径）。
+   - 加载：`loader` 以 `tokenizer.json` 是否存在区分格式是否稳妥；`run.py`、`sample.py` 的改动；`trainer.py` 的类型标注与实际传入的 memmap 不一致（用户手写，只提建议）。
+   - 测试：是否真正覆盖行为；有无脆弱断言（如依赖 HF 训练的确定性、vocab_size 恰为 300）；有无该测未测的情况。
+   - 有无不必要的复杂度。
+4. 可运行的检查（只做小规模，不做全量下载）：`uv sync`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`；可选 `uv run python scripts/prepare_tinystories.py --sample` 与 `uv run python scripts/train.py --config configs/tinystories_smoke.yaml`。Mac 上若 `ALL_PROXY` 为 socks5，命令前加 `env -u ALL_PROXY -u all_proxy`。
+5. 输出：按严重程度（高 / 中 / 低）列问题，每条写明文件与行号、触发条件与后果、建议修法；查过未发现问题的检查项也写一句。在本文件交接记录末尾追加一条署名 Codex 的记录（只追加，不改已有内容），注明实际运行了哪些命令及其结果。
 
 ## Claude Code 接手入口（2026-10-27）
 
@@ -610,6 +630,19 @@
 - 依赖：`uv add "huggingface-hub>=0.23,<3"`（`runs/m2-data/13-`）。pyproject 多一行依赖；uv.lock 只多出 transformer-lab 的 dependencies 与 requires-dist 两行，未新增或升级任何包，`uv pip freeze` 前后一致（仍为 2.4.0）。下限取 0.23：此后 `local_dir` 下载直接把文件放在目录中，代码依赖这一点；实际只在 2.4.0 上验证过。
 - 本次验证：提交前 pytest 84 passed、ruff check 通过、format --check 通过（`14-precommit-checks.txt`）。
 - 提交范围：任务 B 的源码、脚本、配置、4 份测试、pyproject.toml、uv.lock、PLAN.md 与本文件；`.idea/`、`data/`、`runs/` 不提交。
+- 结果：已提交为 619bbdd（18 files changed, 901 insertions, 40 deletions），未推送。
+
+### 2026-11-01 12:12（UTC+08:00）｜Claude Code｜请求 Codex 审查 m2-data
+
+- 用户选择合并前先由 Codex review。本机 PATH 中没有 `codex` 命令，审查由用户在 Codex 中发起，Claude Code 未代为运行。
+- 改动：本文件新增「Codex 审查入口（m2-data，2026-11-01）」，写明审查范围、重点、可运行的检查与输出格式；更新「当前状态」。本条与该入口尚未提交（m2-data 的 HEAD 仍为 619bbdd）。
+- 约定：Codex 审查期间 Claude Code 不改动工作区；Codex 只列问题并追加署名记录，修复由 Claude Code 完成。
+
+### 2026-11-01 12:16（UTC+08:00）｜Claude Code｜为 Windows 审查提交并推送 m2-data
+
+- 用户选择由 Codex 在 Windows 上审查。此前已说明这需要提交审查入口并推送 m2-data，用户据此作出选择，视为授权提交与推送 m2-data；未授权合并 main。
+- 改动：审查入口第 1 条改为 Windows 的取代码方式；提交本文件后推送 m2-data 到 origin（新分支）。推送结果以远端 ref 为准。
+- Codex 审查的代码即 619bbdd；之后的提交只改本文件。
 
 ## 后续交接模板
 
