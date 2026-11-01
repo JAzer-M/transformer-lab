@@ -4,15 +4,15 @@
 
 ## 当前状态
 
-更新时间：2026-11-01 11:23（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-01 11:26（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M2 任务 A 已提交到 m2-bpe（未合并 main、未推送）：用户手写 BPE 通过测试；保存加载与 HF 对照已实现，莎士比亚对照压缩率差 0.67%（≤5%），两边无损还原 |
+| 项目阶段 | M2 任务 A 完成并快进合并到 main：用户手写 BPE 通过测试；保存加载与 HF 对照已实现，莎士比亚对照压缩率差 0.67%（≤5%），两边无损还原 |
 | 本轮范围 | M2 任务 A：手写 byte-level BPE（用户写核心，Claude Code 写测试、保存加载、对照脚本） |
 | 实现方 | 任务 A 核心：用户；测试与外围：Claude Code |
-| 审查方 | Codex 运行结果由 Claude Code 于 Mac 核对（见交接记录）；M1 代码由 Claude Code review；任务 A 代码与测试尚无其他 agent 审查 |
-| Git 分支 / commit | m2-bpe（从 main 的 c881061 分出），任务 A 全部改动已在 m2-bpe 上提交一次（哈希见 git log）；`.idea/` 未提交；main = origin/main = c881061；m2-bpe 未推送 |
+| 审查方 | Codex 运行结果由 Claude Code 于 Mac 核对（见交接记录）；M1 代码由 Claude Code review；任务 A 代码与测试未经其他 agent 审查，用户决定直接合并 |
+| Git 分支 / commit | m2-bpe = cc3dbec；main 由 c881061 快进到 cc3dbec，再加一个只改本文件的记录提交；推送 main 与 m2-bpe 的结果以远端 ref 为准；`.idea/` 未提交 |
 | 本轮改动 | docs/PLAN.md「M2 实施计划」；新增依赖 tokenizers 0.23.3；用户新增 bpe.py；Claude Code 新增 bpe_io.py、hf_compare.py、scripts/compare_bpe.py、tests/test_bpe.py、tests/test_bpe_io.py |
 | 工程代码与依赖 | PyTorch 2.9.1、NumPy、PyYAML 6.0.3、tokenizers 0.23.3（连带 huggingface-hub 2.4.0 等）、pytest 9.1.1、ruff 0.17.2；uv.lock 已更新 |
 | 本机环境 | Mac（本轮）：macOS 26.6.2 arm64，Python 3.11.9，uv 0.13.5，工作目录 /Users/j/Desktop/transformer-lab。Windows（Codex 2026-10-30 记录）：Ubuntu 26.04.1 LTS / WSL2，RTX 5060 Laptop GPU 8151 MiB，uv 0.12.14，工作目录 /home/j/transformer-lab |
@@ -21,7 +21,7 @@
 | Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
 | 训练 / 实验 | M1-1：2000 步，10,750,080 参数；最终 train 1.3003 / val 1.5858，105,912 tokens/s，显存峰值 2596.54 MiB，训练 309.389s；结果表已追加真实数字 |
 | Windows / CUDA | GPU 自检、CUDA 张量分配、48 项测试、CPU 10 步与 GPU 正式训练均成功；全部正式步骤退出码 0，安装首轮为用户授权中断后再成功 |
-| 下一步 | 合并前由另一个 agent review m2-bpe（或用户决定直接合并），用户授权后合并 main 并推送；然后任务 B（m2-data）：核实 TinyStories 文件名与大小、HF tokenizers 8k 词表、uint16 memmap 与 get_batch |
+| 下一步 | 任务 B（m2-data，从 main 分出）：先给计划等用户确认；核实 TinyStories 文件名与大小、HF tokenizers 8k 词表、uint16 memmap 与 get_batch |
 
 ## 当前任务与下一步
 
@@ -564,6 +564,14 @@
 - 本次验证：提交前 pytest 60 passed、ruff check 通过、format --check 通过（`runs/m2-bpe/12-precommit-checks.txt`）。
 - 提交范围：PLAN.md、本文件、pyproject.toml、uv.lock、bpe.py、bpe_io.py、hf_compare.py、scripts/compare_bpe.py、tests/test_bpe.py、tests/test_bpe_io.py；`.idea/` 不提交。
 - 下一步：合并前由另一个 agent review，或用户决定直接合并；之后进入任务 B（m2-data）。
+
+### 2026-11-01 11:26（UTC+08:00）｜Claude Code｜m2-bpe 合并到 main 并推送
+
+- 用户授权：提交后用户选择“直接合并并推送”，不等其他 agent review；任务 A 的代码与测试因此未经交叉审查。
+- 操作：`git fetch origin` 后确认 main = origin/main = c881061，且是 m2-bpe 的祖先；`git switch main`、`git merge --ff-only m2-bpe`，main 快进到 cc3dbec，无合并提交。随后在 main 上提交本条记录，再推送 main 与 m2-bpe。推送结果以远端 ref 为准。
+- 本次验证：main 在 cc3dbec 上 pytest 60 passed in 1.61s，ruff check 通过，format --check 显示 42 files already formatted（`runs/m2-bpe/13-main-after-merge-checks.txt`）。
+- 保留：m2-bpe 分支保留，停在 cc3dbec；main 比它多本条记录这一个提交。
+- 下一步：任务 B（m2-data）先给计划。
 
 ## 后续交接模板
 
