@@ -180,6 +180,24 @@ CPU 训练 10 步依赖 M1 的最小模型与可运行训练路径。相关代�
 
 验收：单次训练 1–2 小时内完成，生成连贯英文短故事，loss 曲线和吞吐有记录。
 
+#### M2 实施计划（2026-10-31 用户确认）
+
+原有 M2 任务与验收保留，实施按四个分支依次推进，每个分支从 `main` 分出；实际进度见 `PROGRESS.md`。
+
+| 任务 | 分支 | 内容 | 实现方 |
+| --- | --- | --- | --- |
+| A 手写 BPE | `m2-bpe` | `src/tlab/tokenizer/bpe.py` 的 `get_stats`、`merge`、`BPETokenizer.train/encode/decode`（字节级、无预分词，并列时取最先出现的一对）；保存加载与对照脚本 | 核心由用户手写；测试、保存加载、对照脚本由 agent 写 |
+| B TinyStories 数据 | `m2-data` | 下载 `roneneldan/TinyStories`（约 2 GB，下载前核实文件名与大小，仅在 Windows 上全量下载）；HF `tokenizers` 训练 8k 词表；编码为 uint16 `.bin`；`np.memmap` 读取与 get_batch | agent |
+| C 训练基建 | `m2-infra` | warmup + cosine 学习率与 checkpoint 保存恢复（含优化器、步数、随机数状态）由 agent 写；梯度累积、梯度裁剪及在主循环中调用学习率调度需改用户手写的 `trainer.py`，由用户写 | agent + 用户 |
+| D 基线训练 | 沿用 `m2-infra` 或单独分支 | 参照 `docs/m1-windows-run.md` 写手册，由 Codex 在 RTX 5060 上执行并回写结果 | Codex 执行，agent 核对 |
+
+已确认的决定：
+
+- 手写 BPE 与 HF BPE 的对照标准：两者都能无损还原；相同词表大小下压缩率（每 token 平均字节数）相差不超过 5%。不要求逐 token 一致（预分词与并列规则不同）。
+- 新增依赖 `tokenizers`；TinyStories 只在 Windows 上全量下载，Mac 只用小样本测试。
+- 模型大小以实测吞吐为准：计划例子（6 层、d_model 384、6 头、上下文 512、8k 词表）按公式约为 13,969,152 参数，而非 20M；先用该配置在 5060 上短跑测吞吐，再按“1–2 小时内完成”确定层数、宽度与步数，调整前需用户确认。
+- 上下文 512 时注意力表每层每份约 96 MB（bf16，batch 32），batch 不足时用梯度累积补足。
+
 ### M3 现代组件 + 消融（W3）——MVP 关口
 
 1. 实现 RoPE、RMSNorm、SwiGLU、GQA/MQA、KV cache，全部可通过配置开关切换。

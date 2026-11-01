@@ -4,36 +4,32 @@
 
 ## 当前状态
 
-更新时间：2026-10-31 11:59（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-01 11:23（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M1 完成并合并到 main：验收达成（5060 上 5.2 分钟，val 1.5856，样例有剧本格式）；M0 的 Mac 与 WSL 运行验收均有证据；自测第 1、4 题建议日后复测 |
-| 本轮范围 | 核对 Codex 的 Windows 结果、M1 自测、经用户授权把 m1-generate 快进合并到 main 并推送 |
-| 实现方 | M1 已结束；M2 尚未开始分工 |
-| 审查方 | Codex 运行结果由 Claude Code 于 Mac 核对（见交接记录）；M1 代码由 Claude Code review；测试无其他 agent 审查 |
-| Git 分支 / commit | main = 7c33947 + 测试导入顺序修复提交，已推送 origin/main；origin/m1-generate = 7c33947；M1 链式分支保留未删 |
-| 本轮改动 | 本文件：核对与自测记录、状态更新；合并 main |
-| 工程代码与依赖 | Python 3.12.14，torch 2.9.1+cu128 / CUDA 12.8，NumPy 2.5.4，PyYAML 6.0.3，pytest 9.1.1；uv sync --locked 成功，锁文件未变 |
-| 本机环境 | Ubuntu 26.04.1 LTS / WSL2，RTX 5060 Laptop GPU 8151 MiB；uv 0.12.14 (x86_64-unknown-linux-gnu)；工作目录 /home/j/transformer-lab；可见终端显示 runs/m1_windows/live.log |
-| 范围与保护检查 | 用户手写 attention/block/gpt/trainer、全部测试、两份 YAML、pyproject.toml 与 uv.lock 的 SHA-256 与原始提交快照一致；未修改全局 Git 或系统代理设置 |
-| pytest / 代码检查 | WSL 本次：48 passed in 4.86s，退出码 0；未重跑 ruff。结果与元数据检查通过；历史 Mac 的 ruff 结果仍仅属于历史验证 |
+| 项目阶段 | M2 任务 A 已提交到 m2-bpe（未合并 main、未推送）：用户手写 BPE 通过测试；保存加载与 HF 对照已实现，莎士比亚对照压缩率差 0.67%（≤5%），两边无损还原 |
+| 本轮范围 | M2 任务 A：手写 byte-level BPE（用户写核心，Claude Code 写测试、保存加载、对照脚本） |
+| 实现方 | 任务 A 核心：用户；测试与外围：Claude Code |
+| 审查方 | Codex 运行结果由 Claude Code 于 Mac 核对（见交接记录）；M1 代码由 Claude Code review；任务 A 代码与测试尚无其他 agent 审查 |
+| Git 分支 / commit | m2-bpe（从 main 的 c881061 分出），任务 A 全部改动已在 m2-bpe 上提交一次（哈希见 git log）；`.idea/` 未提交；main = origin/main = c881061；m2-bpe 未推送 |
+| 本轮改动 | docs/PLAN.md「M2 实施计划」；新增依赖 tokenizers 0.23.3；用户新增 bpe.py；Claude Code 新增 bpe_io.py、hf_compare.py、scripts/compare_bpe.py、tests/test_bpe.py、tests/test_bpe_io.py |
+| 工程代码与依赖 | PyTorch 2.9.1、NumPy、PyYAML 6.0.3、tokenizers 0.23.3（连带 huggingface-hub 2.4.0 等）、pytest 9.1.1、ruff 0.17.2；uv.lock 已更新 |
+| 本机环境 | Mac（本轮）：macOS 26.6.2 arm64，Python 3.11.9，uv 0.13.5，工作目录 /Users/j/Desktop/transformer-lab。Windows（Codex 2026-10-30 记录）：Ubuntu 26.04.1 LTS / WSL2，RTX 5060 Laptop GPU 8151 MiB，uv 0.12.14，工作目录 /home/j/transformer-lab |
+| 范围与保护检查 | Codex 2026-10-30 记录：用户手写 attention/block/gpt/trainer、全部测试、两份 YAML、pyproject.toml 与 uv.lock 的 SHA-256 与原始提交快照一致；其后 M2 任务 A 已按用户同意修改 pyproject.toml 与 uv.lock（新增 tokenizers） |
+| pytest / 代码检查 | 最新完整 pytest 为 60 passed in 1.54s；ruff check 通过；format --check 为 42 files already formatted |
 | Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
 | 训练 / 实验 | M1-1：2000 步，10,750,080 参数；最终 train 1.3003 / val 1.5858，105,912 tokens/s，显存峰值 2596.54 MiB，训练 309.389s；结果表已追加真实数字 |
 | Windows / CUDA | GPU 自检、CUDA 张量分配、48 项测试、CPU 10 步与 GPU 正式训练均成功；全部正式步骤退出码 0，安装首轮为用户授权中断后再成功 |
-| 下一步 | 规划 M2（手写 BPE、TinyStories 预处理、训练基建：bf16、梯度累积、warmup+cosine、梯度裁剪、断点续训等）：先列计划等用户确认；自测第 1、4 题择机复测 |
+| 下一步 | 合并前由另一个 agent review m2-bpe（或用户决定直接合并），用户授权后合并 main 并推送；然后任务 B（m2-data）：核实 TinyStories 文件名与大小、HF tokenizers 8k 词表、uint16 memmap 与 get_batch |
 
 ## 当前任务与下一步
 
-- 2026-10-30 18:09：用户已批准提交与推送，明确沿用 J <j@JdeMacBook-Air.local>；仅通过本次 git -c 参数传入，不写全局 Git 配置。
-- 2026-10-30 17:54：手册运行与归档已完成，M1-1 证据见 experiments/m1_shakespeare_char/；等待用户批准提交/推送及提供 Git 身份。以下旧条目按日期保留。
-- 2026-10-30 16:50 接手核对：Ubuntu 主目录代码已就绪，分支 m1-generate、提交 5454965；本轮只完成拉取、全文件阅读与静态检查，依赖安装和运行验收仍待执行。
-- 计划位置：`docs/PLAN.md` 的「M1 最小 GPT」。代码部分全部完成，剩余验收：5060 上训练出格式像剧本的文本、val loss 稳定下降。
-- 代码分支：`m1-attention`（ea88109）→ `m1-block`（555395a）→ `m1-gpt`（1b481bc）→ `m1-data`（39a0c13）→ `m1-train`（21d2f29）→ `m1-generate`（dbd7c78 及之后的文档提交），链式分出；远程 `origin` 为私有仓库 https://github.com/JAzer-M/transformer-lab ，已推送 `main` 与 `m1-generate`。M1 尚未合并 `main`，合并需用户读完 diff 后另行授权。
-- 用户手写：`attention.py`（多头因果注意力）、`block.py`（MLP + Pre-LN Block）、`gpt.py`（GPT）、`trainer.py`（`train()` 主循环）。Claude Code 编写：数据、训练外围、生成、全部测试。
-- Mac 验证：pytest 48 passed；ruff check 与 format 通过；tiny_smoke CPU 10 步跑通（val 4.1833 → 3.8944）。
-- 未完成：Windows/WSL GPU 自检、Windows 上 pytest 与 CPU 10 步（M0 剩余验收）；M1 正式训练与生成样例。执行手册见 `docs/m1-windows-run.md`。
-- 默认值提醒：AdamW weight_decay 0.01（作用于全部参数）、betas 默认；M1 不加 dropout；checkpoint 不含优化器状态；tokens/s 计时含评估。
+- 计划位置：`docs/PLAN.md` 的「M2」及「M2 实施计划（2026-10-31 用户确认）」。M0、M1 已完成并合并 main（c881061），M1-1 结果见 `experiments/results.md`。
+- M2 顺序：A 手写 BPE（m2-bpe）→ B TinyStories 数据（m2-data）→ C 训练基建（m2-infra）→ D 基线训练（Codex 在 5060 上）。
+- 已确认：BPE 核心由用户手写；与 HF 对照看无损还原与压缩率差 ≤5%；新增 tokenizers；TinyStories 仅 Windows 全量下载；梯度累积、裁剪与学习率调用由用户改 trainer.py；模型大小待实测吞吐后再定（计划例子约 14.0M 参数）。
+- 用户手写文件（不得由 agent 修改）：attention.py、block.py、gpt.py、trainer.py，以及即将编写的 tokenizer/bpe.py。
+- M1 自测第 1 题（多头形状）与第 4 题（残差梯度、Pre/Post-LN）为部分掌握，建议择机复测；Pre/Post-LN 的实证留给 A2。
 
 ## Codex 接手入口（Windows 正式训练，2026-10-30）
 
@@ -531,6 +527,43 @@
 - 操作：在 m1-generate 提交本文件（核对、自测与本条记录），`git switch main` 后 `git merge --ff-only m1-generate`（main 277661b 为 m1-generate 祖先，快进无合并提交），在 main 上复跑 pytest 与 ruff 后推送 main 与 m1-generate。具体结果见下一条或 git 日志与远端 ref。
 - 保留：m1-attention、m1-block、m1-gpt、m1-data、m1-train、m1-generate 分支均保留，未删除。
 - 结果：快进成功，main = m1-generate = 7c33947；main 上 pytest 48 passed，但 `ruff check` 报 2 个 I001（tests/test_trainer.py 中 `from tlab.train.trainer import train` 的导入分组，即任务 B 时记下的遗留项）。该文件由 Claude Code 编写，已用 `ruff check --fix` 只调整这两处导入顺序，另做一个提交；修复后 pytest 48 passed、ruff check 通过、format --check 36 files already formatted（`runs/m1-review/08-`、`09-`）。m1-generate 停在 7c33947，main 比它多这一个修复提交。
+
+### 2026-10-31 12:06（UTC+08:00）｜Claude Code｜M2 计划确认，任务 A 测试先行
+
+- 用户确认 M2 计划的全部 5 个选择（BPE 核心手写；对照标准为无损还原与压缩率差 ≤5%；同意新增 tokenizers 并在 Windows 下载约 2 GB 的 TinyStories；梯度累积与裁剪由用户改主循环；模型大小待实测吞吐后再定）。计划已写入 `docs/PLAN.md` 的「M2 实施计划」，原有 M2 内容保留。
+- 改动：`git switch -c m2-bpe`（从 main c881061）；新增 `tests/test_bpe.py`（10 个：get_stats 计数与首次出现顺序、merge 从左到右不重叠、教科书例子 "aaabdaaabac" 的三次合并与 vocab、合并次数 = vocab_size−256、vocab_size<256 报错、编码使用学到的合并、编码按学到的先后顺序、任意文本（含中文与 emoji）无损还原、残缺 UTF-8 字节解码为 �）。接口约定：`get_stats(ids)`、`merge(ids, pair, idx)`、`BPETokenizer` 含 `merges`、`vocab`、`train(text, vocab_size)`、`encode`、`decode`；并列时取最先出现的一对。
+- 本次验证：pytest 10 failed, 48 passed（`runs/m2-bpe/01-`），失败均为模块不存在；ruff check 通过。测试有效性（`02-bpe-test-mutation-check.txt`，scratchpad 参考实现注入 sys.modules）：正确版本全过；merge 允许重叠、并列取最后一对、编码按出现次数挑合并、解码不容错，均至少被一个测试抓住。首版测试抓不住“按出现次数挑合并”，已补 `test_encode_applies_merges_in_learned_order`。
+- 下一步：讲解 BPE 并由用户手写 bpe.py。
+
+### 2026-11-01 10:50（UTC+08:00）｜Claude Code｜用户 bpe.py 通过测试，讲解 get_stats/merge/train
+
+- 范围：用户写完 `src/tlab/tokenizer/bpe.py`（含 USER-WRITTEN 标记），请求先解释 BPE 含义、为何自己写、get_stats、merge、两张表与 train，编码与解码稍后再问。Claude Code 只读检查，未改用户文件。
+- 本次验证：完整 pytest 58 passed in 1.45s（`runs/m2-bpe/03-`）；ruff check 通过（`04-`）；format --check 38 files already formatted（`05-`）。
+- 讲解演示（`06-bpe-walkthrough.txt`，直接调用用户函数）："ab"→[97, 98]、"你"→[228, 189, 160]；zip 配对与逐步计数；merge([97,97,97,98,100], (97,97), 256) = [256, 97, 98, 100]；初始 vocab 256 项；"aaabdaaabac" 三轮合并与测试期望一致。对话中用 SVG 图展示 zip 配对与 merge 指针扫描。
+- 学习状态：自测题（训练用 max、编码用 min；"你好"的字节数与 token 数）尚待用户回答；编码与解码待用户提问。
+
+### 2026-11-01 11:06（UTC+08:00）｜Claude Code｜讲解 pair 变量与 encode/decode
+
+- 范围：用户不理解 `pair` 是什么、为何“把 pair 赋值成 256”，以及 encode/decode 的代码与作用。未改代码。
+- 讲解演示（`runs/m2-bpe/07-pair-encode-decode-trace.txt`，调用用户函数）：pair 是二元组 (97, 98)；`d[pair] = 256` 是在字典中记一条规则而非修改 pair；encode("aaabdaaabac") 四轮中每对在合并表中的编号、依次选 256/257/258、第 4 轮全为 inf 停止，结果 [258, 100, 258, 97, 99]；decode 逐个查 vocab 拼回原文；decode([0xE4]) 为 �，decode([228, 189, 160]) 为 "你"。对话中用 SVG 图展示编码与解码流程。
+- 学习状态：自测题（训练用 max、编码用 min；"你好"字节数）仍待用户回答。
+
+### 2026-11-01 11:17（UTC+08:00）｜Claude Code｜BPE 保存加载与 HF 对照
+
+- 范围：用户同意继续，Claude Code 编写外围。答疑：用户承认两道 BPE 自测题不会，已给出答案并整理“必须会讲的四句话”；演示用户 BPE 在莎士比亚 30,000 字符上训练 300 次合并（0.6 秒），首批学到 'e '、'th'、't ' 等，未见过的 30,000 字符压缩到 47%（`runs/m2-bpe/08-compression-demo.txt`）。
+- 依赖：`uv add "tokenizers>=0.20,<1"`，安装 tokenizers 0.23.3，并连带 huggingface-hub 2.4.0、tqdm、truststore 等（`09-uv-add-tokenizers.txt`）。
+- 改动：先写 `tests/test_bpe_io.py`（2 个：保存加载后合并表顺序、词表、编码一致；HF 对照结果含双方还原与压缩率且相对差计算正确），确认 2 failed, 58 passed（`10-`）；再写 `src/tlab/tokenizer/bpe_io.py`（只存有序合并表，加载时按顺序重放重建词表）、`src/tlab/tokenizer/hf_compare.py`（HF 字节级 BPE，ByteLevel 关闭 use_regex、不预分词，同词表大小）、`scripts/compare_bpe.py`。
+- 本次验证：pytest 60 passed in 1.54s；ruff check 通过；format --check 42 files already formatted。对照（`11-compare-shakespeare.txt`）：莎士比亚前 100,000 字符训练、最后 50,000 字符评估、词表 756：手写 24,100 token（2.0747 字节/token），HF 23,938（2.0887），相对差 0.0067，双方无损还原，耗时 7.4 秒，满足 PLAN 标准（≤5%）。差异来自并列规则等细节，未逐 token 比较。
+- 下一步：用户授权后提交 m2-bpe。
+
+### 2026-11-01 11:23（UTC+08:00）｜Claude Code｜新会话接手并提交 m2-bpe
+
+- 接手核对：读 AGENTS.md、PLAN.md、本文件与上一会话末尾，上一会话最后活动约 11:19，与 11:17 记录一致，无遗漏。当前分支 m2-bpe；`bpe.py` 为 AM（暂存版为 0 字节、工作区 2821 字节为用户实现），提交时以工作区为准重新暂存。
+- 更正：本文件「当前状态」的「本机环境」一行原为 Codex 10/30 在 WSL 上写入的内容，此前未标注来源，现改为分列 Mac（本轮实测）与 Windows（Codex 记录）；「范围与保护检查」一行标注为 Codex 10/30 记录，并说明其后 pyproject.toml 与 uv.lock 已按用户同意修改。
+- 用户授权：用户明确要求“提交 m2-bpe”；未授权合并与推送。
+- 本次验证：提交前 pytest 60 passed、ruff check 通过、format --check 通过（`runs/m2-bpe/12-precommit-checks.txt`）。
+- 提交范围：PLAN.md、本文件、pyproject.toml、uv.lock、bpe.py、bpe_io.py、hf_compare.py、scripts/compare_bpe.py、tests/test_bpe.py、tests/test_bpe_io.py；`.idea/` 不提交。
+- 下一步：合并前由另一个 agent review，或用户决定直接合并；之后进入任务 B（m2-data）。
 
 ## 后续交接模板
 
