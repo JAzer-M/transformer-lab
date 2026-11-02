@@ -1,0 +1,7 @@
+{
+  "step": 1000,
+  "optimizer_parameter_states": 64,
+  "generator_and_global_rng_present": true,
+  "vocab_size": 8192,
+  "validation": "metadata only, no interruption or resume was performed"
+}

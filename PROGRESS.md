@@ -4,30 +4,32 @@
 
 ## 当前状态
 
-更新时间：2026-11-01 14:09（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-02 17:16（Asia/Hong_Kong，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M2 任务 A、B、C 已合并 main（8056ac0）。任务 D（TinyStories 基线训练）手册与吞吐短跑配置已写好，在 m2-baseline 分支，等 Codex 在 Windows 上执行；Windows 上尚未用真实 TinyStories 数据跑过任何一步 |
-| 本轮范围 | M2 任务 D：全量数据准备 → 吞吐短跑 → 用户确认正式配置 → 1–2 小时基线训练 → 生成样例（手册 docs/m2-windows-run.md） |
-| 实现方 | 任务 D：手册与短跑配置由 Claude Code；Windows 上执行由 Codex；正式配置由用户在短跑后确认 |
-| 审查方 | Codex 运行结果由 Claude Code 于 Mac 核对（见交接记录）；M1 代码由 Claude Code review；任务 A 代码与测试未经其他 agent 审查，用户决定直接合并；任务 B 已由 Codex 于 2026-11-01 12:30 在 Windows/WSL 审查（报告 docs/reviews/m2-data-6ecc28f.md），2 条非阻塞建议中 1 条已由 Claude Code 修复，另 1 条涉及用户手写的 trainer.py，已由用户改完类型标注；任务 C 经 Claude 自己的 code-review 子 agent 自查（13:58 记录），用户决定不再请 Codex 审查、直接合并 |
-| Git 分支 / commit | main = origin/main = m2-infra = origin/m2-infra = 8056ac0；m2-baseline 从 main 分出，含任务 D 手册与短跑配置（提交与推送结果以 git log 和远端 ref 为准）；`.idea/` 未提交 |
-| 本轮改动 | 新增 docs/m2-windows-run.md（任务 D 手册）、configs/tinystories_probe.yaml（吞吐短跑，PLAN 的例子模型，参数量 13,969,152）；本文件新增「Codex 接手入口（M2 任务 D）」 |
-| 工程代码与依赖 | PyTorch 2.9.1、NumPy、PyYAML 6.0.3、tokenizers 0.23.3、huggingface-hub 2.4.0（2026-11-01 起显式声明 `>=0.23,<3`）、pytest 9.1.1、ruff 0.17.2；uv.lock 已更新 |
-| 本机环境 | Mac（本轮）：macOS 26.6.2 arm64，Python 3.11.9，uv 0.13.5，工作目录 /Users/j/Desktop/transformer-lab。Windows（Codex 2026-10-30 记录）：Ubuntu 26.04.1 LTS / WSL2，RTX 5060 Laptop GPU 8151 MiB，uv 0.12.14，工作目录 /home/j/transformer-lab |
-| 范围与保护检查 | Codex 2026-10-30 记录：用户手写 attention/block/gpt/trainer、全部测试、两份 YAML、pyproject.toml 与 uv.lock 的 SHA-256 与原始提交快照一致；其后 M2 任务 A 已按用户同意修改 pyproject.toml 与 uv.lock（新增 tokenizers） |
-| pytest / 代码检查 | main（8056ac0，Mac）：`uv sync --locked` 成功，109 passed in 2.12s，ruff check 通过，format --check 为 56 files already formatted |
-| Mac 真实设备检查 | 2026-10-26 实测 MPS 可用且被选中；CPU 与 MPS 的 (2, 3) 张量分配、求和均成功；本轮未重复执行 |
-| 训练 / 实验 | M1-1：2000 步，10,750,080 参数；最终 train 1.3003 / val 1.5858，105,912 tokens/s，显存峰值 2596.54 MiB，训练 309.389s；结果表已追加真实数字 |
-| Windows / CUDA | GPU 自检、CUDA 张量分配、48 项测试、CPU 10 步与 GPU 正式训练均成功；全部正式步骤退出码 0，安装首轮为用户授权中断后再成功 |
-| 下一步 | 用户在 Codex 中按「Codex 接手入口（M2 任务 D）」执行；Codex 在手册第 4 步停下，把短跑的 tokens/s 与显存交给用户确认正式配置后再训练。之后 Claude Code 在 Mac 上 pull 核对结果，判断 M2 验收与是否合并 |
+| 项目阶段 | M2 任务 D 的全量数据准备、两次原有短跑、累积 2 次实测、正式训练与 3 份生成样例均已完成；待用户与 Claude Code 核对 M2 验收及是否合并 |
+| 本轮范围 | 按 docs/m2-windows-run.md 执行；用户于 2026-11-02 明确要求现在开始训练，采用已展示的完整正式配置 |
+| 实现方 | Claude Code 提供既有实现及手册；Codex 在 Windows/WSL 执行、新增并本地提交正式 YAML、归档真实结果；用户手写实现未修改 |
+| 审查方 | 本次未新增独立代码审查；运行证据与样例待用户/Claude Code 核对；任务 B/C 历史审查状态见交接记录 |
+| Git 分支 / commit | m2-baseline；正式训练来源 45e78f1e718f70b322d0e817e47eb8e7272d5773，用户已批准将配置及本次运行记录提交并推送；实际记录提交与 origin/m2-baseline 以 Git 日志和远端 ref 为准；合并 main 等待审查后决定 |
+| 本轮改动 | configs/tinystories_base.yaml；experiments/m2_tinystories_base/ 小型结果与图；results.md 只追加 M2-1；本文件更新交接 |
+| 本机环境 | /home/j/transformer-lab；Ubuntu 26.04.1 LTS / WSL2；RTX 5060 Laptop GPU 8151 MiB；Python 3.12.14；PyTorch 2.9.1+cu128 / CUDA 12.8 |
+| 代码与配置保护 | 训练前工作区干净，来源不带 dirty；既有全部跟踪文件与 11/01 快照一致；仅新增已确认的正式配置，未改手写模型、trainer、BPE、测试、旧配置、锁文件 |
+| pytest / 代码检查 | 本次 uv sync --locked、CUDA 实际张量检查、109 passed in 3.82s、ruff check、format --check（57 files）均退出 0 |
+| TinyStories 数据 | 11/01 真实全量准备：词表 8192；train 536,174,492、valid 5,414,548 token；脚本 149.292s，最大 RSS 1.24 GiB；本轮复用并检查文件长度与词表 |
+| M2-1 正式实验 | 完整 10,000 步，327,680,000 个训练 token；最终 train 1.332559 / val 1.353057；82,756.28 tokens/s；PyTorch 已分配显存峰值 5006.78 MiB；主循环 3959.579s（65.99 分钟）；21 次周期评估的 val loss 均下降；未中断、未续训 |
+| 样例 | 3 份样例均有英文儿童故事的角色、事件和对话结构；seed 2 第一篇较连贯，但 seed 1 有物品/行为衔接不清，seed 3 有行为与结尾寓意矛盾。固定 300 token 的输出在后续故事中出现截断，尚不能称三份均逻辑连贯。 |
+| GPU 监测 | 正式阶段 1 秒采样，GPU 利用率均值 98.71%；最高温度 88.7°C；完整摘要见 gpu_summary.json；利用率不等同于理论算力利用率 |
+| 下一步 | 用户已批准提交并推送到 m2-baseline；Claude Code 在 Mac 拉取后核对运行证据和样例质量，再与用户决定 M2 验收及合并；审查入口见 experiments/m2_tinystories_base/REPORT.md |
 
 ## 当前任务与下一步
 
+- 2026-11-02：M2-1 正式训练和样例已完成，详见本文件末尾最新 Codex 记录与 experiments/m2_tinystories_base/；用户已授权提交并推送，接下来由 Claude Code 审查。
+
 - 计划位置：`docs/PLAN.md` 的「M2」及「M2 实施计划（2026-10-31 用户确认）」。M0、M1 已完成并合并 main（c881061），M1-1 结果见 `experiments/results.md`。
 - M2 顺序：A 手写 BPE（m2-bpe）→ B TinyStories 数据（m2-data）→ C 训练基建（m2-infra）→ D 基线训练（Codex 在 5060 上）。
-- 已确认：BPE 核心由用户手写；与 HF 对照看无损还原与压缩率差 ≤5%；新增 tokenizers；TinyStories 仅 Windows 全量下载；梯度累积、裁剪与学习率调用由用户改 trainer.py；模型大小待实测吞吐后再定（计划例子约 14.0M 参数）。
+- 已确认：BPE 核心由用户手写；与 HF 对照看无损还原与压缩率差 ≤5%；新增 tokenizers；TinyStories 仅 Windows 全量下载；梯度累积、裁剪与学习率调用由用户改 trainer.py；任务 D 已确认 13,969,152 参数、batch 32 × 累积 2、10,000 步。
 - 用户手写文件（不得由 agent 修改）：attention.py、block.py、gpt.py、trainer.py、tokenizer/bpe.py。
 - M1 自测第 1 题（多头形状）与第 4 题（残差梯度、Pre/Post-LN）为部分掌握，建议择机复测；Pre/Post-LN 的实证留给 A2。
 
@@ -779,6 +781,52 @@
 - 估算（未实测）：显存按 M1 实测 2597 MB 外推，batch 16 约 3 GB，batch 32 约 5–6 GB；全量训练集约 5.4 亿 token。
 - 交接：Codex 按「Codex 接手入口（M2 任务 D）」执行；Claude Code 之后在 Mac 上 pull 核对结果。M1 的旧入口已加注为历史。
 - 提交：用户授权把任务 D 文档交给 Codex，因此提交并推送 m2-baseline（哈希与推送结果以 git log 和远端 ref 为准）。
+
+### 2026-11-02 13:26（UTC+08:00）｜Codex｜M2 全量数据、正式训练与结果交接
+
+- 范围与用户确认：11/01 用户要求按 Claude 手册在 Ubuntu 执行，当天完成第 1–3 步后停在第 4 步；11/02 用户明确表示“好的……现在可以开始了”，同意已展示的正式配置、本地提交配置并开始训练。本轮不包含结果提交、推送或合并授权。
+- 工作区与版本：/home/j/transformer-lab，Ubuntu 26.04.1 LTS / WSL2、RTX 5060 Laptop GPU。正式配置为 batch 32 × 累积 2、6 层、6 头、d_model 384、上下文 512、10000 步、seed 1337、lr 6e-4→6e-5、cosine、warmup 300、clip 1、weight_decay .01、eval 500/20、存档 1000；完整配置在 configs/tinystories_base.yaml。正式来源 45e78f1e718f70b322d0e817e47eb8e7272d5773，干净工作区；仅本地保存配置提交，没有推送。
+- 11/01 历史执行证据：Windows Git 使用用户已开启的代理从 GitHub fetch，并用本机 bundle 同步 m2-baseline / 54a9598 到 Ubuntu；Windows 直连失败后采用该路径，未改全局 Git 或系统网络设置。HF 官方 API 返回 200；固定 revision 的 valid 与 train 下载分别 6.245s / 199.883s，大小与 SHA-256 均通过。8192 词表训练 44.964s，编码 102.779s；train 536,174,492 / valid 5,414,548 token，篇数 2,717,495 / 27,630；预处理脚本 149.292s、外部 time 149.43s、最大 RSS 1,300,288 KiB。batch 16：61,578.18 tokens/s、2,581.68 MiB、26.607s；batch 32：79,389.78 tokens/s、4,951.50 MiB、41.275s，均为 200 步短跑，不记正式结果。当天首次非登录 shell 找不到 uv（退出 127），补齐该进程 PATH 后原命令成功，原文保留。
+- 11/02 本次验证：uv sync --locked、CUDA 张量实际分配、pytest（109 passed in 3.82s）、ruff check、format --check（57 files）全部退出 0；文件长度与 tokenizer 核对通过。先以正式配置只覆盖 max_iters=200/out_dir 做累积 2 次短测，退出 0：72,897.65 tokens/s、5,006.78 MiB、89.901s、最终 val 3.730135；因 warmup=300，该短测仅覆盖 warmup。短测 commit 7fc669a 随后只修正配置的可执行权限并 amend 为 45e78f1，内容及训练代码不变；原元数据保留并附 config_history.txt。
+- 正式训练：2026-11-02T12:19:20.221283+08:00 开始，2026-11-02T13:25:25.676397+08:00 结束，训练命令退出 0；完整 10,000 步，327,680,000 个训练 token；最终 train 1.332559 / val 1.353057；82,756.28 tokens/s；PyTorch 已分配显存峰值 5006.78 MiB；主循环 3959.579s（65.99 分钟）。21 次周期评估的 val loss 均下降；没有观察到 NaN、OOM、训练异常或持续上升。周期记录见下表；最终元数据是在第 9999 步参数更新之后另行评估，与 CSV 最后一行的更新前评估区分。
+
+| step | train loss | val loss | learning rate |
+| --- | --- | --- | --- |
+| 0 | 9.071807 | 9.071947 | 2e-06 |
+| 500 | 2.500818 | 2.516208 | 0.00059943365 |
+| 1000 | 1.974577 | 1.992666 | 0.00059308942 |
+| 1500 | 1.791938 | 1.809506 | 0.00057985963 |
+| 2000 | 1.693244 | 1.709026 | 0.00056009052 |
+| 2500 | 1.626828 | 1.642547 | 0.00053429949 |
+| 3000 | 1.579263 | 1.597809 | 0.00050316154 |
+| 3500 | 1.543568 | 1.561861 | 0.00046749161 |
+| 4000 | 1.511615 | 1.528851 | 0.00042822326 |
+| 4500 | 1.479594 | 1.499977 | 0.00038638421 |
+| 5000 | 1.457583 | 1.478790 | 0.00034306947 |
+| 5500 | 1.438322 | 1.457491 | 0.00029941268 |
+| 6000 | 1.418083 | 1.437410 | 0.00025655643 |
+| 6500 | 1.400142 | 1.418763 | 0.00021562233 |
+| 7000 | 1.385222 | 1.404845 | 0.00017768172 |
+| 7500 | 1.370954 | 1.391051 | 0.00014372758 |
+| 8000 | 1.360263 | 1.380636 | 0.00011464856 |
+| 8500 | 1.349717 | 1.370650 | 9.1205706e-05 |
+| 9000 | 1.342084 | 1.362035 | 7.4012569e-05 |
+| 9500 | 1.336661 | 1.357512 | 6.3519128e-05 |
+| 9999 | 1.332517 | 1.352962 | 6e-05 |
+
+- GPU 与存档：正式阶段持续采样并在日志异常时停止的外部监控不修改 trainer；GPU 统计来自真实 nvidia-smi。第 1000 步存档在 CPU 上检查元数据，优化器（64 组参数状态）、训练生成器、全局 CPU/CUDA RNG 均存在；本轮未做真实中断续训，不把这项检查写成续训已实测。
+- 生成：按手册固定 prompt、300 个新 token、temperature .8、top-k 50、seed 1/2/3，全部退出 0。3 份样例均有英文儿童故事的角色、事件和对话结构；seed 2 第一篇较连贯，但 seed 1 有物品/行为衔接不清，seed 3 有行为与结尾寓意矛盾。固定 300 token 的输出在后续故事中出现截断，尚不能称三份均逻辑连贯。；具体逐份评价在归档 REPORT.md，原文 samples.txt 完整保留。
+- 归档与保护：只归档小型文本、JSON/CSV 与 loss 曲线；数据和 checkpoint 留在忽略目录，不加入 Git。results.md 只追加 M2-1，旧字节前缀保留；既有源码、测试、旧 YAML、依赖及用户笔记未改变。Windows 查看副本同步同一配置提交与小型结果。本次未新增独立 agent 审查，不代表 Claude Code 已核对。
+- 下一步：用户审阅结果后授权提交/推送；Claude Code 在 Mac 拉取核对 loss 与样例，再与用户判断 M2 验收和是否合并。用户可自测：为何 GPU 利用率接近 99% 仍不能直接推算理论 FLOPS 利用率；为何不同 tokenizer 的 loss 不应直接比较。
+
+### 2026-11-02 17:16（UTC+08:00）｜Codex｜用户批准推送 M2 结果并交给 Claude 审查
+
+- 用户授权：用户明确表示“好的，推送吧，之后我会让 Claude 审查”，并要求评价本次训练、明确项目进度。授权将配置提交 45e78f1 与本次运行记录推送到 origin/m2-baseline；不合并 main。
+- 提交范围：PROGRESS.md、experiments/results.md 与 experiments/m2_tinystories_base/ 的 22 份小型证据（约 320 KB，报告更新后略有增加）；数据、模型权重、checkpoint、runs 与本地绘图依赖不纳入 Git。正式训练来源仍为 45e78f1；本次结果提交哈希及推送是否成功以本分支 Git 日志和 GitHub 远端 ref 为准。
+- 推送前核对：GitHub origin/main = 8056ac0，origin/m2-baseline = 54a9598，允许普通快进推送；不使用 force。现有 109 项测试和 ruff 通过证据属于训练执行阶段，本次仅整理报告与提交文档，不将历史测试写成新跑，也不重复训练。72 个非结果跟踪文件哈希、原实验表前缀和历史记录、10,000 步存档、三份样例、两端归档一致性均已有真实验证记录，见 validation.json。
+- 训练评价：训练过程稳定，21 次周期验证 loss 均下降；最终 train 1.3326 / val 1.3531，66 分钟完成，建立了带版本、配置和资源统计的工程基线。生成质量尚不稳定：seed 2 第一篇较连贯，seed 1/3 仍有行为衔接或因果/寓意矛盾。固定 300 token 导致后续故事截断，应与实际逻辑矛盾分开评价。
+- 项目进度：M0、M1 已完成；M2 A/B/C 已在 main，D 的数据、训练与产物已完成、等待 Claude 与用户验收；M3 现代组件与 A1–A4 消融、M4 Qwen3 权重对齐、M5 LoRA/SFT、M6 收尾仍待推进。今天是原计划 W2（11/2–11/8）第一天，已进入 M2 收尾，但 11/15 的 MVP 关口仍需完成可复现的 A1–A4。
+- 审查交接：Claude 在 Mac 拉取 m2-baseline 后，先读本文件顶部与 REPORT.md 的“Claude 审查入口”，核对 config / run.json / metrics.csv / samples.txt / loss_curve，再判断是否达到 M2 的故事连贯性要求。本次仅有一个训练 seed 1337；三个生成 seed 不能当作三次独立训练。真实 GPU 中断续训未测试，不把存档元数据验证当作续训已验收。
 
 ## 后续交接模板
 

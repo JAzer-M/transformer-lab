@@ -1,0 +1,45 @@
+{
+  "source": "nvidia-smi, 1 second sampling across the formal training process, including initialization and finalization",
+  "gpu_util_pct": {
+    "n": 3955,
+    "mean": 98.70847029077117,
+    "median": 99.0,
+    "min": 1.0,
+    "max": 99.0
+  },
+  "memory_util_pct": {
+    "n": 3955,
+    "mean": 69.08723135271808,
+    "median": 70.0,
+    "min": 1.0,
+    "max": 72.0
+  },
+  "whole_gpu_memory_MiB": {
+    "n": 3955,
+    "mean": 6691.6182048040455,
+    "median": 6663.0,
+    "min": 1134.0,
+    "max": 6969.0
+  },
+  "power_W": {
+    "n": 3955,
+    "mean": 88.29868773704172,
+    "median": 88.2,
+    "min": 8.19,
+    "max": 100.01
+  },
+  "temperature_C": {
+    "n": 3955,
+    "mean": 85.61221238938053,
+    "median": 86.1,
+    "min": 54.5,
+    "max": 88.7
+  },
+  "sm_clock_MHz": {
+    "n": 3955,
+    "mean": 2661.9876106194693,
+    "median": 2662.0,
+    "min": 487.0,
+    "max": 2797.0
+  }
+}

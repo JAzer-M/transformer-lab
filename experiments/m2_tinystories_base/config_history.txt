@@ -1,0 +1,1 @@
+The accumulation-2 probe ran at 7fc669a8118571a57a12133a0d353d82064eefa3. That local commit was amended only to change configs/tinystories_base.yaml from mode 100755 to 100644 before the formal run (45e78f1). File contents and training code did not change. Raw run.json metadata is preserved.

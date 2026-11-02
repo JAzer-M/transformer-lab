@@ -1,0 +1,17 @@
+{
+  "source_files_sha256_verified": 72,
+  "allowed_tracked_changes": [
+    "PROGRESS.md",
+    "experiments/results.md"
+  ],
+  "old_result_prefix_unchanged": true,
+  "historical_progress_unchanged": true,
+  "periodic_evaluations": 21,
+  "all_periodic_val_losses_decreased": true,
+  "final_checkpoint_step": 10000,
+  "samples": 3,
+  "training_processes_remaining": 0,
+  "new_config_commit": "45e78f1e718f70b322d0e817e47eb8e7272d5773",
+  "formal_training_and_samples_exit": 0,
+  "large_data_or_checkpoint_in_archive": false
+}

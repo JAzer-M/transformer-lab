@@ -1,0 +1,30 @@
+
+
+
+下载与核对完成，1.3s
+词表 8192，<|endoftext|> = 0，45.0s
+训练集 2,717,495 篇、536,174,492 个 token；验证集 27,630 篇、5,414,548 个 token
+编码 102.8s，已写入 data/tinystories
+	Command being timed: "uv run python scripts/prepare_tinystories.py"
+	User time (seconds): 1688.79
+	System time (seconds): 44.69
+	Percent of CPU this job got: 1160%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:29.43
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 1300288
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 146590
+	Voluntary context switches: 1764928
+	Involuntary context switches: 4787
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 2116696
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

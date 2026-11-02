@@ -1,0 +1,22 @@
+{
+  "phase": "formal",
+  "command": [
+    "uv",
+    "run",
+    "python",
+    "scripts/train.py",
+    "--config",
+    "configs/tinystories_base.yaml"
+  ],
+  "started_at": "2026-11-02T12:19:20.221283+08:00",
+  "state": "completed",
+  "last_eval": {
+    "step": 9999,
+    "train_loss": 1.3325,
+    "val_loss": 1.353
+  },
+  "pid": 852,
+  "gpu_monitor_pid": 851,
+  "returncode": 0,
+  "ended_at": "2026-11-02T13:25:25.676397+08:00"
+}

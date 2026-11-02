@@ -1,0 +1,90 @@
+2026-11-02 01-sync.txt (exit 0)
+Resolved 51 packages in 0.70ms
+Checked 46 packages in 13ms
+
+
+2026-11-02 02-gpu.txt (exit 0)
+2.9.1+cu128 12.8 NVIDIA GeForce RTX 5060 Laptop GPU
+
+
+2026-11-02 03-pytest.txt (exit 0)
+........................................................................ [ 66%]
+.....................................                                    [100%]
+109 passed in 3.82s
+
+
+2026-11-02 04-ruff.txt (exit 0)
+All checks passed!
+
+
+2026-11-02 05-format.txt (exit 0)
+57 files already formatted
+
+
+2026-11-02 06-config-check.txt (exit 0)
+TrainConfig(data_dir='data/tinystories', out_dir='runs/tinystories_base', n_layers=6, n_heads=6, d_model=384, block_size=512, batch_size=32, learning_rate=0.0006, weight_decay=0.01, max_iters=10000, grad_accum_steps=2, grad_clip=1.0, lr_schedule='cosine', warmup_iters=300, min_lr=6e-05, ckpt_interval=1000, resume=False, eval_interval=500, eval_iters=20, seed=1337, device='auto')
+Data lengths and tokenizer verified
+
+
+2026-11-02 07-config-commit.txt (exit 0)
+[m2-baseline 7fc669a] add approved TinyStories baseline training config
+ 1 file changed, 27 insertions(+)
+ create mode 100755 configs/tinystories_base.yaml
+
+
+2026-11-02 08-final-config-commit.txt (exit 0)
+commit 45e78f1e718f70b322d0e817e47eb8e7272d5773
+Author:     J <j@JdeMacBook-Air.local>
+AuthorDate: Mon Nov 2 12:17:19 2026 +0800
+Commit:     J <j@JdeMacBook-Air.local>
+CommitDate: Mon Nov 2 12:18:58 2026 +0800
+
+    add approved TinyStories baseline training config
+
+ configs/tinystories_base.yaml | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+
+2026-11-02 09-disk.txt (exit 0)
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sdd       1007G   26G  931G   3% /
+
+
+2026-11-02 10-memory.txt (exit 0)
+               total        used        free      shared  buff/cache   available
+Mem:           7.6Gi       1.8Gi       1.5Gi        82Mi       4.5Gi       5.7Gi
+Swap:          2.0Gi          0B       2.0Gi
+
+
+2026-11-02 11-python.txt (exit 0)
+3.12.14 (main, Sep  1 2026, 14:16:52) [Clang 22.1.3 ]
+/home/j/transformer-lab/.venv/bin/python
+Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.43
+
+
+2026-11-01 HF network check (historical successful preparation prerequisite)
+HTTP/1.1 200 Connection established
+
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+Content-Length: 1985
+Connection: keep-alive
+Date: Sun, 01 Nov 2026 06:20:07 GMT
+ETag: W/"7c1-AWUelJT25VD2CFoQMRcd+ISl0RE"
+X-Powered-By: huggingface-moon
+X-Request-Id: Root=1-6ae6da17-68f51c4270ea4a675ea48fbd
+RateLimit: "api";r=499;t=295
+RateLimit-Policy: "fixed window";"api";q=500;w=300
+cross-origin-opener-policy: same-origin
+Referrer-Policy: strict-origin-when-cross-origin
+Access-Control-Max-Age: 86400
+Access-Control-Allow-Origin: https://huggingface.co
+Vary: Origin
+Access-Control-Expose-Headers: X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Linked-Size,X-Linked-ETag,X-Xet-Hash,RateLimit,RateLimit-Policy
+X-Cache: Miss from cloudfront
+Via: 1.1 cc7f512eb666c6805bf6af1b4b77c2d6.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: PHX52-P3
+Alt-Svc: h3=":443"; ma=86400
+X-Amz-Cf-Id: PnUHr7e1j6M-jVsf5TiZZErXl8jNvBnWaT-MyLrx0SSiBDNSM8CtKA==
+Strict-Transport-Security: max-age=31536000
+

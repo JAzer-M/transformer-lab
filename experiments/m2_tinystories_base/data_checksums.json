@@ -1,0 +1,18 @@
+{
+  "train.bin": {
+    "bytes": 1072348984,
+    "sha256": "600e0eb303cf0ede1f7940adb6ac57066d0fb14c6b5db5caee1165d153d92aec"
+  },
+  "val.bin": {
+    "bytes": 10829096,
+    "sha256": "031db4b4bd0114e83be5bbe03d3d38ca5a93b1e90a106420945377f6fd829c8e"
+  },
+  "tokenizer.json": {
+    "bytes": 552523,
+    "sha256": "165b65d281c056a6ee20582845959235fb4b1df37e66aa7a8963ce4b8fe05206"
+  },
+  "info.json": {
+    "bytes": 722,
+    "sha256": "e8431d73cbcef3c7d50abbafe6511f0e61a3d6f81cc0157998463cd58dc2a0d0"
+  }
+}
