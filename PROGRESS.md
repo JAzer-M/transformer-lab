@@ -4,15 +4,15 @@
 
 ## 当前状态
 
-更新时间：2026-11-02 18:54（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-02 19:01（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M2 已由用户于 2026-11-02 验收并合并 main（d51ac93）。**M3 计划已确认**（PLAN「M3 实施计划」），第 0 步（消融骨架）完成并在 m3-ablate 上提交，待用户决定合并；之后 Codex 先跑对照组，用户开始第 1 步（RMSNorm） |
+| 项目阶段 | M2 已由用户于 2026-11-02 验收并合并 main（d51ac93）。**M3 计划已确认**（PLAN「M3 实施计划」），第 0 步（消融骨架）完成，经用户同意合并到 main 并推送（结果以 git log 与远端 ref 为准）；接下来 Codex 跑对照组，用户在新对话里开始第 1 步（RMSNorm） |
 | 本轮范围 | M3 第 0 步：对照组配置 `configs/ablations/a0_control.yaml`、汇总逻辑 `src/tlab/eval/ablation.py` 与脚本 `scripts/summarize_ablations.py`、Codex 手册 `docs/m3-windows-run.md` 第一版 |
 | 实现方 | 第 0 步全部由 Claude Code 实现（不涉及用户手写文件）；M3 第 1–4 步中 RMSNorm、SwiGLU、RoPE、GQA 由用户手写 |
 | 审查方 | 第 0 步经 Claude 自己的 `matt-pocock-skills:code-review` 两个只读子 agent 自查（2026-11-02 18:54 记录），问题已修；未请 Codex 交叉审查 |
-| Git 分支 / commit | m3-ablate（从 main 的 d51ac93 分出），提交哈希见 git log，未推送、未合并；main = origin/main = d51ac93 |
+| Git 分支 / commit | m3-ablate（从 main 的 d51ac93 分出）快进合并到 main 后一同推送；哈希见 git log |
 | 本轮改动 | 见上一行的四份文件与 `tests/test_ablation_summary.py`；`docs/PLAN.md` 新增「M3 实施计划」；另有 `docs/self-test-qa.md`（30 道自测题汇总）与本文件插件约定的修改，单独提交 |
 | 本机环境 | Mac：macOS 26.6.2 arm64，Python 3.11.9，uv 0.13.5，/Users/j/Desktop/transformer-lab。Windows（Codex 记录）：Ubuntu 26.04.1 LTS / WSL2，RTX 5060 Laptop GPU 8151 MiB，Python 3.12.14，PyTorch 2.9.1+cu128 / CUDA 12.8，/home/j/transformer-lab |
 | 代码与配置保护 | 第 0 步未改用户手写文件与已有测试；`a0_control.yaml` 与 `tinystories_base.yaml` 只差 max_iters、warmup_iters、eval_interval、out_dir |
@@ -21,7 +21,7 @@
 | M2-1 正式实验 | 完整 10,000 步，327,680,000 个训练 token；最终 train 1.332559 / val 1.353057；82,756.28 tokens/s；PyTorch 已分配显存峰值 5006.78 MiB；主循环 3959.579s（65.99 分钟）；21 次周期评估的 val loss 均下降；未中断、未续训 |
 | 样例 | 3 份样例均有英文儿童故事的角色、事件和对话结构；seed 2 第一篇较连贯，但 seed 1 有物品/行为衔接不清，seed 3 有行为与结尾寓意矛盾。固定 300 token 的输出在后续故事中出现截断，尚不能称三份均逻辑连贯。 |
 | GPU 监测 | 正式阶段 1 秒采样，GPU 利用率均值 98.71%；最高温度 88.7°C；完整摘要见 gpu_summary.json；利用率不等同于理论算力利用率 |
-| 下一步 | 用户决定是否合并 m3-ablate；合并后 Codex 按「Codex 接手入口（M3 消融）」跑第 1 批对照组；同时开始 M3 第 1 步（m3-norm：用户写 RMSNorm，agent 写 Post-LN 与开关） |
+| 下一步 | Codex 按「Codex 接手入口（M3 消融）」跑第 1 批对照组；新的 Claude Code 对话从「Claude Code 接手入口（M3 第 1 步起）」开始 M3 第 1 步（m3-norm：用户写 RMSNorm，agent 写 Post-LN 与开关） |
 
 ## 当前任务与下一步
 
@@ -97,7 +97,42 @@
 4. 可运行的检查（只做小规模，不做全量下载）：`uv sync`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`；可选 `uv run python scripts/prepare_tinystories.py --sample` 与 `uv run python scripts/train.py --config configs/tinystories_smoke.yaml`。Mac 上若 `ALL_PROXY` 为 socks5，命令前加 `env -u ALL_PROXY -u all_proxy`。
 5. 输出：按严重程度（高 / 中 / 低）列问题，每条写明文件与行号、触发条件与后果、建议修法；查过未发现问题的检查项也写一句。在本文件交接记录末尾追加一条署名 Codex 的记录（只追加，不改已有内容），注明实际运行了哪些命令及其结果。
 
+## Claude Code 接手入口（M3 第 1 步起，2026-11-02）
+
+新对话的 Claude Code 从这里开始。Claude 的记忆（`~/.claude/projects/-Users-j-Desktop-transformer-lab/memory/MEMORY.md`）会自动加载，里面有用户偏好；下面是记忆之外必须知道的内容。
+
+**1. 先读这些**：`AGENTS.md`；`docs/PLAN.md` 的「M3 实施计划（2026-11-02 用户确认）」；本文件的「当前状态」「会话约定：插件」、本节，以及交接记录的最后 3 条；`docs/m3-windows-run.md`；`docs/self-test-qa.md`。再核对 `git status`、当前分支与 `git log --oneline -5`。
+
+**2. 用户要求读之前的三段对话，以明确流程和操作方式**（2026-11-02 用户原话：读取本次对话以及上一段“多头”对话、还有上上一段对话）。记录在 Mac 本机，按时间顺序：
+
+| 对话 | 内容 | 记录文件（按时间先后） |
+| --- | --- | --- |
+| 上上一段（10/27，worktree） | 项目计划与协作方式、单头注意力讲解、第一批注意力测试 | `~/.claude/projects/-Users-j-Desktop-transformer-lab--claude-worktrees-project-plan-collaboration-eb22b0/` 下的 `f3a59b06-5d2c-402a-a5fb-b60bca0cd72c.jsonl`、`d6d2ccb0-b2fe-4c63-91c5-a09036ba9411.jsonl` |
+| 上一段（10/27–11/01，“Transformer 多头注意力讲解”） | M1 全部（多头、Block、GPT、训练循环、生成）、M1 Windows 训练核对、M1 自测、M2 计划、手写 BPE 讲解 | `~/.claude/projects/-Users-j-Desktop-transformer-lab/` 下的 `32c4895c-…`、`ce6ded53-…`、`8bf52460-…`、`b3d8833b-….jsonl` |
+| 本段（11/01–11/02） | M2 任务 A–D（BPE 提交、TinyStories 数据、训练基建、基线训练与验收）、自测题汇总、M3 计划与第 0 步 | 同一目录下的 `26bddd57-…`、`7df7282b-…`、`daa5effb-…`、`7baae1e5-…`、`0b0afb70-….jsonl` |
+
+这些文件每个几 MB，**不要直接整份读进上下文**。用下面的命令把用户消息和助手的文字回复提取到 scratchpad 里，再按需阅读（`<目录>`、`<文件>` 换成上表中的值；输出文件放在本会话的 scratchpad 目录）：
+
+```bash
+python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n', (c if isinstance(c:=d['message'].get('content'), str) else '\n'.join(x.get('text','') for x in c if isinstance(x, dict) and x.get('type')=='text'))[:3000]) for d in map(json.loads, open(sys.argv[1], encoding='utf-8')) if d.get('type') in ('user','assistant') and d.get('message')]" <目录>/<文件> > <scratchpad>/<文件>.txt
+```
+
+**3. 已经形成的工作方式**（与记忆一致；冲突时以 AGENTS.md 和用户当前指令为准）：
+
+- **规划**：直接写出完整规划（每一步做什么、改哪些文件、谁写、怎么测、需要拍板的决定附推荐），交用户审查；不调用 `grilling`。用户确认后同步到 PLAN。
+- **测试先行**：调用 `matt-pocock-skills:tdd`。先把测试接口列给用户确认，再“一个测试 → 确认失败 → 实现 → 通过”逐个推进；预期值用手算的具体数字。
+- **用户手写部分**：照 M2 任务 C 的做法，给出完整代码供用户照着敲——每段前写中文“在做什么”的注释，张量操作写形状注释，再列出易错点与运行命令。用户写完后检查并逐条指出问题，**不直接改用户文件**。agent 需要在用户手写文件里加外围代码时，先征得同意，并标注“agent 编写”。
+- **验证**：故意改错检查（复制 `src` 到 scratchpad、用 `PYTHONPATH` 跑测试）；改到模型或训练时，要用 main 的代码与新代码各跑一次 `tiny_smoke`，确认 metrics 逐字相同（默认配置必须复现 M1/M2）。
+- **提交前**：调用 `matt-pocock-skills:code-review`（规范、需求两个只读子 agent），把问题写成测试，先失败再修。
+- **提交与合并**：提交前问用户；合并与推送只在用户同意后做。每完成一个分支，就往 `docs/m3-windows-run.md` 追加一批，由用户在 Codex 上执行，回来后 `git pull` 核对。
+- **讲解**：用中文和通俗的说法，结构与流程配 SVG 图；工程管道类任务不出自测题；里程碑自测题提醒一次；用户答过的题追加到 `docs/self-test-qa.md`。
+- **用户终端**：`uv` 不在 PATH 里，给用户的命令写 `~/.local/bin/uv run …`。
+
+**4. 下一步**：M3 第 1 步 `m3-norm`（从 main 分出）。按 PLAN：用户在 `src/tlab/model/layers.py` 写 `RMSNorm`；agent 写 `norm`（layernorm/rmsnorm）与 `norm_position`（pre/post）配置开关、Post-LN（`LN(x + f(x))`，不用最终 ln_f）、配置文件 `configs/ablations/a2_postln.yaml` 与 `a2_rmsnorm.yaml`（变体名见 PLAN）；手册追加第 2 批（A2 与高学习率加测）。先把这一步的测试接口列给用户确认。
+
 ## Claude Code 接手入口（2026-10-27）
+
+> 2026-11-02 注：本节是 M1 时期的入口，已过时，保留作为历史；新对话见上一节。
 
 > 2026-10-27 19:55 注：本节是 Codex 18:55 写的接手说明，保留原文作为历史；其中第 5–9 条描述的代码进度已过时，最新状态见上方「当前状态」与交接记录末尾两条。
 
@@ -874,6 +909,14 @@
 - 未验证：汇总脚本尚未在真实训练结果上运行（对照组还没跑）。
 - 提交：按“按规划执行”的流程，分两次提交到 m3-ablate（自测题汇总与插件约定一次、第 0 步一次），哈希见 git log；未推送、未合并。
 - 下一步：用户决定是否合并 m3-ablate 并推送，让 Codex 跑第 1 批对照组；同时开始第 1 步 m3-norm。
+
+### 2026-11-02 19:01（UTC+08:00）｜Claude Code｜写新对话接手入口，合并 m3-ablate 并推送
+
+- 用户确认：用户问清第 0 步的内容（已解释：对照组只是一个配置文件，沿用 M2 模型、训练量改为 1 亿 token；新代码是汇总“记分员”和手册，没改模型），随后回复“可以的”，同意合并推送；并说明之后会开新对话完成后续步骤，希望新对话读取本段、上一段（多头）与上上一段对话来明确流程。
+- 改动：本文件新增「Claude Code 接手入口（M3 第 1 步起，2026-11-02）」——必读清单、三段对话的记录文件路径与提取命令（命令已在本机实测可用）、已形成的工作方式、下一步；M1 时期的旧入口加注为历史。
+- 合并：先在 m3-ablate 提交本文件，再 `git merge --ff-only` 到 main，在 main 上复查后推送 main 与 m3-ablate。结果以 git log 和远端 ref 为准。
+- 自测题：本段对话从汇总之后没有新答的题，`docs/self-test-qa.md` 无需追加。
+- 下一步：用户在 Codex 上让它执行 `docs/m3-windows-run.md` 第 1 批（对照组）；用户开新的 Claude Code 对话，从新入口开始 M3 第 1 步。
 
 ## 后续交接模板
 
