@@ -4,24 +4,24 @@
 
 ## 当前状态
 
-更新时间：2026-11-02 17:37（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-02 18:54（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | **M2 已由用户于 2026-11-02 验收**，任务 A–D 均合并到 main（合并与推送结果以 git log 和远端 ref 为准）。下一个是 M3（现代组件与 A1–A4 消融），尚未给计划 |
-| 本轮范围 | 按 docs/m2-windows-run.md 执行；用户于 2026-11-02 明确要求现在开始训练，采用已展示的完整正式配置 |
-| 实现方 | Claude Code 提供既有实现及手册；Codex 在 Windows/WSL 执行、新增并本地提交正式 YAML、归档真实结果；用户手写实现未修改 |
-| 审查方 | 本次未新增独立代码审查（分支未改代码）；Claude Code 已于 2026-11-02 17:29 在 Mac 核对运行证据与样例（见交接记录），未发现记录与配置不一致；用户随后验收 M2；任务 B/C 历史审查状态见交接记录 |
-| Git 分支 / commit | m2-baseline 快进合并到 main 后一同推送（哈希见 git log）；训练来源 45e78f1，结果提交 0e344fb |
-| 本轮改动 | configs/tinystories_base.yaml；experiments/m2_tinystories_base/ 小型结果与图；results.md 只追加 M2-1；本文件更新交接 |
-| 本机环境 | /home/j/transformer-lab；Ubuntu 26.04.1 LTS / WSL2；RTX 5060 Laptop GPU 8151 MiB；Python 3.12.14；PyTorch 2.9.1+cu128 / CUDA 12.8 |
-| 代码与配置保护 | 训练前工作区干净，来源不带 dirty；既有全部跟踪文件与 11/01 快照一致；仅新增已确认的正式配置，未改手写模型、trainer、BPE、测试、旧配置、锁文件 |
-| pytest / 代码检查 | 本次 uv sync --locked、CUDA 实际张量检查、109 passed in 3.82s、ruff check、format --check（57 files）均退出 0 |
+| 项目阶段 | M2 已由用户于 2026-11-02 验收并合并 main（d51ac93）。**M3 计划已确认**（PLAN「M3 实施计划」），第 0 步（消融骨架）完成并在 m3-ablate 上提交，待用户决定合并；之后 Codex 先跑对照组，用户开始第 1 步（RMSNorm） |
+| 本轮范围 | M3 第 0 步：对照组配置 `configs/ablations/a0_control.yaml`、汇总逻辑 `src/tlab/eval/ablation.py` 与脚本 `scripts/summarize_ablations.py`、Codex 手册 `docs/m3-windows-run.md` 第一版 |
+| 实现方 | 第 0 步全部由 Claude Code 实现（不涉及用户手写文件）；M3 第 1–4 步中 RMSNorm、SwiGLU、RoPE、GQA 由用户手写 |
+| 审查方 | 第 0 步经 Claude 自己的 `matt-pocock-skills:code-review` 两个只读子 agent 自查（2026-11-02 18:54 记录），问题已修；未请 Codex 交叉审查 |
+| Git 分支 / commit | m3-ablate（从 main 的 d51ac93 分出），提交哈希见 git log，未推送、未合并；main = origin/main = d51ac93 |
+| 本轮改动 | 见上一行的四份文件与 `tests/test_ablation_summary.py`；`docs/PLAN.md` 新增「M3 实施计划」；另有 `docs/self-test-qa.md`（30 道自测题汇总）与本文件插件约定的修改，单独提交 |
+| 本机环境 | Mac：macOS 26.6.2 arm64，Python 3.11.9，uv 0.13.5，/Users/j/Desktop/transformer-lab。Windows（Codex 记录）：Ubuntu 26.04.1 LTS / WSL2，RTX 5060 Laptop GPU 8151 MiB，Python 3.12.14，PyTorch 2.9.1+cu128 / CUDA 12.8，/home/j/transformer-lab |
+| 代码与配置保护 | 第 0 步未改用户手写文件与已有测试；`a0_control.yaml` 与 `tinystories_base.yaml` 只差 max_iters、warmup_iters、eval_interval、out_dir |
+| pytest / 代码检查 | m3-ablate（Mac）：132 passed，ruff check 与 format --check 通过 |
 | TinyStories 数据 | 11/01 真实全量准备：词表 8192；train 536,174,492、valid 5,414,548 token；脚本 149.292s，最大 RSS 1.24 GiB；本轮复用并检查文件长度与词表 |
 | M2-1 正式实验 | 完整 10,000 步，327,680,000 个训练 token；最终 train 1.332559 / val 1.353057；82,756.28 tokens/s；PyTorch 已分配显存峰值 5006.78 MiB；主循环 3959.579s（65.99 分钟）；21 次周期评估的 val loss 均下降；未中断、未续训 |
 | 样例 | 3 份样例均有英文儿童故事的角色、事件和对话结构；seed 2 第一篇较连贯，但 seed 1 有物品/行为衔接不清，seed 3 有行为与结尾寓意矛盾。固定 300 token 的输出在后续故事中出现截断，尚不能称三份均逻辑连贯。 |
 | GPU 监测 | 正式阶段 1 秒采样，GPU 利用率均值 98.71%；最高温度 88.7°C；完整摘要见 gpu_summary.json；利用率不等同于理论算力利用率 |
-| 下一步 | M3 先给计划（按插件约定，写计划时调用 grilling）；M2 里程碑自测中用户跳过 BPE 题，交叉熵与困惑度、AdamW 与 warmup、bf16 与 fp16 已讲解，见 17:37 记录 |
+| 下一步 | 用户决定是否合并 m3-ablate；合并后 Codex 按「Codex 接手入口（M3 消融）」跑第 1 批对照组；同时开始 M3 第 1 步（m3-norm：用户写 RMSNorm，agent 写 Post-LN 与开关） |
 
 ## 当前任务与下一步
 
@@ -42,7 +42,7 @@
 
 | 阶段 | 调用的技能 |
 | --- | --- |
-| 写计划、拿不准的设计决定 | `matt-pocock-skills:grilling`（对计划连续追问） |
+| 写计划、拿不准的设计决定 | **不调用**（2026-11-02 用户更正：计划不走插件追问，由 agent 直接写出每一步怎么做、给出推荐决定，交用户审查） |
 | 先写测试再实现 | `matt-pocock-skills:tdd` |
 | 提交或合并前自查 | `matt-pocock-skills:code-review`（不替代 Codex 的交叉审查） |
 | 定位 bug、训练报错或 loss 异常 | `matt-pocock-skills:diagnosing-bugs` |
@@ -52,7 +52,16 @@
 - 技能流程与 `AGENTS.md` 冲突时以 `AGENTS.md` 为准，例如：用户手写文件不由 agent 改、先计划后代码、只记录真实结果。
 - 这两个是 Claude 账号插件，Codex 不使用；Codex 的接手与审查流程不变。
 
+## Codex 接手入口（M3 消融，2026-11-02）
+
+1. 在 WSL2 Ubuntu 的 `~/transformer-lab` 中工作；按用户指定的分支（`m3-ablate` 或合并后的 `main`）`git fetch origin && git switch <分支> && git pull --ff-only`。先读 `AGENTS.md`、`docs/PLAN.md`「M3 实施计划」、本文件「当前状态」。
+2. 严格按 `docs/m3-windows-run.md` 执行，**只做用户让你做的那一批**（当前只有第 1 批：对照组 `a0_control` 的种子 1337、2024）。
+3. 每次训练按手册的固定流程：后台记录 GPU、训练、停止记录、复制小文件到 `experiments/m3_ablations/<变体>/seed<种子>/`、`results.md` 追加一行；整批完成后运行汇总脚本更新 `SUMMARY.md`，再在本文件追加署名 Codex 的记录；提交与推送前征得用户同意。
+4. 不改超参数、配置与用户手写文件；出错、OOM、loss NaN 或发散时立即停止并记录原文。
+
 ## Codex 接手入口（M2 任务 D：TinyStories 基线训练，2026-11-01）
+
+> 2026-11-02 注：本节已执行完毕（M2 已验收），保留作为历史；M3 见上一节。
 
 1. 在 WSL2 Ubuntu 的 `~/transformer-lab` 中工作：`git fetch origin && git switch m2-baseline && git pull --ff-only`。先读 `AGENTS.md`、`docs/PLAN.md`、本文件「当前状态」。
 2. 严格按 `docs/m2-windows-run.md` 执行：环境检查（预期 109 passed）→ 网络检查 → 全量数据准备 → 两次吞吐短跑（`configs/tinystories_probe.yaml`，batch 16 与 32）→ **第 4 步停下，把实测数字交给用户确认正式配置** → 用户确认后才写 `configs/tinystories_base.yaml` 并正式训练 → 生成样例 → 回写结果。
@@ -853,6 +862,18 @@
 - 操作：先在 m2-baseline 提交本文件（含上一条核对记录与本条），`git fetch` 后确认 main = origin/main = 8056ac0 且为 m2-baseline 的祖先，`git merge --ff-only m2-baseline`，在 main 上复查后推送 main 与 m2-baseline。合并与推送结果以 git log 和远端 ref 为准。
 - 学习状态（M2 里程碑自测）：用户认为 BPE 题不必回答，跳过。交叉熵：用户写成“-ylogy-y”，已更正为 −Σ y·log ŷ，目标是 one-hot 时等于 −log ŷ_正确；困惑度、AdamW 与 Adam 的区别、warmup、fp32/fp16/bf16/int 的区别，用户表示不清楚或忘了，已在对话中讲解（演示见 `runs/m2-infra/20-`）。
 - 下一步：M3 计划。
+
+### 2026-11-02 18:54（UTC+08:00）｜Claude Code｜自测题汇总、M3 计划确认、第 0 步消融骨架
+
+- 范围与用户确认：① 用户要求回顾前两段与本段对话，把问过且用户回答过的题汇总成文本文件（明确不要的不收），以后照此做——新增 `docs/self-test-qa.md`（30 题，按里程碑分节，含用户原答、评价、参考答案、状态），并存为 Claude 记忆。② 按插件约定先调用 `grilling` 出第一轮问题后，用户更正“规划不需要加载插件，直接告诉我每一步怎么做并返回规划，我会审查”——已把本文件插件表“写计划”一行改为不调用，并存为记忆。③ 用户审查后回复“按规划执行”，M3 计划写入 PLAN「M3 实施计划（2026-11-02 用户确认）」。④ 用户确认汇总脚本的 6 个测试接口，并问“这一步是不是初始化”（已解释：为对照实验准备对照组、记分规则与操作手册）。
+- 工作区：Mac；分支 m3-plan 改名为 m3-ablate（从 main d51ac93）。
+- 第 0 步改动：`configs/ablations/a0_control.yaml`（与 tinystories_base 只差 max_iters 3052、warmup 92、eval_interval 250、out_dir；命令行覆盖 seed=2024 已验证）；`src/tlab/eval/ablation.py`（读取并合并种子、配置一致性检查、收敛步数、与对照比较、发散判定、Markdown 汇总）；`scripts/summarize_ablations.py`；`tests/test_ablation_summary.py`（23 个）；`docs/m3-windows-run.md`（通用规则、固定流程含 nvidia-smi 记录与回传、第 1 批对照组）。
+- 测试先行（`matt-pocock-skills:tdd`，一次一个接口）：每个接口先确认失败再实现。过程中更正了两处测试本身的错误——一组“差异不显著”的例子手算错了（实际是方向相反，应判“需补种子”），以及取行时误取到标题行；均为新测试的预期写错，实现未改。故意改错检查第一轮 10/11，补“种子差距不等”的例子后 11/11（`runs/m3-ablate/01-`、`02-`）。
+- 提交前自查（`matt-pocock-skills:code-review`，两个只读子 agent）：Standards 指出 PROGRESS 当前状态未更新、只有 1 个种子时仍下结论、类型标注与重复代码等；Spec 指出发散判定漏查 train loss 与最终那次评估、恰好 0.5 不算、缺第 250 步时误报“未发散”、补第 3 个种子后永远“需补种子”、NaN 时判“更差”且与种子顺序有关、汇总表含长训练 tokens/s（计划要求速度另测）、手册未给 nvidia-smi 命令与 GPU 自检。Claude Code 把这些写成 9 个新测试并确认先失败（`04-`），再修：新增“无法比较”“种子不足”结论，3 个种子后只用均值规则，发散判定含 train loss 与最终评估、用 ≥ 0.5、缺第 250 步记“无法判定”，去掉 tokens/s 列（第 1 个测试相应去掉 tokens/s 断言——该测试为本步新写、未提交），整理重复代码与类型标注；手册补 GPU 自检、预期 132 passed、nvidia-smi 后台记录与 gpu.csv 回传；PLAN 补变体名与判定规则补充；本文件更新当前状态并新增「Codex 接手入口（M3 消融）」。修复后故意改错检查 18/18（`05-`）。
+- 本次验证：pytest 132 passed，ruff check、format --check 通过。
+- 未验证：汇总脚本尚未在真实训练结果上运行（对照组还没跑）。
+- 提交：按“按规划执行”的流程，分两次提交到 m3-ablate（自测题汇总与插件约定一次、第 0 步一次），哈希见 git log；未推送、未合并。
+- 下一步：用户决定是否合并 m3-ablate 并推送，让 Codex 跑第 1 批对照组；同时开始第 1 步 m3-norm。
 
 ## 后续交接模板
 

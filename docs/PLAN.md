@@ -221,6 +221,36 @@ CPU 训练 10 步依赖 M1 的最小模型与可运行训练路径。相关代�
 
 验收：结果表可复现；到这一步项目已经可以写进简历，后面的部分出问题也不影响投递。
 
+#### M3 实施计划（2026-11-02 用户确认）
+
+原有 M3 任务与验收保留；实际进度见 `PROGRESS.md`。
+
+已确认的决定：
+
+- **分工**：用户手写 RMSNorm、SwiGLU、RoPE（`src/tlab/model/layers.py`）与 GQA（`attention.py`）；正弦位置编码、Post-LN、KV cache、配置开关、评测与汇总脚本、消融配置、Codex 手册、README 由 agent 写。改到用户手写文件的部分标注“agent 编写”。
+- **基准**：以 M2 基线结构（可学习位置编码、Pre-LN LayerNorm、GELU、MHA）为对照组，每组只换一个组件；对照组各组共用。另跑一组 RoPE + RMSNorm + SwiGLU + GQA 的组合，仅作参考，不算单变量结论。
+- **每次训练**：1 亿 token。上下文 512，batch 32 × 累积 2，3052 步（100,007,936 token），学习率 6e-4 按 cosine 降到 6e-5，warmup 92 步（3%），梯度裁剪 1.0，weight decay 0.01，每 250 步评估。
+- **种子与判定**：每个变体 2 个种子（1337、2024）。两个变体均值之差大于两者各自种子间差距中的较大者时才算有结论，否则记“差异不显著”；同种子配对比较方向相反时补第 3 个种子。每个变体一个配置文件，命令行只覆盖 `seed` 与 `out_dir`。
+- **A4**：GQA-2（参数少 8.4%）、MQA（少 10.6%）直接比较，表中写明参数量。
+- **速度与显存**：val loss 取自正式训练；训练吞吐、生成吞吐、KV cache 显存另做短测（空闲降温后测，每项 3 次取中位数，记录温度）。
+- **记录**：`experiments/results.md` 每次训练追加一行；脚本生成 `experiments/m3_ablations/SUMMARY.md`。
+
+| 步骤 | 分支 | 内容 |
+| --- | --- | --- |
+| 0 | `m3-ablate` | 对照组配置 `configs/ablations/a0_control.yaml`、汇总逻辑与脚本、Codex 手册第一版；完成后 Codex 先跑对照组 |
+| 1 | `m3-norm` | 用户写 RMSNorm；agent 写 `norm`（layernorm/rmsnorm）与 `norm_position`（pre/post）开关，Post-LN 为 `LN(x + f(x))` 且不用最终 ln_f |
+| 2 | `m3-mlp` | 用户写 SwiGLU（隐藏层 1024，与 GELU MLP 参数量相同）；agent 写 `mlp` 开关 |
+| 3 | `m3-pos` | 用户写 RoPE；agent 写正弦位置编码、`pos_encoding` 与 `rope_theta` 开关、评估时允许更长序列、长度外推评测脚本 |
+| 4 | `m3-attn` | 用户写 GQA；agent 写 `n_kv_heads` 开关、KV cache（含位置偏移）、生成时的缓存开关、速度与显存短测脚本 |
+| 5 | — | Codex 每完成一个分支跑一组：对照 2、A1 4（另在 1024 长度上评测外推）、A2 4 + 学习率 3e-3 加测 3（各 1 个种子）、A3 2、A4 4、组合 2，共 21 次；A7 只做短测 |
+| 6 | — | 汇总表、每组 loss 曲线叠加图、生成样例、README 初版、M3 自测提醒 |
+
+- 每步测试都包含：默认配置下参数与 tiny_smoke 结果与 main 逐字一致，保证 M1、M2 可复现。
+- A2 发散判定：任一 loss 为 NaN；或最终 val loss 高于第 250 步；或 val loss 比此前最低点高 0.5 以上。收敛速度用“首次 val ≤ 2.0 的步数”。
+- 变体名（即 `configs/ablations/<变体>.yaml` 的文件名和结果目录名，2026-11-02 第 0 步定下）：`a0_control`；`a1_sinusoidal`、`a1_rope`；`a2_postln`、`a2_rmsnorm`；`a3_swiglu`；`a4_gqa2`、`a4_mqa`；高学习率加测 `a2_postln_lr3e-3`、`a2_preln_lr3e-3`、`a2_rmsnorm_lr3e-3`；组合 `a9_modern`。
+- 判定规则的补充（第 0 步提交前自查后明确）：任一种子最终 val 为 NaN 时记“无法比较”；任一方不足 2 个种子时记“种子不足”；补到 3 个种子后不再看配对方向，只按均值规则判定。速度与显存只看短测，汇总表不放长训练的 tokens/s。
+- 本次不做：A5、A6（可选，MVP 后再定），性能优化（单独成任务）。
+
 ### M4 自研架构载入 Qwen3-0.6B（W4 前半）
 
 1. 以 HF 的 `config.json` 为准，逐项补齐 Qwen3 的细节：QK-Norm、GQA 头数、RoPE 的 theta、tied embeddings 等。
