@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-更新时间：2026-11-02 17:16（Asia/Hong_Kong，UTC+08:00）。
+更新时间：2026-11-02 17:21（Asia/Hong_Kong，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
@@ -12,7 +12,7 @@
 | 本轮范围 | 按 docs/m2-windows-run.md 执行；用户于 2026-11-02 明确要求现在开始训练，采用已展示的完整正式配置 |
 | 实现方 | Claude Code 提供既有实现及手册；Codex 在 Windows/WSL 执行、新增并本地提交正式 YAML、归档真实结果；用户手写实现未修改 |
 | 审查方 | 本次未新增独立代码审查；运行证据与样例待用户/Claude Code 核对；任务 B/C 历史审查状态见交接记录 |
-| Git 分支 / commit | m2-baseline；正式训练来源 45e78f1e718f70b322d0e817e47eb8e7272d5773，用户已批准将配置及本次运行记录提交并推送；实际记录提交与 origin/m2-baseline 以 Git 日志和远端 ref 为准；合并 main 等待审查后决定 |
+| Git 分支 / commit | m2-baseline；训练来源 45e78f1；配置与结果已推送，结果提交 0e344fb；后续文档补充以分支最新 Git 日志为准；Claude 审查及合并 main 待用户决定 |
 | 本轮改动 | configs/tinystories_base.yaml；experiments/m2_tinystories_base/ 小型结果与图；results.md 只追加 M2-1；本文件更新交接 |
 | 本机环境 | /home/j/transformer-lab；Ubuntu 26.04.1 LTS / WSL2；RTX 5060 Laptop GPU 8151 MiB；Python 3.12.14；PyTorch 2.9.1+cu128 / CUDA 12.8 |
 | 代码与配置保护 | 训练前工作区干净，来源不带 dirty；既有全部跟踪文件与 11/01 快照一致；仅新增已确认的正式配置，未改手写模型、trainer、BPE、测试、旧配置、锁文件 |
@@ -21,11 +21,11 @@
 | M2-1 正式实验 | 完整 10,000 步，327,680,000 个训练 token；最终 train 1.332559 / val 1.353057；82,756.28 tokens/s；PyTorch 已分配显存峰值 5006.78 MiB；主循环 3959.579s（65.99 分钟）；21 次周期评估的 val loss 均下降；未中断、未续训 |
 | 样例 | 3 份样例均有英文儿童故事的角色、事件和对话结构；seed 2 第一篇较连贯，但 seed 1 有物品/行为衔接不清，seed 3 有行为与结尾寓意矛盾。固定 300 token 的输出在后续故事中出现截断，尚不能称三份均逻辑连贯。 |
 | GPU 监测 | 正式阶段 1 秒采样，GPU 利用率均值 98.71%；最高温度 88.7°C；完整摘要见 gpu_summary.json；利用率不等同于理论算力利用率 |
-| 下一步 | 用户已批准提交并推送到 m2-baseline；Claude Code 在 Mac 拉取后核对运行证据和样例质量，再与用户决定 M2 验收及合并；审查入口见 experiments/m2_tinystories_base/REPORT.md |
+| 下一步 | Claude Code 在 Mac 拉取 m2-baseline，按 REPORT.md 的审查入口核对证据与样例，再与用户判断 M2 验收、合并及 M3 计划 |
 
 ## 当前任务与下一步
 
-- 2026-11-02：M2-1 正式训练和样例已完成，详见本文件末尾最新 Codex 记录与 experiments/m2_tinystories_base/；用户已授权提交并推送，接下来由 Claude Code 审查。
+- 2026-11-02：M2-1 配置和运行结果已推送（结果提交 0e344fb）；当前等待 Claude Code 审查和用户验收。
 
 - 计划位置：`docs/PLAN.md` 的「M2」及「M2 实施计划（2026-10-31 用户确认）」。M0、M1 已完成并合并 main（c881061），M1-1 结果见 `experiments/results.md`。
 - M2 顺序：A 手写 BPE（m2-bpe）→ B TinyStories 数据（m2-data）→ C 训练基建（m2-infra）→ D 基线训练（Codex 在 5060 上）。
@@ -104,6 +104,7 @@
 10. 本机工具：Python 3.11.9，项目 `.venv`；uv 为 `/Users/j/.local/bin/uv`。本轮使用 `UV_CACHE_DIR=/Users/j/Desktop/transformer-lab/.cache/uv`。PyTorch 2.9.1、NumPy 2.4.6、pytest 9.1.1、ruff 0.17.2 已装；MPS 的实机成功记录在 10/26 的日志，本轮未重跑。
 11. 证据：`runs/m1-attention/07-pytest-handoff.txt`、`08-ruff-handoff.txt`、`09-format-handoff.txt`；`10-batch-matmul-demo.json` 验证批量乘法等于逐矩阵计算后堆叠。当前磁盘/暂存代码和测试的原样快照、Git 状态与哈希在 `runs/m1-attention/claude-handoff-20261027/`，该目录不进 Git。
 12. 完整 M0 仍需 Windows/WSL CUDA 自检、该设备 pytest 和 CPU 10 步训练；模型/训练路径未齐，尚无正式训练与实验数字，results.md 只有表头。M1 测试通过且用户理解后再按其授权提交与合并。
+
 
 ## 交接记录
 
@@ -827,6 +828,12 @@
 - 训练评价：训练过程稳定，21 次周期验证 loss 均下降；最终 train 1.3326 / val 1.3531，66 分钟完成，建立了带版本、配置和资源统计的工程基线。生成质量尚不稳定：seed 2 第一篇较连贯，seed 1/3 仍有行为衔接或因果/寓意矛盾。固定 300 token 导致后续故事截断，应与实际逻辑矛盾分开评价。
 - 项目进度：M0、M1 已完成；M2 A/B/C 已在 main，D 的数据、训练与产物已完成、等待 Claude 与用户验收；M3 现代组件与 A1–A4 消融、M4 Qwen3 权重对齐、M5 LoRA/SFT、M6 收尾仍待推进。今天是原计划 W2（11/2–11/8）第一天，已进入 M2 收尾，但 11/15 的 MVP 关口仍需完成可复现的 A1–A4。
 - 审查交接：Claude 在 Mac 拉取 m2-baseline 后，先读本文件顶部与 REPORT.md 的“Claude 审查入口”，核对 config / run.json / metrics.csv / samples.txt / loss_curve，再判断是否达到 M2 的故事连贯性要求。本次仅有一个训练 seed 1337；三个生成 seed 不能当作三次独立训练。真实 GPU 中断续训未测试，不把存档元数据验证当作续训已验收。
+
+### 2026-11-02 17:21（UTC+08:00）｜Codex｜确认 M2 推送并明确审查归属
+
+- 推送已成功：GitHub refs/heads/m2-baseline = 0e344fb4bffbc28cf1be603680e9915d12607fb1；训练配置提交 45e78f1 同时发布。refs/heads/main 仍为 8056ac0，未合并。Ubuntu 与 Windows 查看副本在该结果提交均已核对，工作区干净。
+- 归属更正：REPORT.md 中“人工核对”原本指 Codex 逐份阅读样例，容易与人的审查混淆，现明确标成“逐份核对（Codex）”。未发生用户验收或 Claude 审查；二者仍待进行。
+- 本条只更新发布状态及文档表述，没有改动训练代码、配置、原始日志、样例或数值，也没有重复运行训练。
 
 ## 后续交接模板
 

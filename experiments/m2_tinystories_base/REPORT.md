@@ -1,6 +1,6 @@
 # M2 TinyStories 基线训练结果
 
-执行日期：2026-11-02（Asia/Hong_Kong）。执行者：Codex。正式训练、三份样例和结果归档已完成；用户已批准提交并推送到 m2-baseline，M2 最终验收待用户与 Claude Code 核对。
+执行日期：2026-11-02（Asia/Hong_Kong）。执行者：Codex。正式训练、三份样例和结果归档已完成；配置和运行结果已推送到 m2-baseline（结果提交 0e344fb，训练来源 45e78f1），M2 最终验收待用户与 Claude Code 核对。
 
 ## 真实运行结果
 
@@ -34,7 +34,7 @@
 | 9500 | 1.336661 | 1.357512 | 6.3519128e-05 |
 | 9999 | 1.332517 | 1.352962 | 6e-05 |
 
-## 三份生成样例的人工核对
+## 三份生成样例的逐份核对（Codex）
 
 3 份样例均有英文儿童故事的角色、事件和对话结构；seed 2 第一篇较连贯，但 seed 1 有物品/行为衔接不清，seed 3 有行为与结尾寓意矛盾。固定 300 token 的输出在后续故事中出现截断，尚不能称三份均逻辑连贯。
 
@@ -57,7 +57,7 @@
 
 Ubuntu 工作区：`/home/j/transformer-lab`。小型归档：`experiments/m2_tinystories_base/`。完整本机执行与 GPU 原始日志：`runs/m2_train_20261102/`。Windows 查看副本：`C:\Users\J\Documents\ChatGPT\transformer\transformer-lab`。
 
-用户已批准把正式配置和本次结果提交并推送到 m2-baseline；实际提交及远端状态以 Git 记录为准。用户回到 Mac 后，让 Claude Code pull 后读取 PROGRESS.md 和归档，再判断是否达到 M2 验收；合并 main 另行决定。
+正式配置和本次结果已推送到 m2-baseline；结果提交 0e344fb，后续文档补充以分支 Git 日志为准。用户回到 Mac 后，让 Claude Code pull 后读取 PROGRESS.md 和归档，再判断是否达到 M2 验收；合并 main 另行决定。
 
 自测：为什么周期评估最后一行与最终 run.json 可能略有不同？为什么不能拿 M1 字符级 loss 与这里的 BPE loss 直接比较？
 
