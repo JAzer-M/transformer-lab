@@ -4,15 +4,15 @@
 
 ## 当前状态
 
-更新时间：2026-11-02 17:21（Asia/Hong_Kong，UTC+08:00）。
+更新时间：2026-11-02 17:37（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M2 任务 D 的全量数据准备、两次原有短跑、累积 2 次实测、正式训练与 3 份生成样例均已完成；待用户与 Claude Code 核对 M2 验收及是否合并 |
+| 项目阶段 | **M2 已由用户于 2026-11-02 验收**，任务 A–D 均合并到 main（合并与推送结果以 git log 和远端 ref 为准）。下一个是 M3（现代组件与 A1–A4 消融），尚未给计划 |
 | 本轮范围 | 按 docs/m2-windows-run.md 执行；用户于 2026-11-02 明确要求现在开始训练，采用已展示的完整正式配置 |
 | 实现方 | Claude Code 提供既有实现及手册；Codex 在 Windows/WSL 执行、新增并本地提交正式 YAML、归档真实结果；用户手写实现未修改 |
-| 审查方 | 本次未新增独立代码审查；运行证据与样例待用户/Claude Code 核对；任务 B/C 历史审查状态见交接记录 |
-| Git 分支 / commit | m2-baseline；训练来源 45e78f1；配置与结果已推送，结果提交 0e344fb；后续文档补充以分支最新 Git 日志为准；Claude 审查及合并 main 待用户决定 |
+| 审查方 | 本次未新增独立代码审查（分支未改代码）；Claude Code 已于 2026-11-02 17:29 在 Mac 核对运行证据与样例（见交接记录），未发现记录与配置不一致；用户随后验收 M2；任务 B/C 历史审查状态见交接记录 |
+| Git 分支 / commit | m2-baseline 快进合并到 main 后一同推送（哈希见 git log）；训练来源 45e78f1，结果提交 0e344fb |
 | 本轮改动 | configs/tinystories_base.yaml；experiments/m2_tinystories_base/ 小型结果与图；results.md 只追加 M2-1；本文件更新交接 |
 | 本机环境 | /home/j/transformer-lab；Ubuntu 26.04.1 LTS / WSL2；RTX 5060 Laptop GPU 8151 MiB；Python 3.12.14；PyTorch 2.9.1+cu128 / CUDA 12.8 |
 | 代码与配置保护 | 训练前工作区干净，来源不带 dirty；既有全部跟踪文件与 11/01 快照一致；仅新增已确认的正式配置，未改手写模型、trainer、BPE、测试、旧配置、锁文件 |
@@ -21,7 +21,7 @@
 | M2-1 正式实验 | 完整 10,000 步，327,680,000 个训练 token；最终 train 1.332559 / val 1.353057；82,756.28 tokens/s；PyTorch 已分配显存峰值 5006.78 MiB；主循环 3959.579s（65.99 分钟）；21 次周期评估的 val loss 均下降；未中断、未续训 |
 | 样例 | 3 份样例均有英文儿童故事的角色、事件和对话结构；seed 2 第一篇较连贯，但 seed 1 有物品/行为衔接不清，seed 3 有行为与结尾寓意矛盾。固定 300 token 的输出在后续故事中出现截断，尚不能称三份均逻辑连贯。 |
 | GPU 监测 | 正式阶段 1 秒采样，GPU 利用率均值 98.71%；最高温度 88.7°C；完整摘要见 gpu_summary.json；利用率不等同于理论算力利用率 |
-| 下一步 | Claude Code 在 Mac 拉取 m2-baseline，按 REPORT.md 的审查入口核对证据与样例，再与用户判断 M2 验收、合并及 M3 计划 |
+| 下一步 | M3 先给计划（按插件约定，写计划时调用 grilling）；M2 里程碑自测中用户跳过 BPE 题，交叉熵与困惑度、AdamW 与 warmup、bf16 与 fp16 已讲解，见 17:37 记录 |
 
 ## 当前任务与下一步
 
@@ -834,6 +834,25 @@
 - 推送已成功：GitHub refs/heads/m2-baseline = 0e344fb4bffbc28cf1be603680e9915d12607fb1；训练配置提交 45e78f1 同时发布。refs/heads/main 仍为 8056ac0，未合并。Ubuntu 与 Windows 查看副本在该结果提交均已核对，工作区干净。
 - 归属更正：REPORT.md 中“人工核对”原本指 Codex 逐份阅读样例，容易与人的审查混淆，现明确标成“逐份核对（Codex）”。未发生用户验收或 Claude 审查；二者仍待进行。
 - 本条只更新发布状态及文档表述，没有改动训练代码、配置、原始日志、样例或数值，也没有重复运行训练。
+
+### 2026-11-02 17:29（UTC+08:00）｜Claude Code｜在 Mac 核对 M2 任务 D 的运行结果
+
+- 范围：用户说明 Codex 已跑完，请 Claude Code 拉取查看。Mac，/Users/j/Desktop/transformer-lab；`git pull --ff-only` 把 m2-baseline 从 54a9598 快进到 a717273（新增 45e78f1、0e344fb、a717273，作者均为 J，由 Codex 提交）。
+- 插件约定：本分支相对 8056ac0 没有改动源码、测试、依赖与旧配置，只新增配置文件、实验证据和文档，所以没有调用 `matt-pocock-skills:code-review`（它面向代码改动），改为下列逐项核对。
+- 保护检查：`git diff 54a9598 HEAD -- src tests scripts pyproject.toml uv.lock` 以及 4 份旧配置、AGENTS.md、docs/PLAN.md 均为空。results.md 只多出 M2-1 一行，旧行未变。PROGRESS.md 删除的行只在顶部状态表和「当前任务与下一步」的“已确认”一行（改写后保留原有内容），历史记录未改。`experiments/` 中最大的文件是 loss_curve.png（约 126 KB），没有数据或 checkpoint。
+- 数字核对（`runs/m2-infra/19-verify-m2-baseline.txt`）：run.json 的 config 与 `configs/tinystories_base.yaml` 无不一致字段；git_commit 45e78f1（不带 dirty）；cuda、2.9.1+cu128、13,969,152 参数；train_tokens 327,680,000 = 10000 × 32 × 2 × 512；tokens/s 82,756.3 = train_tokens / train_seconds（66.0 分钟）；metrics.csv 21 行，val 每次评估都下降，第 0 步 val 9.0719（ln 8192 = 9.0109）。短跑：batch 16 为 61,578 tokens/s、2,582 MiB；batch 32 为 79,390 tokens/s、4,951 MiB；batch 32 × 累积 2 为 72,898 tokens/s、5,007 MiB（这次短跑也计入了启动开销）。数据：train 536,174,492 token / 2,717,495 篇，val 5,414,548 / 27,630 篇，约 4.15 字节/token，SHA-256 与核实值一致。
+- 配置：用户确认的正式配置与手册建议的备选方案（batch 32 × 累积 2，每步 32,768 token）一致；warmup 300 为总步数的 3%，其余同建议值。用户确认的原话记录在 Codex 13:26 记录中；配置注释提到的 `M2_PREPARE_RESULT.md` 不在仓库里（应在 Codex 工作区）。
+- 样例：Claude Code 通读 3 份样例，判断与 Codex 一致——句子通顺、有儿童故事的开头/角色/对话/结尾结构，每份开头都是完整的一篇；逻辑一致性不稳定（seed 1 借球后写成“把工作给了他”，Spot 先“自私”后“很开心”；seed 3 没听劝却得出“从此总听朋友的话”）；结尾的截断来自 300 token 上限，不算质量问题。
+- 观察：最后 500 步 val 仍从 1.3575 降到 1.3530，说明更多训练还会有收益（共 327,680,000 token，约为训练集的 0.61 轮）；train 比 val 低 0.02，没有过拟合迹象。GPU 平均温度 85.6°C、最高 88.7°C，之后 A1–A4 要连续跑多次，需要留意降频对 tokens/s 可比性的影响。真实 GPU 上的中断续训没有实测（Codex 已注明）。
+- 验收判断（交给用户）：PLAN 的 M2 验收三条中，“1–2 小时内完成”（66 分钟）与“loss 曲线和吞吐有记录”满足；“生成连贯英文短故事”是部分满足：语句与结构连贯，情节逻辑偶有矛盾。是否验收由用户决定。
+- 下一步：用户决定 M2 是否验收；验收后合并 m2-baseline 到 main 并推送，再进入 M3 计划。本条未提交。
+
+### 2026-11-02 17:37（UTC+08:00）｜Claude Code｜M2 验收，m2-baseline 合并 main 并推送
+
+- 用户确认：用户回复“可以合并并推送吧”，视为接受上一条的验收判断（“生成连贯英文短故事”为部分满足），M2 验收通过。
+- 操作：先在 m2-baseline 提交本文件（含上一条核对记录与本条），`git fetch` 后确认 main = origin/main = 8056ac0 且为 m2-baseline 的祖先，`git merge --ff-only m2-baseline`，在 main 上复查后推送 main 与 m2-baseline。合并与推送结果以 git log 和远端 ref 为准。
+- 学习状态（M2 里程碑自测）：用户认为 BPE 题不必回答，跳过。交叉熵：用户写成“-ylogy-y”，已更正为 −Σ y·log ŷ，目标是 one-hot 时等于 −log ŷ_正确；困惑度、AdamW 与 Adam 的区别、warmup、fp32/fp16/bf16/int 的区别，用户表示不清楚或忘了，已在对话中讲解（演示见 `runs/m2-infra/20-`）。
+- 下一步：M3 计划。
 
 ## 后续交接模板
 
