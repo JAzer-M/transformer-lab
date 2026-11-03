@@ -1,0 +1,30 @@
+# M3 消融 A2 高学习率加测：Pre-RMSNorm，学习率 3e-3，参数量 13,964,160
+# 与 configs/ablations/a0_control.yaml 只差：norm, learning_rate, min_lr（以及 out_dir）；由 tests/test_ablation_configs.py 检查
+# 学习率 3e-3、min_lr 3e-4（保持降到峰值的 1/10），warmup 仍为 92 步；本组只看会不会发散，各跑 1 个种子
+# 种子用命令行覆盖 seed 与 out_dir，命令见 docs/m3-windows-run.md
+data_dir: data/tinystories
+out_dir: runs/m3/a2_rmsnorm_lr3e-3/seed1337
+
+n_layers: 6
+n_heads: 6
+d_model: 384
+block_size: 512
+norm: rmsnorm
+norm_position: pre
+
+batch_size: 32
+grad_accum_steps: 2
+learning_rate: 3.0e-3
+weight_decay: 0.01
+max_iters: 3052
+grad_clip: 1.0
+lr_schedule: cosine
+warmup_iters: 92
+min_lr: 3.0e-4
+
+eval_interval: 250
+eval_iters: 20
+ckpt_interval: 1000
+resume: false
+seed: 1337
+device: auto

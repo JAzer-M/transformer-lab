@@ -1,18 +1,20 @@
 """把数据、模型、优化器、主循环和记录串起来，完成一次训练。"""
 
 import time
+from dataclasses import asdict
 from pathlib import Path
 
 import torch
 
 from tlab.data.loader import load_splits, load_tokenizer
 from tlab.device import get_device
-from tlab.model.gpt import GPT, GPTConfig, count_parameters
+from tlab.model.gpt import GPT, count_parameters
 from tlab.train.config import TrainConfig
 from tlab.train.trainer import train
 from tlab.train.utils import (
     RunLogger,
     estimate_loss,
+    gpt_config_from,
     load_checkpoint,
     peak_memory_mb,
     save_checkpoint,
@@ -31,13 +33,7 @@ def run(config: TrainConfig) -> Path:
     train_data, val_data = load_splits(data_dir)  # (N_train,), (N_val,)
 
     # 模型与优化器
-    model_config = GPTConfig(
-        vocab_size=tokenizer.vocab_size,
-        block_size=config.block_size,
-        d_model=config.d_model,
-        n_layers=config.n_layers,
-        n_heads=config.n_heads,
-    )
+    model_config = gpt_config_from(asdict(config), tokenizer.vocab_size)
     model = GPT(model_config).to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay

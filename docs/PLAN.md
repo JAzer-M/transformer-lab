@@ -250,6 +250,12 @@ CPU 训练 10 步依赖 M1 的最小模型与可运行训练路径。相关代�
 - 变体名（即 `configs/ablations/<变体>.yaml` 的文件名和结果目录名，2026-11-02 第 0 步定下）：`a0_control`；`a1_sinusoidal`、`a1_rope`；`a2_postln`、`a2_rmsnorm`；`a3_swiglu`；`a4_gqa2`、`a4_mqa`；高学习率加测 `a2_postln_lr3e-3`、`a2_preln_lr3e-3`、`a2_rmsnorm_lr3e-3`；组合 `a9_modern`。
 - 判定规则的补充（第 0 步提交前自查后明确）：任一种子最终 val 为 NaN 时记“无法比较”；任一方不足 2 个种子时记“种子不足”；补到 3 个种子后不再看配对方向，只按均值规则判定。速度与显存只看短测，汇总表不放长训练的 tokens/s。
 - 本次不做：A5、A6（可选，MVP 后再定），性能优化（单独成任务）。
+- 第 1 步 `m3-norm` 的决定（2026-11-03 用户回复“按推荐开始吧”确认）：
+  - 用户在新建的 `src/tlab/model/layers.py` 手写 `RMSNorm(d_model, eps=1e-6)`：只有名为 `weight` 的 (C,) 参数，初始全 1，没有 bias；eps 加在根号里，默认 1e-6 与 Qwen3 一致，LayerNorm 保持 PyTorch 默认 1e-5。内部暂不转 fp32（训练时残差主干本就是 fp32），M4 再定。
+  - 开关由 agent 写进用户手写的 `block.py`、`gpt.py` 与 `layers.py`（`make_norm`），逐处标注“agent 编写”。Post-LN 下 `ln_f` 换成 `nn.Identity()`，不产生参数。
+  - 高学习率加测：`learning_rate` 3e-3、`min_lr` 3e-4（保持降到峰值的 1/10），warmup 仍为 92 步，其余与对照组相同。
+  - 测试接口 14 个（RMSNorm 5 个、Block 4 个、GPT 与配置 4 个、消融配置 1 个），2026-11-02 列给用户确认。实现为 20 个测试函数：接口 11、13 各拆成两个；提交前自查后又补 3 个（汇总时旧种子缺新字段按默认值比较、GPTConfig 建配置时检查取值、每个模型开关都能在训练配置里设置）。
+- 第 2 批之前加“完整验证集评估”（2026-11-03 用户选择“加，单独分支”）：分支 `m3-evalfull`，从 m3-norm 分出；计划另行列给用户确认。
 
 ### M4 自研架构载入 Qwen3-0.6B（W4 前半）
 

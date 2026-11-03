@@ -83,6 +83,21 @@ def test_load_config_rejects_unknown_keys(tmp_path: Path) -> None:
         load_config(write_yaml(tmp_path / "ok.yaml", "n_layers: 6\n"), ["lr=1e-3"])
 
 
+def test_load_config_reads_norm_settings_and_rejects_typos(tmp_path: Path) -> None:
+    from tlab.train.config import load_config
+
+    path = write_yaml(tmp_path / "c.yaml", "norm: rmsnorm\nnorm_position: post\n")
+
+    config = load_config(path)
+
+    assert (config.norm, config.norm_position) == ("rmsnorm", "post")
+    # 取值拼错在读配置时就报错，不用等到建模型、更不会悄悄换成别的结构
+    with pytest.raises(ValueError):
+        load_config(path, ["norm=rms"])
+    with pytest.raises(ValueError):
+        load_config(path, ["norm_position=middle"])
+
+
 # ---------- 外围工具 ----------
 
 
@@ -190,3 +205,51 @@ def test_run_writes_metrics_metadata_and_checkpoint(tmp_path: Path) -> None:
     assert "git_commit" in meta
     ckpt = torch.load(out_dir / "ckpt.pt", weights_only=False)
     assert {"model", "config", "vocab_size"} <= set(ckpt)
+
+
+def test_gpt_config_from_saved_config_defaults_missing_norm_fields() -> None:
+    from tlab.train.utils import gpt_config_from
+
+    # M1/M2 存档里的配置没有这两项：按默认值重建，才能和存档里的参数对上
+    old = {"block_size": 8, "d_model": 16, "n_layers": 1, "n_heads": 2, "seed": 0}
+    config = gpt_config_from(old, vocab_size=11)
+    assert (config.vocab_size, config.block_size, config.d_model) == (11, 8, 16)
+    assert (config.n_layers, config.n_heads) == (1, 2)
+    assert (config.norm, config.norm_position) == ("layernorm", "pre")
+
+    # M3 的配置写了这两项，就照写的来
+    new = dict(old, norm="rmsnorm", norm_position="post")
+    config = gpt_config_from(new, vocab_size=11)
+    assert (config.norm, config.norm_position) == ("rmsnorm", "post")
+
+
+def test_run_builds_the_configured_norm_and_checkpoint_rebuilds_it(
+    tmp_path: Path,
+) -> None:
+    from tlab.model.gpt import GPT
+    from tlab.model.layers import RMSNorm
+    from tlab.train.run import run
+    from tlab.train.utils import gpt_config_from
+
+    write_tiny_dataset(tmp_path / "data")
+    out_dir = run(tiny_config(tmp_path, max_iters=2, norm="rmsnorm"))
+
+    # 按 sample.py 的做法，用存档里的配置重建模型，再严格载入参数：
+    # 训练时若没用上 RMSNorm，存档里会多出 LayerNorm 的 bias，严格载入就会报错
+    ckpt = torch.load(out_dir / "ckpt.pt", weights_only=False)
+    model = GPT(gpt_config_from(ckpt["config"], ckpt["vocab_size"]))
+    model.load_state_dict(ckpt["model"])
+    assert isinstance(model.ln_f, RMSNorm)
+
+
+def test_every_model_switch_is_a_train_config_field() -> None:
+    from dataclasses import MISSING, fields
+
+    from tlab.model.gpt import GPTConfig
+    from tlab.train.config import TrainConfig
+
+    # GPTConfig 里有默认值的字段是 M3 起加的结构开关：每一个都必须能在训练配置里设置，
+    # 否则 YAML 里写了也传不进模型（A1、A3、A4 还会再加开关）
+    switches = {f.name for f in fields(GPTConfig) if f.default is not MISSING}
+    assert switches
+    assert switches <= {f.name for f in fields(TrainConfig)}

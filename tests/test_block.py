@@ -1,3 +1,4 @@
+import pytest
 import torch
 
 # 待实现模块在各测试内导入：先写好 MLP 时，MLP 的测试就能单独通过
@@ -97,3 +98,68 @@ def test_block_parameter_count() -> None:
 
     # 注意力 4 个 (C, C) = 4C²；MLP 两个 (C, 4C) = 8C²；两个 LayerNorm 各有 weight、bias = 4C
     assert n_params == 12 * C * C + 4 * C
+
+
+def test_block_with_rmsnorm_uses_it_for_both_norms() -> None:
+    from tlab.model.block import Block
+    from tlab.model.layers import RMSNorm
+
+    C = 8
+    block = Block(d_model=C, n_heads=2, norm="rmsnorm")
+
+    assert isinstance(block.ln1, RMSNorm)
+    assert isinstance(block.ln2, RMSNorm)
+    # RMSNorm 只有 weight：两个 norm 共 2C，比 LayerNorm 少 2C（C=8 时 784）
+    n_params = sum(p.numel() for p in block.parameters())
+    assert n_params == 12 * C * C + 2 * C == 784
+
+
+def test_post_ln_block_matches_post_ln_formula() -> None:
+    from tlab.model.block import Block
+
+    torch.manual_seed(0)
+    block = Block(d_model=8, n_heads=2, norm_position="post")
+    x = torch.randn(2, 5, 8)  # (B, T, C)
+
+    # 随机化两个 LayerNorm 的参数，才能分辨 ln1、ln2 是否用对位置
+    with torch.no_grad():
+        for ln in (block.ln1, block.ln2):
+            ln.weight.normal_()
+            ln.bias.normal_()
+
+    # 参考答案：Post-LN 先把子层输出加回 x，再归一化（原论文的 Add & Norm）
+    x1 = block.ln1(x + block.attn(x))  # (B, T, C)
+    y_ref = block.ln2(x1 + block.mlp(x1))  # (B, T, C)
+
+    y = block(x)  # (B, T, C)
+
+    torch.testing.assert_close(y, y_ref)
+
+
+def test_post_ln_block_is_still_causal() -> None:
+    from tlab.model.block import Block
+
+    torch.manual_seed(0)
+    block = Block(d_model=8, n_heads=2, norm_position="post")
+    x = torch.randn(2, 5, 8)  # (B, T, C)
+
+    # 只改最后一个 token（下标 4）
+    x_changed = x.clone()  # (B, T, C)
+    x_changed[:, 4, :] = torch.randn(2, 8)  # (B, C)
+
+    y = block(x)  # (B, T, C)
+    y_changed = block(x_changed)  # (B, T, C)
+
+    # 归一化挪到加法之后，仍然只在单个 token 内部计算，不会把未来泄露给前面
+    torch.testing.assert_close(y_changed[:, :4, :], y[:, :4, :])
+    assert not torch.allclose(y_changed[:, 4, :], y[:, 4, :])
+
+
+def test_block_rejects_unknown_norm_settings() -> None:
+    from tlab.model.block import Block
+
+    # 拼错时要直接报错；否则 forward 里的分支会把它悄悄当成某一种结构
+    with pytest.raises(ValueError):
+        Block(d_model=8, n_heads=2, norm="rms")
+    with pytest.raises(ValueError):
+        Block(d_model=8, n_heads=2, norm_position="middle")

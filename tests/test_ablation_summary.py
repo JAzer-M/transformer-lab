@@ -60,6 +60,22 @@ def test_load_variants_merges_seeds_of_one_variant(tmp_path: Path) -> None:
     assert control.n_params == 13969152
 
 
+def test_runs_saved_before_a_new_switch_count_as_its_default(tmp_path: Path) -> None:
+    from tlab.eval.ablation import load_variants
+
+    # 第 1 批对照组是加 norm 开关之前存的，config 里没有这两项；新代码补跑的种子有，取默认值
+    write_run(tmp_path, "a0_control", 1337, 1.50)
+    write_run(tmp_path, "a0_control", 2024, 1.54)
+    write_run(tmp_path, "a0_control", 7, 1.52, norm="layernorm", norm_position="pre")
+
+    assert sorted(load_variants(tmp_path)["a0_control"].runs) == [7, 1337, 2024]
+
+    # 结构真的不同时仍要报错
+    write_run(tmp_path, "a0_control", 8, 1.52, norm="rmsnorm", norm_position="pre")
+    with pytest.raises(ValueError):
+        load_variants(tmp_path)
+
+
 # ---------- 2. 配置一致性 ----------
 
 

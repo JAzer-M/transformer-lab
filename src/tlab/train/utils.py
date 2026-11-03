@@ -5,8 +5,10 @@ import csv
 import json
 import os
 import subprocess
-from dataclasses import asdict
+from collections.abc import Mapping
+from dataclasses import MISSING, asdict, fields
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch
@@ -14,6 +16,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from tlab.data.batch import get_batch
+from tlab.model.gpt import GPTConfig
 from tlab.train.config import TrainConfig
 
 
@@ -84,6 +87,24 @@ class RunLogger:
             csv.writer(f).writerow(row)
         line = f"step {step:5d} | train {losses['train']:.4f} | val {losses['val']:.4f}"
         print(line if lr is None else f"{line} | lr {lr:.2e}")
+
+
+def gpt_config_from(config: Mapping[str, Any], vocab_size: int) -> GPTConfig:
+    """由训练配置（TrainConfig 转成的字典，或存档里的 config）得到模型结构配置。
+
+    run.py 建模型、sample.py 按存档重建模型都走这里。GPTConfig 里有默认值的字段是
+    M3 起加的结构开关，M1/M2 的存档里没有，缺了就用默认值，旧存档照样能载入；
+    以后再加开关，只要在 GPTConfig 和 TrainConfig 里同名声明，这里不用改。
+    """
+    switches = [f.name for f in fields(GPTConfig) if f.default is not MISSING]
+    return GPTConfig(
+        vocab_size=vocab_size,
+        block_size=config["block_size"],
+        d_model=config["d_model"],
+        n_layers=config["n_layers"],
+        n_heads=config["n_heads"],
+        **{key: config[key] for key in switches if key in config},
+    )
 
 
 def save_checkpoint(

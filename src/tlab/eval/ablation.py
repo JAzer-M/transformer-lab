@@ -7,8 +7,10 @@ import csv
 import json
 import math
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
+
+from tlab.train.config import TrainConfig
 
 # 同一变体的几个种子，只允许这些配置字段不同
 PER_SEED_KEYS = ("seed", "out_dir")
@@ -149,8 +151,14 @@ def _read_run(run_dir: Path) -> SeedRun:
     )
 
 
+# 字段是后来加的（如 M3 的 norm 开关）时，之前存的 run.json 里没有它；新字段的默认值
+# 就是加之前的行为，所以缺了按 TrainConfig 的默认值比较，旧种子和新种子才对得上
+DEFAULT_CONFIG = asdict(TrainConfig())
+
+
 def _shared_config(config: dict) -> dict:
-    return {k: v for k, v in config.items() if k not in PER_SEED_KEYS}
+    full = {**DEFAULT_CONFIG, **config}
+    return {k: v for k, v in full.items() if k not in PER_SEED_KEYS}
 
 
 def load_variants(root: Path) -> dict[str, Variant]:

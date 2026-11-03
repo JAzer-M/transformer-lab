@@ -4,22 +4,22 @@
 
 ## 当前状态
 
-更新时间：2026-11-03 11:52（Asia/Hong_Kong，UTC+08:00）。
+更新时间：2026-11-03 14:39（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M2 已验收并合并；M3 第 0 步骨架已合并；本轮第 1 批 a0_control 的 1337、2024 两组正式训练完成；结果交付分支 m3-ablate，待 Claude 审查 |
-| 本轮范围 | 只执行 docs/m3-windows-run.md 第 1 批；建立共享双种子对照，不提前运行任何组件变体 |
-| 实现方 / 审查方 | Claude Code 提供配置、汇总实现与手册；Codex 在 Windows/WSL 执行；本轮结果由 Codex 只读子 agent（m3_result_audit）复核，未发现阻塞问题；Claude 审查待进行 |
-| 分支 / 训练 commit | m3-ablate / b7d9989a4642d8a5d702321755fef18399ddd055；两组完整运行均为干净来源，不带 dirty；结果提交以本分支 git log 和远端 ref 为准 |
-| 配置与预算 | M2 基线结构，13,969,152 参数；每次 3052 步、100,007,936 token，batch32×累积2、上下文512；warmup92，cosine6e-4→6e-5，每250步评估 |
+| 项目阶段 | M2 已验收并合并；M3 第 0 步骨架已合并；第 1 批 a0_control 两个种子已完成，结果在 m3-ablate（064699d），Claude Code 已在 Mac 核对，尚未合并到 main；M3 第 1 步 m3-norm 进行中（从 064699d 分出）：用户手写的 RMSNorm 已通过，agent 已写完 norm / norm_position 开关与 5 个 A2 配置，提交前 code-review 的问题已修，均未提交；用户决定第 2 批前加完整验证集评估（单独分支 m3-evalfull，计划待确认） |
+| 本轮范围 | Mac：M3 第 1 步 m3-norm（RMSNorm、norm / norm_position 开关、A2 配置）；Windows：第 1 批对照组已完成 |
+| 实现方 / 审查方 | m3-norm：RMSNorm 由用户手写，开关、配置与测试由 Claude Code 实现，Claude Code 自己的 code-review（两个只读子 agent）自查，未请 Codex 交叉审查。第 1 批结果：Codex 执行并由其子 agent 复核，Claude Code 于 14:03 核对 |
+| 分支 / commit | m3-norm（从 m3-ablate 的 064699d 分出，改动未提交）；第 1 批结果在 m3-ablate 064699d，训练来源 b7d9989，不带 dirty；main 与 origin/main 仍为 b7d9989 |
+| 配置与预算 | 对照组与 A2 共用：每次 3052 步、100,007,936 token，batch32×累积2、上下文512；warmup92，cosine 6e-4→6e-5，每250步评估。参数量：对照 13,969,152、Post-LN 13,968,384、RMSNorm 13,964,160。高学习率加测 3e-3→3e-4 |
 | 本机环境 | /home/j/transformer-lab；Ubuntu 26.04.1 LTS / WSL2；RTX 5060 Laptop GPU 8151 MiB；PyTorch 2.9.1+cu128 / CUDA12.8 |
 | 本次前置验证 | 原启动 uv sync --locked、CUDA 实际分配、132 passed in 3.92s、M2 数据及词表 SHA-256、配置差异检查通过；断电后再次 sync、CUDA 分配与 pytest 132 passed in 3.79s 通过；本轮未重跑 ruff |
 | 对照组结果 | seed1337 val 1.586385；seed2024 val 1.568917；均值 1.577651；种子间差距（max-min）0.017469 |
 | GPU 与异常 | 每5秒记录温度、频率、利用率、显存和功耗；两组完整训练均退出0，未见NaN、OOM或发散；seed2024 另有一次断电中断尝试（退出码未知），证据已保留，同配置从头完成 |
 | 文件与保护 | experiments/m3_ablations/a0_control/seed*/ 保存各次小文件，SUMMARY.md 由现有脚本生成；results.md 只追加两行；102 个跟踪文件在训练完成前逐字节未变；未改任何用户手写实现、配置、测试或依赖 |
 | 解释边界 | 当前仅有对照组，不能得出某个组件更好的结论；长训练 tokens/s 仅记录，不用于速度优劣比较；M2-1 预算不同，不能直接比较最终loss |
-| 下一步 | 用户在 Claude 端拉取 m3-ablate，审查 SUMMARY、两组 run.json 和断电记录；后续按 Claude 新增批次运行 RMSNorm 等组件变体 |
+| 下一步 | 用户确认 m3-norm 提交与 m3-evalfull 计划；m3-evalfull 完成后写手册第 2 批，两分支合并、推送后由 Codex 执行；m3-ablate 的结果随之进 main |
 
 ## 当前任务与下一步
 
@@ -936,6 +936,49 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 提交检查：原始 metrics.csv 由 csv 模块写成 CRLF，首次暂存后的普通 git diff --cached --check 把 CR 识别成尾随空白，提交未执行；其后那次 push 因此返回 Everything up-to-date，没有新增远端提交。原始日志字节不改，改用命令级 core.whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol 检查合法换行，未修改全局 Git 设置。
 - 提交身份：Ubuntu 和 Windows Git 均未配置作者身份，前述 commit 未创建提交，Windows 身份检查也未执行提交；本次沿用仓库此前 Codex 结果提交 0e344fb 与当前 HEAD 一致的既有作者身份，仅通过本次命令提供，不修改全局配置。
 - 下一步：按用户已给授权，在结果自查后提交推送 m3-ablate；用户回到 Claude Code 核对 SUMMARY、两个run.json、断电记录及GPU记录。后续组件完成后按新批次继续，本轮不提前执行它们。
+
+### 2026-11-03 14:03（UTC+08:00）｜Claude Code｜核对 M3 第 1 批对照组结果，开始 m3-norm
+
+- 范围与用户确认：新对话按「Claude Code 接手入口（M3 第 1 步起）」接手，读完必读清单与三段对话记录（11 个 jsonl 按段合并去重后阅读）。用户确认 m3-norm 测试接口与 4 个决定“按推荐开始”（block/gpt 的开关由 agent 写；eps 1e-6；RMSNorm 暂不转 fp32；高学习率 min_lr 3e-4），并告知 Codex 第 1 批已完成，请拉取查看。
+- 工作区：Mac，/Users/j/Desktop/transformer-lab。`git fetch` 后 origin/main 仍为 b7d9989，Codex 结果推在 origin/m3-ablate（064699d，作者 J，由 Codex 提交）；本地 m3-ablate 快进到 064699d，从它分出 m3-norm。
+- 核对 Codex 结果（证据 `runs/m3-norm/01-verify-a0-control.txt`）：
+  - 保护：`git diff b7d9989 064699d` 不涉及 src、tests、scripts、configs、pyproject、uv.lock、AGENTS、PLAN；results.md 只追加两行；PROGRESS 删除的只有顶部状态表旧行，历史记录未改。
+  - 两个 run.json 的 config 与 `a0_control.yaml` 只差 seed、out_dir；git_commit b7d9989 不带 dirty；cuda、13,969,152 参数；train_tokens 100,007,936 = 3052 × 32 × 2 × 512；tokens/s 等于 train_tokens / train_seconds；14 次评估（0、250、…、3000、3051），val 每次都下降、无 NaN。
+  - 用本机脚本重新生成 SUMMARY.md，与 Codex 提交的逐字一致。均值 1.577651，种子间差距 0.017469。
+  - seed2024 断电那次只留下第 0 步评估，之后同配置从头重跑，未续训、未挑结果；保留的中断证据完整。
+- 观察（未改动任何文件，交给用户决定）：`estimate_loss` 用 `seed + 1` 取评估 batch，所以两个种子是在验证集的不同子集（各 20 × 32 × 512 = 327,680 token，约占验证集 6%）上算的 val。seed1337 的 train 比 val 低 0.018，seed2024 的 train 比 val 高 0.020，而训练只过了约 0.19 轮、不会过拟合，说明评估子集带来的抽样误差约有 0.02，和种子间差距同一量级。同一种子的变体与对照用的是同一子集，配对比较仍公平；但“均值差 > 种子间差距”这条规则会因此偏保守。是否在第 2 批前加一个“在完整验证集上评估最终模型”的步骤，写手册第 2 批时交用户决定。
+- 改动（未提交）：`docs/PLAN.md` 在「M3 实施计划」末尾追加第 1 步的决定；新增 `tests/test_layers.py`（RMSNorm 5 个测试）；本文件更新顶部状态并追加本条。
+- 本次验证：main 上 pytest 132 passed（接手时）；m3-norm 上 5 failed（`ModuleNotFoundError: tlab.model.layers`）、132 passed，符合预期。故意改错检查（`runs/m3-norm/02-rmsnorm-mutation-check.txt`，在 scratchpad 的 src 副本里用 PYTHONPATH 运行，已确认导入的是副本）：正确版本 5 passed；减均值、整个张量求均方、sum 代替 mean、eps 在根号外、默认 eps 1e-5、忘乘 weight、多加 bias、weight 随机初始化 8 种错误全部被抓到。
+- 未验证：Codex 的 GPU 温度统计只抽看了 REPORT 与 gpu_stats，未逐行复算 gpu.csv；Windows 上的 checkpoint 不在 Mac，无法复评。
+- 审查状态：第 1 批结果经 Codex 子 agent 与 Claude Code 核对；m3-norm 代码尚未开始，待用户手写 RMSNorm 后检查。
+- 学习状态：用户待手写 RMSNorm；Pre/Post-LN（M1 自测部分掌握）将在 agent 写完 Post-LN 后配图讲解、由用户复述，A2 结果回来后再对照实验讲一次。
+- 下一步：用户写 `layers.py` 的 RMSNorm 并跑测试；用户决定是否把 m3-ablate（064699d）快进合并到 main 并推送。
+
+### 2026-11-03 14:27（UTC+08:00）｜Claude Code｜用户 RMSNorm 通过，agent 写完 norm 开关与 A2 配置
+
+- 用户手写：`src/tlab/model/layers.py` 的 `RMSNorm`。第一次运行时参数名拼成 `wight`（第 14、21、22 行），3 个测试报 `AttributeError`；Claude Code 在副本里只改这个名字即 5 passed，告知用户后由用户自己改正，复查 137 passed、ruff 通过。用户要求两道思考题留到 m3-norm 做完再答。
+- 用户确认“开始写开关”。agent 按测试先行逐个推进（每个测试先确认失败再实现），改动均标注“agent 编写（norm 开关）”，用户手写文件顶部各加一行例外说明：
+  - `layers.py`：`NORMS`、`make_norm(kind, d_model)`（未知取值报 ValueError）。
+  - `block.py`：`Block(d_model, n_heads, norm="layernorm", norm_position="pre")`；`NORM_POSITIONS`；未知位置报 ValueError；forward 增加 Post-LN 分支 `x = ln1(x + attn(x))`、`x = ln2(x + mlp(x))`，Pre-LN 原有两行未改。
+  - `gpt.py`：`GPTConfig` 新增 `norm`、`norm_position`（默认值即 M1/M2 结构）；传给每个 Block；`ln_f` 用 `make_norm`，Post-LN 时为 `nn.Identity()`。
+  - `config.py`：`TrainConfig` 新增同名两字段，`__post_init__` 检查取值；`utils.py` 新增 `gpt_config_from(config, vocab_size)`，`run.py` 与 `scripts/sample.py` 共用，旧存档缺这两项时用默认值。
+  - 配置：`configs/ablations/` 新增 `a2_postln`、`a2_rmsnorm`、`a2_preln_lr3e-3`、`a2_postln_lr3e-3`、`a2_rmsnorm_lr3e-3`，与 a0_control 只差各自字段与 out_dir；高学习率组 lr 3e-3、min_lr 3e-4。
+- 与 11/02 列出的接口相比的一处调整：取值检查放在 `TrainConfig` 创建时与建模型时（`Block`、`make_norm`），`GPTConfig` 本身不检查，以少改用户手写的 gpt.py；效果相同（训练入口读配置即报错，直接建模型也会报错）。
+- 新增测试（共 21 个）：test_block.py 4 个、test_gpt.py 3 个、test_trainer.py 3 个、新文件 test_ablation_configs.py 11 个（参数化）；已有测试的断言未改，只给 test_block.py 加了 `import pytest`、把 test_gpt.py 的 `small_config(**overrides: int)` 标注改为 `int | str`。
+- 本次验证：pytest 158 passed；ruff check、format --check 通过。复现（`runs/m3-norm/03-`）：main 与 m3-norm 各跑 `tiny_smoke` 与 `tinystories_smoke`，metrics.csv 逐字节相同，最终 train/val 相同（tiny_smoke 第 9 步 val 3.8944，与 M1 一致）。新结构冒烟（`04-`）：tiny_smoke 下 RMSNorm 27,840 参数、Post-LN 27,936 参数，与手算一致，10 步 loss 均下降；sample.py 能载入 main 代码存的旧存档和 Post-LN 存档。故意改错（`05-`）：13 种错误（没传 norm / norm_position、Post-LN 保留 ln_f 或换成无参数 LayerNorm、ln1 与 ln2 用反、漏残差、写成先归一化、去掉两处取值检查、make_norm 建错、gpt_config_from 忽略或强求新字段、run.py 不用配置）全部被抓到。
+- 未验证：真实 GPU 上 RMSNorm 与 Post-LN 的 bf16 训练；8192 词表的 A2 配置只在 CPU 上建模型数参数，未训练。
+- 审查状态：提交前 code-review 尚未运行；手册第 2 批尚未写。
+- 下一步：用户决定是否在第 2 批前加完整验证集评估；Claude Code 写手册第 2 批，运行 code-review，提交与合并等用户同意。
+
+### 2026-11-03 14:39（UTC+08:00）｜Claude Code（matt-pocock-skills:code-review，两个只读子 agent）｜m3-norm 提交前自查与修复
+
+- 用户确认：用户对“第 2 批前要不要加完整验证集评估”选择“加，单独分支”。按插件约定先对 m3-norm 运行 code-review（固定点 064699d，审查未提交的工作区改动与未跟踪新文件；`docs/agents/issue-tracker.md` 不存在，规格取 PLAN「M3 实施计划」与 11/02 确认的 14 个接口）。
+- Standards（无硬违规，判断项）：norm 与 norm_position 成对散落多处，`gpt_config_from` 里手写的字段清单以后加开关时容易漏（Shotgun Surgery / Data Clumps）；取值检查与报错文案写了三遍；`gpt_config_from` 放在 train/utils.py、config.py 依赖模型模块（因 gpt.py 是用户文件，可接受）；ln1、ln2、ln_f 的名字和用户注释“最终 LayerNorm”已不完全准确；PLAN 写 14 个接口而实际测试函数更多、PROGRESS 顶部三行仍是第 1 批内容。核对无问题：用户 RMSNorm 与快照逐行一致，agent 代码均有标注，已有断言未改，没有禁用模块。
+- Spec：需要修的一条——汇总脚本按配置一致性检查种子，第 1 批对照组的 run.json 没有 norm 字段，新代码给对照组补种子会被误报“配置不同”（子 agent 实测）；`GPTConfig` 不检查取值，0 层时 `norm_position="middle"` 会被悄悄当成 Post-LN；“默认配置与 main 一致”目前是每步手工核对、未写进 pytest（子 agent 重跑确认一致）；A2 配置注释指向的手册命令尚未写。核对无问题：旧存档严格载入、四种结构的 state_dict 键互不相同（交叉载入会报错）、CPU autocast 下 dtype 正常（CUDA 未测）。
+- 修复（先写失败的测试再改）：新增 3 个测试，其中 2 个先失败（`06-` 之前的记录）——①`test_runs_saved_before_a_new_switch_count_as_its_default`：`ablation.py` 的 `_shared_config` 先用 `TrainConfig` 默认值补齐缺失字段再比较；②`test_gpt_config_rejects_unknown_norm_settings`：`GPTConfig.__post_init__` 检查取值（回到 11/02 接口 12 的原定做法）；③守卫测试 `test_every_model_switch_is_a_train_config_field`（GPTConfig 里每个有默认值的开关都必须是 TrainConfig 字段）。取值检查合并成 `layers.py` 的 `check_norm_settings`，TrainConfig、GPTConfig、Block 共用，`NORM_POSITIONS` 移到 layers.py，config.py 只依赖 layers.py；`gpt_config_from` 改为从 `GPTConfig` 有默认值的字段推出开关清单；block.py、gpt.py 各补一行 agent 注释说明名字沿用 M1 的原因；PLAN 写明接口与测试函数的对应。
+- 本次验证：pytest 161 passed；ruff check、format --check 通过（format 只调整了 agent 写的部分与新测试）。故意改错 18/18 被抓到（`runs/m3-norm/06-`，新增 GPTConfig 不检查、检查函数漏查、汇总不补默认值或把真正差异抹掉等）。复现（`07-`）：tiny_smoke、tinystories_smoke 与 main 的 metrics.csv 逐字节相同；用新代码重新生成第 1 批 SUMMARY 与已提交的逐字一致。
+- 未修：“默认配置与 main 逐字一致”仍为每步手工核对并记录（写成 pytest 需要固定浮点数，跨平台易碎）；子 agent 提到 `.idea/` 未加入 .gitignore，属用户 IDE 目录，提交时不加入。
+- 下一步：用户确认 m3-norm 提交与 m3-evalfull 计划。
 
 ## 后续交接模板
 
