@@ -1,0 +1,13 @@
+{
+  "cause": "Power interruption reported by user; no training process or checkpoint remained",
+  "original_started_at": "2026-11-02T22:59:23.399562+08:00",
+  "last_recorded_eval": {
+    "step": 0,
+    "train_loss": 9.0812,
+    "val_loss": 9.0816
+  },
+  "returncode": null,
+  "restarted_at": "2026-11-03T07:53:52.242081+08:00",
+  "evidence_dir": "runs/m3_compare_20261102/interrupted_seed2024_20261102",
+  "user_authorized_continue_and_push": true
+}

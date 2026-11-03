@@ -1,0 +1,55 @@
+01-sync.txt (exit 0)
+Resolved 51 packages in 0.75ms
+Checked 46 packages in 13ms
+
+
+02-gpu.txt (exit 0)
+2.9.1+cu128 12.8 NVIDIA GeForce RTX 5060 Laptop GPU
+
+
+03-pytest.txt (exit 0)
+........................................................................ [ 54%]
+............................................................             [100%]
+132 passed in 3.92s
+
+
+04-data-info.txt (exit 0)
+{
+  "mode": "full",
+  "revision": "f54c09fd23315a6f9c86f9dc80f725de7d8f9c64",
+  "sources": {
+    "train": {
+      "filename": "TinyStoriesV2-GPT4-train.txt",
+      "size": 2227753162,
+      "sha256": "6418d412de72888f52b5142c761ac21a582f7d1166f0bfbdb5f03ccfdec90443"
+    },
+    "valid": {
+      "filename": "TinyStoriesV2-GPT4-valid.txt",
+      "size": 22502601,
+      "sha256": "6874bae9a4c1a4e7edcf0e53b86c17817e9cf881fc75ff2368da457b80c0585d"
+    }
+  },
+  "vocab_size": 8192,
+  "eot_id": 0,
+  "train_tokens": 536174492,
+  "val_tokens": 5414548,
+  "train_stories": 2717495,
+  "val_stories": 27630,
+  "tokenizer_seconds": 44.963793057999965,
+  "encode_seconds": 102.77910430899999,
+  "total_seconds": 149.29187006400002
+}
+
+06-recovery-sync.txt (exit 0)
+Resolved 51 packages in 0.75ms
+Checked 46 packages in 13ms
+
+
+07-recovery-gpu.txt (exit 0)
+2.9.1+cu128 12.8 NVIDIA GeForce RTX 5060 Laptop GPU
+
+
+08-recovery-pytest.txt (exit 0)
+........................................................................ [ 54%]
+............................................................             [100%]
+132 passed in 3.79s

@@ -1,0 +1,30 @@
+{
+  "source_commit": "b7d9989a4642d8a5d702321755fef18399ddd055",
+  "tracked_files_unchanged_until_batch_end": 102,
+  "seeds": [
+    1337,
+    2024
+  ],
+  "train_tokens_per_seed": 100007936,
+  "periodic_evaluations_per_seed": 14,
+  "configs_differ_only_seed_outdir": true,
+  "source_commits_clean_and_equal": true,
+  "old_results_prefix_preserved": true,
+  "old_progress_history_preserved": true,
+  "mean_val": 1.577651020884514,
+  "seed_spread": 0.01746873259544368,
+  "summary_matches_original_results": true,
+  "power_interrupted_seed": 2024,
+  "interrupted_attempt_returncode": null,
+  "interrupted_attempt_archived": true,
+  "completed_seed1337_not_rerun": true,
+  "seed2024_restarted_from_zero_without_config_change": true,
+  "postrun_data_sha256_matches_M2": true,
+  "archived_outputs_match_original_files": true,
+  "no_lingering_training_or_gpu_logger": true,
+  "results_appended_exactly_two_rows": true,
+  "original_progress_history_preserved": true,
+  "independent_result_audit": "Codex m3_result_audit: no blocking findings; Claude review pending",
+  "raw_metrics_csv_CRLF_preserved": true,
+  "git_whitespace_check": "command-scoped core.whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol; no global settings changed"
+}

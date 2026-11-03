@@ -1,0 +1,23 @@
+{
+  "data_dir": "data/tinystories",
+  "out_dir": "runs/m3/a0_control/seed1337",
+  "n_layers": 6,
+  "n_heads": 6,
+  "d_model": 384,
+  "block_size": 512,
+  "batch_size": 32,
+  "learning_rate": 0.0006,
+  "weight_decay": 0.01,
+  "max_iters": 3052,
+  "grad_accum_steps": 2,
+  "grad_clip": 1.0,
+  "lr_schedule": "cosine",
+  "warmup_iters": 92,
+  "min_lr": 6e-05,
+  "ckpt_interval": 1000,
+  "resume": false,
+  "eval_interval": 250,
+  "eval_iters": 20,
+  "seed": 1337,
+  "device": "auto"
+}

@@ -4,26 +4,26 @@
 
 ## 当前状态
 
-更新时间：2026-11-02 19:01（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-03 11:52（Asia/Hong_Kong，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M2 已由用户于 2026-11-02 验收并合并 main（d51ac93）。**M3 计划已确认**（PLAN「M3 实施计划」），第 0 步（消融骨架）完成，经用户同意合并到 main 并推送（结果以 git log 与远端 ref 为准）；接下来 Codex 跑对照组，用户在新对话里开始第 1 步（RMSNorm） |
-| 本轮范围 | M3 第 0 步：对照组配置 `configs/ablations/a0_control.yaml`、汇总逻辑 `src/tlab/eval/ablation.py` 与脚本 `scripts/summarize_ablations.py`、Codex 手册 `docs/m3-windows-run.md` 第一版 |
-| 实现方 | 第 0 步全部由 Claude Code 实现（不涉及用户手写文件）；M3 第 1–4 步中 RMSNorm、SwiGLU、RoPE、GQA 由用户手写 |
-| 审查方 | 第 0 步经 Claude 自己的 `matt-pocock-skills:code-review` 两个只读子 agent 自查（2026-11-02 18:54 记录），问题已修；未请 Codex 交叉审查 |
-| Git 分支 / commit | m3-ablate（从 main 的 d51ac93 分出）快进合并到 main 后一同推送；哈希见 git log |
-| 本轮改动 | 见上一行的四份文件与 `tests/test_ablation_summary.py`；`docs/PLAN.md` 新增「M3 实施计划」；另有 `docs/self-test-qa.md`（30 道自测题汇总）与本文件插件约定的修改，单独提交 |
-| 本机环境 | Mac：macOS 26.6.2 arm64，Python 3.11.9，uv 0.13.5，/Users/j/Desktop/transformer-lab。Windows（Codex 记录）：Ubuntu 26.04.1 LTS / WSL2，RTX 5060 Laptop GPU 8151 MiB，Python 3.12.14，PyTorch 2.9.1+cu128 / CUDA 12.8，/home/j/transformer-lab |
-| 代码与配置保护 | 第 0 步未改用户手写文件与已有测试；`a0_control.yaml` 与 `tinystories_base.yaml` 只差 max_iters、warmup_iters、eval_interval、out_dir |
-| pytest / 代码检查 | m3-ablate（Mac）：132 passed，ruff check 与 format --check 通过 |
-| TinyStories 数据 | 11/01 真实全量准备：词表 8192；train 536,174,492、valid 5,414,548 token；脚本 149.292s，最大 RSS 1.24 GiB；本轮复用并检查文件长度与词表 |
-| M2-1 正式实验 | 完整 10,000 步，327,680,000 个训练 token；最终 train 1.332559 / val 1.353057；82,756.28 tokens/s；PyTorch 已分配显存峰值 5006.78 MiB；主循环 3959.579s（65.99 分钟）；21 次周期评估的 val loss 均下降；未中断、未续训 |
-| 样例 | 3 份样例均有英文儿童故事的角色、事件和对话结构；seed 2 第一篇较连贯，但 seed 1 有物品/行为衔接不清，seed 3 有行为与结尾寓意矛盾。固定 300 token 的输出在后续故事中出现截断，尚不能称三份均逻辑连贯。 |
-| GPU 监测 | 正式阶段 1 秒采样，GPU 利用率均值 98.71%；最高温度 88.7°C；完整摘要见 gpu_summary.json；利用率不等同于理论算力利用率 |
-| 下一步 | Codex 按「Codex 接手入口（M3 消融）」跑第 1 批对照组；新的 Claude Code 对话从「Claude Code 接手入口（M3 第 1 步起）」开始 M3 第 1 步（m3-norm：用户写 RMSNorm，agent 写 Post-LN 与开关） |
+| 项目阶段 | M2 已验收并合并；M3 第 0 步骨架已合并；本轮第 1 批 a0_control 的 1337、2024 两组正式训练完成；结果交付分支 m3-ablate，待 Claude 审查 |
+| 本轮范围 | 只执行 docs/m3-windows-run.md 第 1 批；建立共享双种子对照，不提前运行任何组件变体 |
+| 实现方 / 审查方 | Claude Code 提供配置、汇总实现与手册；Codex 在 Windows/WSL 执行；本轮结果由 Codex 只读子 agent（m3_result_audit）复核，未发现阻塞问题；Claude 审查待进行 |
+| 分支 / 训练 commit | m3-ablate / b7d9989a4642d8a5d702321755fef18399ddd055；两组完整运行均为干净来源，不带 dirty；结果提交以本分支 git log 和远端 ref 为准 |
+| 配置与预算 | M2 基线结构，13,969,152 参数；每次 3052 步、100,007,936 token，batch32×累积2、上下文512；warmup92，cosine6e-4→6e-5，每250步评估 |
+| 本机环境 | /home/j/transformer-lab；Ubuntu 26.04.1 LTS / WSL2；RTX 5060 Laptop GPU 8151 MiB；PyTorch 2.9.1+cu128 / CUDA12.8 |
+| 本次前置验证 | 原启动 uv sync --locked、CUDA 实际分配、132 passed in 3.92s、M2 数据及词表 SHA-256、配置差异检查通过；断电后再次 sync、CUDA 分配与 pytest 132 passed in 3.79s 通过；本轮未重跑 ruff |
+| 对照组结果 | seed1337 val 1.586385；seed2024 val 1.568917；均值 1.577651；种子间差距（max-min）0.017469 |
+| GPU 与异常 | 每5秒记录温度、频率、利用率、显存和功耗；两组完整训练均退出0，未见NaN、OOM或发散；seed2024 另有一次断电中断尝试（退出码未知），证据已保留，同配置从头完成 |
+| 文件与保护 | experiments/m3_ablations/a0_control/seed*/ 保存各次小文件，SUMMARY.md 由现有脚本生成；results.md 只追加两行；102 个跟踪文件在训练完成前逐字节未变；未改任何用户手写实现、配置、测试或依赖 |
+| 解释边界 | 当前仅有对照组，不能得出某个组件更好的结论；长训练 tokens/s 仅记录，不用于速度优劣比较；M2-1 预算不同，不能直接比较最终loss |
+| 下一步 | 用户在 Claude 端拉取 m3-ablate，审查 SUMMARY、两组 run.json 和断电记录；后续按 Claude 新增批次运行 RMSNorm 等组件变体 |
 
 ## 当前任务与下一步
+
+- 2026-11-03 11:52：M3 第 1 批双种子对照组已完成，见 experiments/m3_ablations/SUMMARY.md；用户已授权提交推送，之后由 Claude 审查。此前 M2 等待验收的文字为历史状态；M2 已完成验收并合并。
 
 - 2026-11-02：M2-1 配置和运行结果已推送（结果提交 0e344fb）；当前等待 Claude Code 审查和用户验收。
 
@@ -917,6 +917,25 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 合并：先在 m3-ablate 提交本文件，再 `git merge --ff-only` 到 main，在 main 上复查后推送 main 与 m3-ablate。结果以 git log 和远端 ref 为准。
 - 自测题：本段对话从汇总之后没有新答的题，`docs/self-test-qa.md` 无需追加。
 - 下一步：用户在 Codex 上让它执行 `docs/m3-windows-run.md` 第 1 批（对照组）；用户开新的 Claude Code 对话，从新入口开始 M3 第 1 步。
+
+### 2026-11-03 11:52（UTC+08:00）｜Codex｜M3 第 1 批共享对照组（两训练种子）
+
+- 用户范围：用户要求继续拉取新 GitHub、按 Claude 文件执行对照实验并打开 Ubuntu。本次只执行手册现有第 1 批 a0_control（1337、2024）；用户在断电后明确要求继续，并授权完成验证无误后提交推送，之后在 Claude 端拉取审查。
+- 来源与环境：通过已有 Windows Git 认证和代理直接 fetch Ubuntu 仓库，未改系统网络或全局Git设置；训练来源 m3-ablate / b7d9989a4642d8a5d702321755fef18399ddd055。可见 Ubuntu 终端显示 live.log。最初启动2024时没有额外降温等待，但随后断电，两个完整结果实际分两天取得；不把其吞吐用于速度比较。训练期间保持跟踪工作区干净，结果表在整批结束后统一追加。
+- 本次验证：uv sync --locked 退出0；CUDA自检为 2.9.1+cu128 / 12.8 / RTX5060 且张量分配成功；pytest 132 passed in 3.92s、退出0；info.json train 536,174,492 / val 5,414,548 token；train.bin、val.bin、tokenizer.json、info.json SHA-256 与 M2 归档一致。a0_control 与 M2 base 只差 max_iters、warmup_iters、eval_interval、out_dir，命令行只覆盖seed/out_dir；没有重新下载数据或重跑M2。
+- 启动过程保留：首次启动命令因工具自动权限审核超时而未创建进程，按工具允许只重试一次后启动成功；这不是训练失败。辅助的早期进程查询出现过 sed 引号错误，不影响训练。
+- 断电与恢复：seed1337 在11月2日完整结束后保留原结果，未重跑；seed2024 的原尝试自 2026-11-02T22:59:23.399562+08:00 启动，最后记录的评估为第0步，最后GPU采样为11月2日22:59:48.501（不是精确断电时刻），没有run.json或checkpoint、退出码未知。11月3日确认训练/监测进程均不存在、102个跟踪文件哈希未变，保留原metrics/console/gpu/status，再按用户要求于 2026-11-03T07:53:52.242081+08:00 用完全相同配置从第0步重做2024；没有使用resume或修改超参。重启后 uv sync --locked、CUDA实际分配、pytest 132 passed in 3.79s 均退出0。
+- 后续网络中断：聊天断线期间Ubuntu训练继续运行，seed2024 已于2026-11-03 08:14:46（UTC+08:00）完成；11:52接手时确认批次completed、命令退出0。训练时长使用run.json记录的主循环秒数，不把聊天离线时间计入训练，也没有因网络中断重跑。
+- 训练实测：
+
+- seed 1337：训练命令退出 0；2026-11-02T22:39:00.716794+08:00 开始、2026-11-02T22:59:23.396315+08:00 完成；train 1.568604 / val 1.586385，82178.67 tokens/s，PyTorch 已分配显存峰值 5006.78 MiB，主循环 1216.957s；GPU 温度均值/最高 85.11/88.5°C；首次 val≤2.0 在第 1000 步。
+- seed 2024：训练命令退出 0；2026-11-03T07:53:52.245152+08:00 开始、2026-11-03T08:14:46.944358+08:00 完成；train 1.589027 / val 1.568917，80068.05 tokens/s，PyTorch 已分配显存峰值 5006.78 MiB，主循环 1249.037s；GPU 温度均值/最高 84.30/88.3°C；首次 val≤2.0 在第 1000 步。
+
+- 汇总：每次100,007,936 token，14次周期评估（0、250、…、3000、3051）；现有汇总命令退出0并生成SUMMARY.md。最终val均值 1.577651，种子间差距 0.017469。当前只建立对照随机性基准，没有组件变体，不能下结构优劣结论。长训练吞吐不是受控速度短测，不据此比较速度。
+- 保护与归档：训练期间全部跟踪文件哈希一致；只追加两条真实 M3-a0_control 结果，旧结果前缀保留；小型run.json/metrics.csv/train_console.txt/gpu.csv与温度统计归档。数据、checkpoint、runs、不必要依赖不纳入Git；未修改用户手写实现、旧配置、测试或锁文件。历史交接内容完整保留。按 AGENTS 工作流程由 Codex 只读子 agent（m3_result_audit）核对手册、原始结果和归档，未发现阻塞问题；未重复运行训练以美化结果。Claude 审查仍待进行。
+- 提交检查：原始 metrics.csv 由 csv 模块写成 CRLF，首次暂存后的普通 git diff --cached --check 把 CR 识别成尾随空白，提交未执行；其后那次 push 因此返回 Everything up-to-date，没有新增远端提交。原始日志字节不改，改用命令级 core.whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol 检查合法换行，未修改全局 Git 设置。
+- 提交身份：Ubuntu 和 Windows Git 均未配置作者身份，前述 commit 未创建提交，Windows 身份检查也未执行提交；本次沿用仓库此前 Codex 结果提交 0e344fb 与当前 HEAD 一致的既有作者身份，仅通过本次命令提供，不修改全局配置。
+- 下一步：按用户已给授权，在结果自查后提交推送 m3-ablate；用户回到 Claude Code 核对 SUMMARY、两个run.json、断电记录及GPU记录。后续组件完成后按新批次继续，本轮不提前执行它们。
 
 ## 后续交接模板
 

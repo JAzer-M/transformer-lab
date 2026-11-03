@@ -1,0 +1,34 @@
+{
+  "sampling_seconds": 5,
+  "includes_initialization_and_finalization": true,
+  "temperature_C": {
+    "n": 251,
+    "mean": 84.299203187251,
+    "max": 88.3,
+    "min": 53.8
+  },
+  "sm_clock_MHz": {
+    "n": 251,
+    "mean": 2731.8725099601593,
+    "max": 2790.0,
+    "min": 480.0
+  },
+  "gpu_util_pct": {
+    "n": 251,
+    "mean": 98.26693227091633,
+    "max": 99.0,
+    "min": 1.0
+  },
+  "whole_gpu_memory_MiB": {
+    "n": 251,
+    "mean": 6542.239043824701,
+    "max": 6694.0,
+    "min": 865.0
+  },
+  "power_W": {
+    "n": 251,
+    "mean": 92.28258964143426,
+    "max": 99.4,
+    "min": 12.71
+  }
+}

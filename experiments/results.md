@@ -2,3 +2,5 @@
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-10-30 | M1-1 | configs/shakespeare_char.yaml | 54549658efcc8562b56d2505a1f49034eae79a47-dirty | 1337 | val 1.5858 | 105912 | 2597 MB | val 持续下降；样例有剧本格式，词形与语义仍有错误 |
 | 2026-11-02 | M2-1 | configs/tinystories_base.yaml | 45e78f1e718f70b322d0e817e47eb8e7272d5773 | 1337 | val 1.3531 | 82756 | 5007 MB | val 持续下降；可生成故事，部分因果矛盾与截断 |
+| 2026-11-02 | M3-a0_control-s1337 | configs/ablations/a0_control.yaml（seed=1337） | b7d9989a4642d8a5d702321755fef18399ddd055 | 1337 | val 1.5864 | 82179 | 5007 MB | 对照组；固定 100,007,936 token；未见发散 |
+| 2026-11-03 | M3-a0_control-s2024 | configs/ablations/a0_control.yaml（seed=2024） | b7d9989a4642d8a5d702321755fef18399ddd055 | 2024 | val 1.5689 | 80068 | 5007 MB | 对照组；固定 100,007,936 token；未见发散 |
