@@ -86,7 +86,7 @@ uv run python -c "import torch; print(torch.__version__, torch.version.cuda, tor
 本批由 Claude Code 于 2026-11-03 追加，对应分支 `m3-norm`（RMSNorm、norm / norm_position 开关、A2 配置）与 `m3-evalfull`（完整验证集评估）。
 
 - 前提：用户已把这两个分支合并到 `main`，或指定了要用的分支。先 `git fetch origin && git switch <用户指定的分支> && git pull --ff-only`，再 `uv sync --locked`。
-- GPU 自检同第 1 批；单元测试 `uv run pytest -q`，预期 **168 passed**（Mac 上提交前实测），全部通过才继续。
+- GPU 自检同第 1 批；单元测试 `uv run pytest -q`，预期 **170 passed**（Mac 上提交前实测），全部通过才继续。
 - 数据仍复用 `data/tinystories/`（train 536,174,492、val 5,414,548 个 token）。
 
 ### 第 1 步：给对照组的两个存档补评（不训练）

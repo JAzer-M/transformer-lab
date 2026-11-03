@@ -4,14 +4,14 @@
 
 ## 当前状态
 
-更新时间：2026-11-03 15:03（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-03 15:14（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M2 已验收并合并；M3 第 0 步骨架已合并；第 1 批 a0_control 两个种子已完成，结果在 m3-ablate（064699d），Claude Code 已在 Mac 核对，尚未合并到 main；M3 第 1 步 m3-norm 已提交（0e65b62，从 064699d 分出，未推送）；m3-evalfull（从 0e65b62 分出）已写完完整验证集评估、汇总改动与手册第 2 批，自查问题已修，经用户同意已提交（未推送） |
+| 项目阶段 | M2 已验收并合并；M3 第 0 步骨架已合并；第 1 批 a0_control 两个种子已完成并经 Claude Code 核对；M3 第 1 步 m3-norm 已提交（0e65b62，从 064699d 分出，未推送）；m3-evalfull（从 0e65b62 分出）已写完完整验证集评估、汇总改动与手册第 2 批；经用户同意，第 1 批结果、m3-norm、m3-evalfull 一起快进合并到 main 并推送（结果以 git log 与远端 ref 为准）；第 2 批待 Codex 执行 |
 | 本轮范围 | Mac：m3-norm（RMSNorm、norm / norm_position 开关、A2 配置）与 m3-evalfull（完整验证集评估、手册第 2 批）；Windows：第 1 批对照组已完成 |
 | 实现方 / 审查方 | m3-norm：RMSNorm 由用户手写，开关、配置与测试由 Claude Code 实现，Claude Code 自己的 code-review（两个只读子 agent）自查，未请 Codex 交叉审查。第 1 批结果：Codex 执行并由其子 agent 复核，Claude Code 于 14:03 核对 |
-| 分支 / commit | m3-evalfull（提交哈希见 git log）← m3-norm 0e65b62 ← m3-ablate 064699d（第 1 批结果，训练来源 b7d9989）；main 与 origin/main 仍为 b7d9989；以上均未推送新内容 |
+| 分支 / commit | main 快进到 m3-evalfull（含 m3-norm 0e65b62 与第 1 批结果 064699d），与 m3-norm、m3-evalfull 一起推送；哈希以 git log 与远端 ref 为准 |
 | 配置与预算 | 对照组与 A2 共用：每次 3052 步、100,007,936 token，batch32×累积2、上下文512；warmup92，cosine 6e-4→6e-5，每250步评估。参数量：对照 13,969,152、Post-LN 13,968,384、RMSNorm 13,964,160。高学习率加测 3e-3→3e-4 |
 | 本机环境 | /home/j/transformer-lab；Ubuntu 26.04.1 LTS / WSL2；RTX 5060 Laptop GPU 8151 MiB；PyTorch 2.9.1+cu128 / CUDA12.8 |
 | 本次前置验证 | 原启动 uv sync --locked、CUDA 实际分配、132 passed in 3.92s、M2 数据及词表 SHA-256、配置差异检查通过；断电后再次 sync、CUDA 分配与 pytest 132 passed in 3.79s 通过；本轮未重跑 ruff |
@@ -19,7 +19,7 @@
 | GPU 与异常 | 每5秒记录温度、频率、利用率、显存和功耗；两组完整训练均退出0，未见NaN、OOM或发散；seed2024 另有一次断电中断尝试（退出码未知），证据已保留，同配置从头完成 |
 | 文件与保护 | experiments/m3_ablations/a0_control/seed*/ 保存各次小文件，SUMMARY.md 由现有脚本生成；results.md 只追加两行；102 个跟踪文件在训练完成前逐字节未变；未改任何用户手写实现、配置、测试或依赖 |
 | 解释边界 | 当前仅有对照组，不能得出某个组件更好的结论；长训练 tokens/s 仅记录，不用于速度优劣比较；M2-1 预算不同，不能直接比较最终loss |
-| 下一步 | 经用户同意把 m3-evalfull（含 m3-norm、第 1 批结果）快进合并到 main 并推送，之后 Codex 执行手册第 2 批 |
+| 下一步 | 用户在 Codex 上让它按「Codex 接手入口（M3 消融）」与手册「第 2 批」执行（在 main 上）；回来后由 Claude Code 拉取核对 |
 
 ## 当前任务与下一步
 
@@ -55,9 +55,9 @@
 ## Codex 接手入口（M3 消融，2026-11-02）
 
 1. 在 WSL2 Ubuntu 的 `~/transformer-lab` 中工作；按用户指定的分支（`m3-ablate` 或合并后的 `main`）`git fetch origin && git switch <分支> && git pull --ff-only`。先读 `AGENTS.md`、`docs/PLAN.md`「M3 实施计划」、本文件「当前状态」。
-2. 严格按 `docs/m3-windows-run.md` 执行，**只做用户让你做的那一批**（当前只有第 1 批：对照组 `a0_control` 的种子 1337、2024）。
-3. 每次训练按手册的固定流程：后台记录 GPU、训练、停止记录、复制小文件到 `experiments/m3_ablations/<变体>/seed<种子>/`、`results.md` 追加一行；整批完成后运行汇总脚本更新 `SUMMARY.md`，再在本文件追加署名 Codex 的记录；提交与推送前征得用户同意。
-4. 不改超参数、配置与用户手写文件；出错、OOM、loss NaN 或发散时立即停止并记录原文。
+2. 严格按 `docs/m3-windows-run.md` 执行，**只做用户让你做的那一批**（第 1 批对照组已完成；当前是第 2 批：对照组两个存档补评、`a2_postln` 与 `a2_rmsnorm` 各 2 个种子、三个 `*_lr3e-3` 加测各 1 个种子）。
+3. 每次训练按手册的固定流程：后台记录 GPU、训练、停止记录、完整验证集打分（第 2 批起）、复制小文件到 `experiments/m3_ablations/<变体>/seed<种子>/`；整批完成后再统一追加 `results.md`、运行汇总脚本更新 `SUMMARY.md`，并在本文件追加署名 Codex 的记录；提交与推送前征得用户同意。
+4. 不改超参数、配置与用户手写文件；出错、OOM、loss NaN 或发散时立即停止并记录原文。唯一例外（2026-11-03 用户确认）：三个 `a2_*_lr3e-3` 加测出现 NaN 或发散时不中断，跑完并如实记录；程序报错仍停下。
 
 ## Codex 接手入口（M2 任务 D：TinyStories 基线训练，2026-11-01）
 
@@ -1004,6 +1004,13 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 提交：m3-evalfull 提交到本分支（哈希见 git log），未合并、未推送；`.idea/` 未加入。提交前 pytest 170 passed，ruff check、format --check 通过。
 - 自测题：本段对话里用户还没有回答新的题（两道 RMSNorm 思考题与“用自己的话讲 Post-LN”按用户要求留到之后），`docs/self-test-qa.md` 暂无需追加。
 - 下一步：用户决定是否把 m3-evalfull 快进合并到 main 并推送；之后用户在 Codex 上执行手册第 2 批。
+
+### 2026-11-03 15:14（UTC+08:00）｜Claude Code｜第 1 批结果、m3-norm、m3-evalfull 合并到 main 并推送
+
+- 用户确认：用户回复“合并并推送”。
+- 合并前修正：手册第 2 批写的预期测试数是 168 passed（写手册时的数），自查补测试后实际为 170，已改为 170；同时更新本文件「Codex 接手入口（M3 消融）」第 2–4 条：当前为第 2 批、整批完成后再追加 results.md、高学习率加测的例外。
+- 操作：先在 m3-evalfull 提交本文件与手册修正；`git fetch` 后确认 main = origin/main = b7d9989 且为 m3-evalfull 的祖先（远端没有别人推送的新提交），`git merge --ff-only m3-evalfull`；在 main 上 `uv sync --locked`、pytest、ruff 复查后推送 main、m3-norm、m3-evalfull（m3-ablate 远端已是 064699d）。结果以 git log 和远端 ref 为准。
+- 下一步：用户在 Windows 上让 Codex 执行第 2 批；完成后回到 Mac，由 Claude Code 拉取核对并汇总 A2 结果。
 
 ## 后续交接模板
 
