@@ -33,16 +33,24 @@ uv run python scripts/train.py --config configs/ablations/<变体>.yaml seed=<�
 kill $GPU_LOG
 ```
 
-把小文件复制进仓库：
+（第 2 批起）在完整验证集上给训练完的模型打分。训练命令退出码为 0 才做（loss 变成 NaN 但跑完了也算）；整批的训练与打分期间不改动任何已跟踪文件，`run.json` 与 `full_val.json` 里记录的 commit 才不带 dirty。记下这一步的耗时：
 
 ```bash
-mkdir -p experiments/m3_ablations/<变体>/seed<种子> && cp runs/m3/<变体>/seed<种子>/run.json runs/m3/<变体>/seed<种子>/metrics.csv experiments/m3_ablations/<变体>/seed<种子>/ && cp runs/m3_<变体>_seed<种子>_console.txt experiments/m3_ablations/<变体>/seed<种子>/train_console.txt && cp runs/m3_<变体>_seed<种子>_gpu.csv experiments/m3_ablations/<变体>/seed<种子>/gpu.csv
+uv run python scripts/eval_full_val.py --ckpt runs/m3/<变体>/seed<种子>/ckpt.pt --out runs/m3/<变体>/seed<种子>/full_val.json 2>&1 | tee runs/m3_<变体>_seed<种子>_full_val.txt
 ```
 
-在 `experiments/results.md` 末尾追加一行（数字取自 `run.json`）：
+输出应为 `完整验证集 val loss …（5,414,547 个 token，第 3052 步的存档）`；token 数或步数不对就停下汇报。
+
+把小文件复制进仓库（第 2 批起多了 `full_val.json`）：
+
+```bash
+mkdir -p experiments/m3_ablations/<变体>/seed<种子> && cp runs/m3/<变体>/seed<种子>/run.json runs/m3/<变体>/seed<种子>/metrics.csv runs/m3/<变体>/seed<种子>/full_val.json experiments/m3_ablations/<变体>/seed<种子>/ && cp runs/m3_<变体>_seed<种子>_console.txt experiments/m3_ablations/<变体>/seed<种子>/train_console.txt && cp runs/m3_<变体>_seed<种子>_gpu.csv experiments/m3_ablations/<变体>/seed<种子>/gpu.csv
+```
+
+整批的训练与打分都完成后，再按运行顺序为每次训练在 `experiments/results.md` 末尾各追加一行（与第 1 批的做法相同；数字取自 `run.json` 与 `full_val.json`；第 1 批没有完整验证集分数，不补写旧行）：
 
 ```markdown
-| 运行日期 | M3-<变体>-s<种子> | configs/ablations/<变体>.yaml（seed=<种子>） | run.json 中的 git_commit | <种子> | val {final_val_loss，保留 4 位} | {tokens_per_sec，取整} | {peak_memory_mb，取整} MB | 一句如实的结论 |
+| 运行日期 | M3-<变体>-s<种子> | configs/ablations/<变体>.yaml（seed=<种子>） | run.json 中的 git_commit | <种子> | val {final_val_loss，保留 4 位}（完整验证集 {full_val.json 的 val_loss，保留 4 位}） | {tokens_per_sec，取整} | {peak_memory_mb，取整} MB | 一句如实的结论 |
 ```
 
 一批全部跑完后，生成汇总表：
@@ -72,3 +80,46 @@ uv run python -c "import torch; print(torch.__version__, torch.version.cuda, tor
 - 依次运行种子 **1337** 和 **2024**（用上面的固定流程，`<变体>` = `a0_control`）。两次之间不需要等待降温。
 
 完成后告诉用户，由用户回到 Mac 让 Claude Code 核对。
+
+## 第 2 批：对照组补评 + A2 归一化（7 次训练）
+
+本批由 Claude Code 于 2026-11-03 追加，对应分支 `m3-norm`（RMSNorm、norm / norm_position 开关、A2 配置）与 `m3-evalfull`（完整验证集评估）。
+
+- 前提：用户已把这两个分支合并到 `main`，或指定了要用的分支。先 `git fetch origin && git switch <用户指定的分支> && git pull --ff-only`，再 `uv sync --locked`。
+- GPU 自检同第 1 批；单元测试 `uv run pytest -q`，预期 **168 passed**（Mac 上提交前实测），全部通过才继续。
+- 数据仍复用 `data/tinystories/`（train 536,174,492、val 5,414,548 个 token）。
+
+### 第 1 步：给对照组的两个存档补评（不训练）
+
+第 1 批的两个模型还在 `runs/m3/a0_control/seed1337/` 和 `seed2024/` 里。对种子 **1337** 和 **2024** 各运行一次上面固定流程里的打分命令（`<变体>` = `a0_control`），再只把 `full_val.json` 复制过去：
+
+```bash
+cp runs/m3/a0_control/seed<种子>/full_val.json experiments/m3_ablations/a0_control/seed<种子>/
+```
+
+- 找不到 `ckpt.pt`、`ckpt_step` 不是 3052，或 token 数不是 5,414,547：停下汇报，不要重新训练。
+- 这一步不往 `results.md` 加行（不是新训练）；两个分数写进本批的 Codex 交接记录。
+
+### 第 2 步：A2 归一化对比（4 次训练，按固定流程，含打分）
+
+| 变体 | 种子 | 首行参数量 | 与对照组的唯一区别 |
+| --- | --- | --- | --- |
+| `a2_postln` | 1337、2024 | 13,968,384 | LayerNorm 放在残差加法之后（Post-LN），没有最终 ln_f |
+| `a2_rmsnorm` | 1337、2024 | 13,964,160 | 13 个归一化全部换成 RMSNorm |
+
+### 第 3 步：高学习率加测（3 次训练，只跑种子 1337，按固定流程，含打分）
+
+| 变体 | 首行参数量 | 结构 |
+| --- | --- | --- |
+| `a2_preln_lr3e-3` | 13,969,152 | 对照组结构 |
+| `a2_postln_lr3e-3` | 13,968,384 | Post-LN |
+| `a2_rmsnorm_lr3e-3` | 13,964,160 | Pre-RMSNorm |
+
+三者的学习率都是 3e-3、min_lr 3e-4，其余与对照组相同。**本步是通用规则 2 的例外**：这一组本来就是看会不会发散，loss 出现 NaN 或上升时**不要中断、不要调参**，让它跑完 3052 步，照常打分、复制、追加 results.md（数字原样写，NaN 就写 NaN），在结论里如实写“发散”或“未发散”。如果是程序报错退出（不是 loss 变成 NaN），照通用规则停下汇报。
+
+### 收尾
+
+- 全部完成后运行汇总命令更新 `SUMMARY.md`。对照组与 A2 变体的每个种子都有 `full_val.json` 时，表里“依据”一列应为“完整验证集”。
+- 交接记录里写明：对照组两个补评分数与耗时；7 次训练各自的退出码、最终 train/val loss、完整验证集分数、tokens/s、显存峰值、训练时长、GPU 平均与最高温度；高学习率组是否发散。
+- 预计耗时：7 次训练各约 21 分钟（共约 2.5 小时），每次打分预计不到 1 分钟（以实测为准）。
+- 提交与推送前先问用户。完成后告诉用户，由用户回到 Mac 让 Claude Code 核对。

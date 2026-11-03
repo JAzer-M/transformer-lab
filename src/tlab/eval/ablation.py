@@ -1,13 +1,14 @@
 """消融结果汇总：读取每次训练回传的 run.json 与 metrics.csv，按变体合并种子，与对照组比较。
 
-目录结构（见 docs/m3-windows-run.md）：<root>/<变体>/seed<种子>/{run.json, metrics.csv}
+目录结构（见 docs/m3-windows-run.md）：<root>/<变体>/seed<种子>/{run.json, metrics.csv}，
+第 2 批起每个种子目录还有完整验证集评估的 full_val.json（scripts/eval_full_val.py）。
 """
 
 import csv
 import json
 import math
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 from tlab.train.config import TrainConfig
@@ -45,6 +46,7 @@ class SeedRun:
     evals: list[tuple[int, float]]  # 每次评估的 (step, val loss)
     train_losses: list[float]  # 每次评估的 train loss，以及最终的 train loss
     config: dict
+    full_val_loss: float | None = None  # 完整验证集上的 val loss；还没评估时为 None
 
 
 @dataclass
@@ -71,6 +73,19 @@ class Variant:
     def spread(self) -> float:
         # 种子间差距：最大减最小；只有一个种子时为 0
         return math.nan if self.has_nan else max(self.finals) - min(self.finals)
+
+    @property
+    def has_full_val(self) -> bool:
+        return all(run.full_val_loss is not None for run in self.runs.values())
+
+    @property
+    def has_nan_in_either_score(self) -> bool:
+        # 训练末尾的抽样估计与完整验证集分数，任何一个不是有限数都不能下结论
+        scores = [run.final_val_loss for run in self.runs.values()]
+        scores += [
+            r.full_val_loss for r in self.runs.values() if r.full_val_loss is not None
+        ]
+        return any(not math.isfinite(s) for s in scores)
 
     @property
     def n_params(self) -> int:
@@ -148,7 +163,21 @@ def _read_run(run_dir: Path) -> SeedRun:
         evals=[(int(r["step"]), float(r["val_loss"])) for r in rows],
         train_losses=train_losses,
         config=info["config"],
+        full_val_loss=_read_full_val(run_dir, int(info["config"]["max_iters"])),
     )
+
+
+def _read_full_val(run_dir: Path, max_iters: int) -> float | None:
+    path = run_dir / "full_val.json"
+    if not path.exists():
+        return None
+    result = json.loads(path.read_text(encoding="utf-8"))
+    # 只认训练结束时那个存档的分数：评成中途存档或放错目录时直接报错，不混进汇总
+    if result["ckpt_step"] != max_iters:
+        raise ValueError(
+            f"{path} 评的是第 {result['ckpt_step']} 步的存档，不是最终的第 {max_iters} 步"
+        )
+    return float(result["val_loss"])
 
 
 # 字段是后来加的（如 M3 的 norm 开关）时，之前存的 run.json 里没有它；新字段的默认值
@@ -181,13 +210,35 @@ def load_variants(root: Path) -> dict[str, Variant]:
     return variants
 
 
+# ---------- 比较依据 ----------
+
+FULL_VAL = "完整验证集"
+SAMPLED = "20 batch 抽样估计"
+
+
+def _with_full_val(variant: Variant) -> Variant:
+    # 每个种子的最终 val 换成完整验证集的分数，其余（评估曲线、配置）不变
+    runs = {
+        seed: replace(run, final_val_loss=run.full_val_loss)
+        for seed, run in variant.runs.items()
+    }
+    return Variant(variant.name, runs)
+
+
+def _on_same_basis(*variants: Variant) -> tuple[list[Variant], str]:
+    """每个种子都有完整验证集分数时都换成它；缺一个就都用 run.json 的抽样估计，不混着比。"""
+    if all(v.has_full_val for v in variants):
+        return [_with_full_val(v) for v in variants], FULL_VAL
+    return list(variants), SAMPLED
+
+
 # ---------- Markdown 汇总表 ----------
 
 CONVERGE_COLUMN = f"首次 val≤{CONVERGE_AT} 的步数"
 VARIANT_HEADER = (
-    f"| 组 | 变体 | 参数量 | 各种子最终 val | 均值 | 种子间差距 | 与对照差 | 结论 "
+    f"| 组 | 变体 | 参数量 | 各种子最终 val | 均值 | 种子间差距 | 与对照差 | 结论 | 依据 "
     f"| {CONVERGE_COLUMN} |\n"
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
 )
 
 
@@ -207,21 +258,31 @@ def _converge_cell(run: SeedRun) -> str:
 
 def _variant_row(group: str, variant: Variant, control: Variant | None) -> str:
     if control is None or variant is control:
+        (shown,), basis = _on_same_basis(variant)
         diff, verdict = "—", "—"
     else:
-        verdict = compare(variant, control)
-        gap = variant.mean_val - control.mean_val
+        (shown, shown_control), basis = _on_same_basis(variant, control)
+        if variant.has_nan_in_either_score or control.has_nan_in_either_score:
+            verdict = "无法比较"
+        else:
+            verdict = compare(shown, shown_control)
+        gap = shown.mean_val - shown_control.mean_val
         diff = f"{gap:+.4f}" if math.isfinite(gap) else "—"
+        # 对照那一行显示的是完整分数、这一行却退回抽样估计时，写出对照的抽样均值，
+        # 读表的人才能对上“与对照差”
+        if basis == SAMPLED and control.has_full_val:
+            basis += f"（对照抽样均值 {shown_control.mean_val:.4f}）"
     return _md_row(
         [
             group,
             variant.name,
             f"{variant.n_params:,}",
-            _per_seed(variant, lambda r: f"{r.final_val_loss:.4f}"),
-            f"{variant.mean_val:.4f}",
-            f"{variant.spread:.4f}",
+            _per_seed(shown, lambda r: f"{r.final_val_loss:.4f}"),
+            f"{shown.mean_val:.4f}",
+            f"{shown.spread:.4f}",
             diff,
             verdict,
+            basis,
             _per_seed(variant, _converge_cell),
         ]
     )
@@ -233,8 +294,11 @@ def render_summary(variants: dict[str, Variant]) -> str:
     lines = [
         "# M3 消融汇总",
         "",
-        "由 `scripts/summarize_ablations.py` 自动生成，数字取自各次训练的 run.json；"
+        "由 `scripts/summarize_ablations.py` 自动生成，数字取自各次训练回传的 run.json 与 full_val.json；"
         "判定规则见 docs/PLAN.md「M3 实施计划」。速度与显存另做短测，不在本表。",
+        "",
+        f"最终 val 优先用{FULL_VAL}的分数（full_val.json）；一行里对照或变体只要有一个"
+        f"种子缺，这一行两边都用 run.json 的 {SAMPLED}，“依据”一列注明。",
         "",
         f"## 单变量对比（对照组 {CONTROL}）",
         "",

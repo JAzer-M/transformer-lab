@@ -311,3 +311,101 @@ def test_summarize_script_writes_summary_file(tmp_path: Path) -> None:
     )
 
     assert "a0_control" in out.read_text(encoding="utf-8")
+
+
+# ---------- 完整验证集评估（第 2 批起，见 scripts/eval_full_val.py） ----------
+
+
+def write_full_val(
+    root: Path, variant: str, seed: int, val: float, ckpt_step: int = 3052
+) -> None:
+    """在已有的种子目录里放一份 full_val.json，与 Codex 回传的一致。"""
+    path = root / variant / f"seed{seed}" / "full_val.json"
+    # ckpt_step 与 write_run 的 max_iters 一致：是训练结束时那个存档的分数
+    result = {"val_loss": val, "n_tokens": 5414547, "ckpt_step": ckpt_step}
+    path.write_text(json.dumps(result), encoding="utf-8")
+
+
+def write_close_pair(root: Path) -> None:
+    # 抽样估计（run.json）：对照均值 1.5776、差距 0.0176，变体均值 1.5725，
+    # 低 0.0051 没超过 0.0176 → 差异不显著
+    write_run(root, "a0_control", 1337, 1.5864)
+    write_run(root, "a0_control", 2024, 1.5688)
+    write_run(root, "a2_rmsnorm", 1337, 1.5800)
+    write_run(root, "a2_rmsnorm", 2024, 1.5650)
+
+
+def test_render_summary_prefers_full_validation_scores(tmp_path: Path) -> None:
+    from tlab.eval.ablation import load_variants, render_summary
+
+    write_close_pair(tmp_path)
+    # 完整验证集：对照 1.5780 / 1.5770（均值 1.5775、差距 0.0010），
+    # 变体 1.5700 / 1.5694（均值 1.5697、差距 0.0006）；均值低 0.0078 > 0.0010，
+    # 两个种子配对都是变体更低 → 更好
+    for variant, seed, val in [
+        ("a0_control", 1337, 1.5780),
+        ("a0_control", 2024, 1.5770),
+        ("a2_rmsnorm", 1337, 1.5700),
+        ("a2_rmsnorm", 2024, 1.5694),
+    ]:
+        write_full_val(tmp_path, variant, seed, val)
+
+    text = render_summary(load_variants(tmp_path))
+
+    control_row = next(line for line in text.splitlines() if "| a0_control |" in line)
+    rms_row = next(line for line in text.splitlines() if "| a2_rmsnorm |" in line)
+    assert "1.5780 / 1.5770" in control_row and "完整验证集" in control_row
+    assert "1.5700 / 1.5694" in rms_row and "1.5697" in rms_row
+    assert "-0.0078" in rms_row and "更好" in rms_row and "完整验证集" in rms_row
+
+
+def test_render_summary_falls_back_when_any_seed_lacks_full_val(tmp_path: Path) -> None:
+    from tlab.eval.ablation import load_variants, render_summary
+
+    write_close_pair(tmp_path)
+    # 对照两个种子都有完整分数，变体只有一个：这一行两边都退回抽样估计，免得混着比
+    write_full_val(tmp_path, "a0_control", 1337, 1.5780)
+    write_full_val(tmp_path, "a0_control", 2024, 1.5770)
+    write_full_val(tmp_path, "a2_rmsnorm", 1337, 1.5700)
+
+    text = render_summary(load_variants(tmp_path))
+
+    rms_row = next(line for line in text.splitlines() if "| a2_rmsnorm |" in line)
+    assert "1.5800 / 1.5650" in rms_row and "-0.0051" in rms_row
+    assert "差异不显著" in rms_row and "20 batch" in rms_row
+    # 对照那一行显示的是完整分数，这一行要写出对照的抽样均值，读表的人才能对上差值
+    assert "1.5776" in rms_row
+
+
+def test_nan_in_either_score_is_not_comparable(tmp_path: Path) -> None:
+    from tlab.eval.ablation import load_variants, render_summary
+
+    write_close_pair(tmp_path)
+    for variant, seed, val in [
+        ("a0_control", 1337, 1.5780),
+        ("a0_control", 2024, 1.5770),
+        ("a2_rmsnorm", 1337, 1.5700),
+        ("a2_rmsnorm", 2024, 1.5694),
+    ]:
+        write_full_val(tmp_path, variant, seed, val)
+    # 训练末尾的抽样估计是 NaN（训练中出过 NaN），即使完整分数有限，也不能下结论
+    run_json = tmp_path / "a2_rmsnorm" / "seed2024" / "run.json"
+    info = json.loads(run_json.read_text(encoding="utf-8"))
+    info["final_val_loss"] = float("nan")
+    run_json.write_text(json.dumps(info), encoding="utf-8")
+
+    text = render_summary(load_variants(tmp_path))
+
+    rms_row = next(line for line in text.splitlines() if "| a2_rmsnorm |" in line)
+    assert "无法比较" in rms_row and "更好" not in rms_row
+
+
+def test_full_val_of_an_earlier_checkpoint_is_rejected(tmp_path: Path) -> None:
+    from tlab.eval.ablation import load_variants
+
+    write_run(tmp_path, "a0_control", 1337, 1.50)
+    # 评的是第 1000 步的中途存档，不是训练结束（max_iters = 3052）的模型：不能混进汇总
+    write_full_val(tmp_path, "a0_control", 1337, 1.49, ckpt_step=1000)
+
+    with pytest.raises(ValueError):
+        load_variants(tmp_path)

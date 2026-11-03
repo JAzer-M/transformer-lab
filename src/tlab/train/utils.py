@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from tlab.data.batch import get_batch
-from tlab.model.gpt import GPTConfig
+from tlab.model.gpt import GPT, GPTConfig
 from tlab.train.config import TrainConfig
 
 
@@ -105,6 +105,14 @@ def gpt_config_from(config: Mapping[str, Any], vocab_size: int) -> GPTConfig:
         n_heads=config["n_heads"],
         **{key: config[key] for key in switches if key in config},
     )
+
+
+def load_model(ckpt_path: Path, device: torch.device) -> tuple[GPT, dict[str, Any]]:
+    """按存档里的配置重建模型、严格载入参数；返回模型和整份存档（sample.py 与完整验证集评估共用）。"""
+    ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
+    model = GPT(gpt_config_from(ckpt["config"], ckpt["vocab_size"])).to(device)
+    model.load_state_dict(ckpt["model"])
+    return model, ckpt
 
 
 def save_checkpoint(

@@ -15,8 +15,7 @@ import torch
 from tlab.data.loader import load_tokenizer
 from tlab.device import get_device
 from tlab.eval.generate import generate
-from tlab.model.gpt import GPT
-from tlab.train.utils import gpt_config_from
+from tlab.train.utils import load_model
 
 
 def main() -> None:
@@ -33,10 +32,8 @@ def main() -> None:
     device = get_device() if args.device == "auto" else torch.device(args.device)
 
     # 按 checkpoint 里保存的配置重建模型，再载入参数
-    ckpt = torch.load(args.ckpt, map_location=device, weights_only=False)
+    model, ckpt = load_model(args.ckpt, device)
     config = ckpt["config"]
-    model = GPT(gpt_config_from(config, ckpt["vocab_size"])).to(device)
-    model.load_state_dict(ckpt["model"])
 
     # 词表来自训练时的数据目录：字符级是 meta.json，BPE 是 tokenizer.json
     tokenizer = load_tokenizer(Path(config["data_dir"]))

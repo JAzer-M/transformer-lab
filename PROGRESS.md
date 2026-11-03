@@ -4,14 +4,14 @@
 
 ## 当前状态
 
-更新时间：2026-11-03 14:39（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-03 15:03（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M2 已验收并合并；M3 第 0 步骨架已合并；第 1 批 a0_control 两个种子已完成，结果在 m3-ablate（064699d），Claude Code 已在 Mac 核对，尚未合并到 main；M3 第 1 步 m3-norm 进行中（从 064699d 分出）：用户手写的 RMSNorm 已通过，agent 已写完 norm / norm_position 开关与 5 个 A2 配置，提交前 code-review 的问题已修，均未提交；用户决定第 2 批前加完整验证集评估（单独分支 m3-evalfull，计划待确认） |
-| 本轮范围 | Mac：M3 第 1 步 m3-norm（RMSNorm、norm / norm_position 开关、A2 配置）；Windows：第 1 批对照组已完成 |
+| 项目阶段 | M2 已验收并合并；M3 第 0 步骨架已合并；第 1 批 a0_control 两个种子已完成，结果在 m3-ablate（064699d），Claude Code 已在 Mac 核对，尚未合并到 main；M3 第 1 步 m3-norm 已提交（0e65b62，从 064699d 分出，未推送）；m3-evalfull（从 0e65b62 分出）已写完完整验证集评估、汇总改动与手册第 2 批，自查问题已修，经用户同意已提交（未推送） |
+| 本轮范围 | Mac：m3-norm（RMSNorm、norm / norm_position 开关、A2 配置）与 m3-evalfull（完整验证集评估、手册第 2 批）；Windows：第 1 批对照组已完成 |
 | 实现方 / 审查方 | m3-norm：RMSNorm 由用户手写，开关、配置与测试由 Claude Code 实现，Claude Code 自己的 code-review（两个只读子 agent）自查，未请 Codex 交叉审查。第 1 批结果：Codex 执行并由其子 agent 复核，Claude Code 于 14:03 核对 |
-| 分支 / commit | m3-norm（从 m3-ablate 的 064699d 分出，改动未提交）；第 1 批结果在 m3-ablate 064699d，训练来源 b7d9989，不带 dirty；main 与 origin/main 仍为 b7d9989 |
+| 分支 / commit | m3-evalfull（提交哈希见 git log）← m3-norm 0e65b62 ← m3-ablate 064699d（第 1 批结果，训练来源 b7d9989）；main 与 origin/main 仍为 b7d9989；以上均未推送新内容 |
 | 配置与预算 | 对照组与 A2 共用：每次 3052 步、100,007,936 token，batch32×累积2、上下文512；warmup92，cosine 6e-4→6e-5，每250步评估。参数量：对照 13,969,152、Post-LN 13,968,384、RMSNorm 13,964,160。高学习率加测 3e-3→3e-4 |
 | 本机环境 | /home/j/transformer-lab；Ubuntu 26.04.1 LTS / WSL2；RTX 5060 Laptop GPU 8151 MiB；PyTorch 2.9.1+cu128 / CUDA12.8 |
 | 本次前置验证 | 原启动 uv sync --locked、CUDA 实际分配、132 passed in 3.92s、M2 数据及词表 SHA-256、配置差异检查通过；断电后再次 sync、CUDA 分配与 pytest 132 passed in 3.79s 通过；本轮未重跑 ruff |
@@ -19,7 +19,7 @@
 | GPU 与异常 | 每5秒记录温度、频率、利用率、显存和功耗；两组完整训练均退出0，未见NaN、OOM或发散；seed2024 另有一次断电中断尝试（退出码未知），证据已保留，同配置从头完成 |
 | 文件与保护 | experiments/m3_ablations/a0_control/seed*/ 保存各次小文件，SUMMARY.md 由现有脚本生成；results.md 只追加两行；102 个跟踪文件在训练完成前逐字节未变；未改任何用户手写实现、配置、测试或依赖 |
 | 解释边界 | 当前仅有对照组，不能得出某个组件更好的结论；长训练 tokens/s 仅记录，不用于速度优劣比较；M2-1 预算不同，不能直接比较最终loss |
-| 下一步 | 用户确认 m3-norm 提交与 m3-evalfull 计划；m3-evalfull 完成后写手册第 2 批，两分支合并、推送后由 Codex 执行；m3-ablate 的结果随之进 main |
+| 下一步 | 经用户同意把 m3-evalfull（含 m3-norm、第 1 批结果）快进合并到 main 并推送，之后 Codex 执行手册第 2 批 |
 
 ## 当前任务与下一步
 
@@ -979,6 +979,31 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 本次验证：pytest 161 passed；ruff check、format --check 通过（format 只调整了 agent 写的部分与新测试）。故意改错 18/18 被抓到（`runs/m3-norm/06-`，新增 GPTConfig 不检查、检查函数漏查、汇总不补默认值或把真正差异抹掉等）。复现（`07-`）：tiny_smoke、tinystories_smoke 与 main 的 metrics.csv 逐字节相同；用新代码重新生成第 1 批 SUMMARY 与已提交的逐字一致。
 - 未修：“默认配置与 main 逐字一致”仍为每步手工核对并记录（写成 pytest 需要固定浮点数，跨平台易碎）；子 agent 提到 `.idea/` 未加入 .gitignore，属用户 IDE 目录，提交时不加入。
 - 下一步：用户确认 m3-norm 提交与 m3-evalfull 计划。
+
+### 2026-11-03 14:59（UTC+08:00）｜Claude Code｜提交 m3-norm，实现 m3-evalfull 并自查
+
+- 用户确认：用户回复“提交并按计划开始”——提交 m3-norm，按列出的计划开 m3-evalfull。
+- 提交：m3-norm 提交为 0e65b62（未推送，`.idea/` 未加入）；提交前 pytest 161 passed、ruff 通过。
+- m3-evalfull（从 0e65b62 分出，全部 agent 编写）：
+  - `src/tlab/eval/full_val.py`：`evaluate_full` 把序列切成首尾相接、互不重叠的窗口，最后不满一窗单独算，每个 token 恰好预测一次、按 token 平均，GPU 上 bf16；`evaluate_checkpoint` 按存档重建模型、读它训练时的验证集。`scripts/eval_full_val.py` 写 `full_val.json`（val_loss、n_tokens、block_size、ckpt、ckpt_step、device、eval_commit）并打印 token 数与存档步数。
+  - `src/tlab/data/batch.py`：私有 `_window` 改名为公开的 `read_window` 供复用（行为不变）；`src/tlab/train/utils.py` 新增 `load_model`，`scripts/sample.py` 与完整评估共用。
+  - `src/tlab/eval/ablation.py`：读取 `full_val.json`（ckpt_step 必须等于 max_iters）；对照与变体每个种子都有完整分数才用它判定，否则这一行两边退回 run.json 抽样估计，并写出对照的抽样均值；新增“依据”列；任一种子任一分数为 NaN 记“无法比较”。高学习率表不变。
+  - 手册：固定流程加入打分与复制 `full_val.json`，results.md 改为整批完成后统一追加；新增第 2 批（对照组两存档补评、A2 4 次、高学习率 3 次）。PLAN 记下计划、测试对应与待确认的例外。
+- 测试先行：新增 tests/test_full_val.py 7 个、test_ablation_summary.py 5 个（其中 3 个来自自查），每个先确认失败再实现；第一个手算例子最初用的是周期数据，故意改错时“y 没往后挪一位”没被抓到，改成首 token 为 1 的数据（预期值不变 50·ln2/22）后抓到。
+- 提交前自查（matt-pocock-skills:code-review，两个只读子 agent，固定点 0e65b62）：
+  - Standards：缺形状注释、测试缺类型标注、PROGRESS 未更新（硬性，较轻）；手册“发散不中断”与 AGENTS 规则 6 冲突、PLAN 无用户同意记录；PLAN 接口数与测试函数数不符；坏味道：存档载入与 sample.py 重复、`_windows` 名不副实、`base`/`basis` 易混、batch.py 模块说明与汇总表首句过时等。
+  - Spec：无实质缺失；脚本未打印 ckpt_step；同一表里对照行用完整分数、退回的变体行“与对照差”按看不到的对照抽样均值算；NaN 只看所选依据；手册“打分在改 results.md 之前”与“每次追加 results.md”矛盾（会让后续 commit 带 dirty）；汇总不检查 full_val.json 的 ckpt_step；测试 2 用的是 ndarray 而非 memmap。子 agent 实测确认：真实验证集 10575 个满窗 + 147 个 token、共 5,414,547；第 1 批存档能被新代码载入且 ckpt_step = 3052；NaN 训练能跑完、打分为 nan、汇总记发散。
+  - 修复：上述行为问题先写成 4 个失败的测试再修；补形状注释与类型标注，`_windows` 改名 `_window_batches`，提取 `load_model`，测试 2 改用真实 memmap，更新模块说明、汇总首句、手册、PLAN 与本文件。未改：`get_device` 回退写法的第三份重复、测试里搭小数据的重复、`SAMPLED` 文案里写死 20（M3 配置统一 eval_iters=20）、数据长度 ≤ 1 时的报错文字。
+- 本次验证：pytest 170 passed；ruff check、format --check 通过。故意改错：自查前 14 种全部抓到（`runs/m3-norm/08-`，修正测试数据后）；修复后 18 种全部抓到（`10-`，新增 NaN 只看所选依据、不查存档步数、退回行不写对照均值、脚本不打印步数，以及改到 `load_model` 的结构重建）。最终检查（`11-`）：两个冒烟配置与 main 逐字节相同，sample.py 经 `load_model` 载入旧存档正常。复现（`09-`）：tiny_smoke、tinystories_smoke 与 main 的 metrics.csv 逐字节相同；在 Mac 上给 tinystories_smoke 存档打分：543,394 个 token（= 样本验证集长度 − 1），4.4 秒，完整分数 8.7108，与抽样估计 8.7079 接近。
+- 未验证：GPU 上的打分耗时与 bf16 数值；第 2 批手册尚未由 Codex 执行。
+- 下一步：用户确认高学习率加测“发散不中断”的例外，并决定是否提交 m3-evalfull；合并与推送另需用户同意。
+
+### 2026-11-03 15:03（UTC+08:00）｜Claude Code｜用户确认高学习率例外，提交 m3-evalfull
+
+- 用户确认：对“同意‘高学习率加测发散时不中断’这条例外，并提交 m3-evalfull 吗？”回复“同意并提交”。PLAN 中把该条从“待用户确认”改为已确认，并写明只适用于三个 `a2_*_lr3e-3` 配置、程序报错仍停下汇报。
+- 提交：m3-evalfull 提交到本分支（哈希见 git log），未合并、未推送；`.idea/` 未加入。提交前 pytest 170 passed，ruff check、format --check 通过。
+- 自测题：本段对话里用户还没有回答新的题（两道 RMSNorm 思考题与“用自己的话讲 Post-LN”按用户要求留到之后），`docs/self-test-qa.md` 暂无需追加。
+- 下一步：用户决定是否把 m3-evalfull 快进合并到 main 并推送；之后用户在 Codex 上执行手册第 2 批。
 
 ## 后续交接模板
 
