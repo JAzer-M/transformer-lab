@@ -1,0 +1,16 @@
+设备 cuda，参数量 13,969,152
+step     0 | train 9.0718 | val 9.0719 | lr 3.26e-05
+step   250 | train 2.6625 | val 2.6750 | lr 2.98e-03
+step   500 | train 2.1357 | val 2.1515 | lr 2.88e-03
+step   750 | train 1.9338 | val 1.9485 | lr 2.68e-03
+step  1000 | train 1.8067 | val 1.8233 | lr 2.42e-03
+step  1250 | train 1.7202 | val 1.7340 | lr 2.10e-03
+step  1500 | train 1.6568 | val 1.6737 | lr 1.75e-03
+step  1750 | train 1.6063 | val 1.6208 | lr 1.40e-03
+step  2000 | train 1.5622 | val 1.5774 | lr 1.06e-03
+step  2250 | train 1.5236 | val 1.5399 | lr 7.59e-04
+step  2500 | train 1.4913 | val 1.5091 | lr 5.24e-04
+step  2750 | train 1.4691 | val 1.4879 | lr 3.68e-04
+step  3000 | train 1.4551 | val 1.4749 | lr 3.02e-04
+step  3051 | train 1.4538 | val 1.4736 | lr 3.00e-04
+完成：val loss 1.4732，78,303 tokens/s

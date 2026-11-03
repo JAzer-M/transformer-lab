@@ -1,0 +1,758 @@
+{
+  "state": "completed",
+  "source_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d",
+  "branch": "main",
+  "started_at": "2026-11-03T15:23:23.521591+08:00",
+  "phase": "finished",
+  "control_evaluations": [
+    {
+      "variant": "a0_control",
+      "seed": 1337,
+      "returncode": 0,
+      "seconds": 27.011965071,
+      "checkpoint_sha256": "3ed9611aa4298483937699e18c431bea39c8586697b75fc6b673571227a86b3a",
+      "result": {
+        "val_loss": 1.5785273295374371,
+        "n_tokens": 5414547,
+        "block_size": 512,
+        "ckpt": "runs/m3/a0_control/seed1337/ckpt.pt",
+        "ckpt_step": 3052,
+        "device": "cuda",
+        "eval_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d"
+      }
+    },
+    {
+      "variant": "a0_control",
+      "seed": 2024,
+      "returncode": 0,
+      "seconds": 26.285068550999995,
+      "checkpoint_sha256": "ccdf9460eb2048f9f23f8164aced6b5ef181a38afd5d8329067dcbeb501ed5ae",
+      "result": {
+        "val_loss": 1.581352792248717,
+        "n_tokens": 5414547,
+        "block_size": 512,
+        "ckpt": "runs/m3/a0_control/seed2024/ckpt.pt",
+        "ckpt_step": 3052,
+        "device": "cuda",
+        "eval_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d"
+      }
+    }
+  ],
+  "runs": [
+    {
+      "variant": "a2_postln",
+      "seed": 1337,
+      "state": "completed",
+      "started_at": "2026-11-03T15:24:17.332260+08:00",
+      "ended_at": "2026-11-03T15:45:25.037907+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a2_postln/seed1337",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.0006,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 6e-05,
+          "norm": "layernorm",
+          "norm_position": "post",
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 1337,
+          "device": "auto"
+        },
+        "git_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 13968384,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1261.36702436,
+        "tokens_per_sec": 79285.35792406864,
+        "peak_memory_mb": 4981.646484375,
+        "final_train_loss": 1.6034788966178894,
+        "final_val_loss": 1.620708155632019,
+        "last_step_loss": 1.6210017800331116
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 254,
+          "mean": 85.20669291338582,
+          "max": 88.1,
+          "min": 70.3
+        },
+        "sm_clock_MHz": {
+          "n": 254,
+          "mean": 2711.031496062992,
+          "max": 2782.0,
+          "min": 2227.0
+        },
+        "gpu_util_pct": {
+          "n": 254,
+          "mean": 98.16929133858268,
+          "max": 99.0,
+          "min": 2.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 254,
+          "mean": 6546.8740157480315,
+          "max": 6604.0,
+          "min": 849.0
+        },
+        "power_W": {
+          "n": 254,
+          "mean": 90.1577559055118,
+          "max": 95.44,
+          "min": 71.74
+        }
+      },
+      "divergence": null,
+      "stress_exception": false,
+      "full_evaluation": {
+        "variant": "a2_postln",
+        "seed": 1337,
+        "returncode": 0,
+        "seconds": 26.895419146999984,
+        "checkpoint_sha256": "73911d50a36bebc10008c1bf71ede312bee4e3fadb5bfea09dbc227da7275790",
+        "result": {
+          "val_loss": 1.612405422358201,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a2_postln/seed1337/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d"
+        }
+      }
+    },
+    {
+      "variant": "a2_postln",
+      "seed": 2024,
+      "state": "completed",
+      "started_at": "2026-11-03T15:45:52.223394+08:00",
+      "ended_at": "2026-11-03T16:07:10.976025+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a2_postln/seed2024",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.0006,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 6e-05,
+          "norm": "layernorm",
+          "norm_position": "post",
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 2024,
+          "device": "auto"
+        },
+        "git_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 13968384,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1272.3270962580002,
+        "tokens_per_sec": 78602.37850324031,
+        "peak_memory_mb": 4981.646484375,
+        "final_train_loss": 1.6244071900844574,
+        "final_val_loss": 1.6018886804580688,
+        "last_step_loss": 1.6116244792938232
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 256,
+          "mean": 86.277734375,
+          "max": 88.6,
+          "min": 76.8
+        },
+        "sm_clock_MHz": {
+          "n": 256,
+          "mean": 2653.86328125,
+          "max": 2767.0,
+          "min": 1980.0
+        },
+        "gpu_util_pct": {
+          "n": 256,
+          "mean": 98.14453125,
+          "max": 99.0,
+          "min": 2.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 256,
+          "mean": 6550.32421875,
+          "max": 6606.0,
+          "min": 843.0
+        },
+        "power_W": {
+          "n": 256,
+          "mean": 86.9633203125,
+          "max": 100.29,
+          "min": 60.41
+        }
+      },
+      "divergence": null,
+      "stress_exception": false,
+      "full_evaluation": {
+        "variant": "a2_postln",
+        "seed": 2024,
+        "returncode": 0,
+        "seconds": 27.228727660000004,
+        "checkpoint_sha256": "2fe5d63d54728dbf237a45b16adea7420bd429133dc11dbaf4cf7fabbf0d91b2",
+        "result": {
+          "val_loss": 1.6149949159546062,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a2_postln/seed2024/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d"
+        }
+      }
+    },
+    {
+      "variant": "a2_rmsnorm",
+      "seed": 1337,
+      "state": "completed",
+      "started_at": "2026-11-03T16:07:38.419747+08:00",
+      "ended_at": "2026-11-03T16:30:44.232867+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a2_rmsnorm/seed1337",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.0006,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 6e-05,
+          "norm": "rmsnorm",
+          "norm_position": "pre",
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 1337,
+          "device": "auto"
+        },
+        "git_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 13964160,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1379.901154564,
+        "tokens_per_sec": 72474.70999587573,
+        "peak_memory_mb": 5316.89453125,
+        "final_train_loss": 1.572548747062683,
+        "final_val_loss": 1.5914885997772217,
+        "last_step_loss": 1.5849584341049194
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 277,
+          "mean": 86.28483754512635,
+          "max": 88.3,
+          "min": 73.9
+        },
+        "sm_clock_MHz": {
+          "n": 277,
+          "mean": 2591.086642599278,
+          "max": 2767.0,
+          "min": 1612.0
+        },
+        "gpu_util_pct": {
+          "n": 277,
+          "mean": 97.53068592057761,
+          "max": 99.0,
+          "min": 2.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 277,
+          "mean": 6771.252707581228,
+          "max": 6833.0,
+          "min": 847.0
+        },
+        "power_W": {
+          "n": 277,
+          "mean": 88.2686642599278,
+          "max": 98.46,
+          "min": 15.94
+        }
+      },
+      "divergence": null,
+      "stress_exception": false,
+      "full_evaluation": {
+        "variant": "a2_rmsnorm",
+        "seed": 1337,
+        "returncode": 0,
+        "seconds": 29.023178607999853,
+        "checkpoint_sha256": "e2d50a8df6a85c1270e81de2e0e5a6d1a86123a84b50a4582dc428dface03bf3",
+        "result": {
+          "val_loss": 1.5829295170202389,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a2_rmsnorm/seed1337/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d"
+        }
+      }
+    },
+    {
+      "variant": "a2_rmsnorm",
+      "seed": 2024,
+      "state": "completed",
+      "started_at": "2026-11-03T16:31:13.466693+08:00",
+      "ended_at": "2026-11-03T16:54:21.279817+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a2_rmsnorm/seed2024",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.0006,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 6e-05,
+          "norm": "rmsnorm",
+          "norm_position": "pre",
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 2024,
+          "device": "auto"
+        },
+        "git_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 13964160,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1381.6721593820002,
+        "tokens_per_sec": 72381.81309575778,
+        "peak_memory_mb": 5316.89453125,
+        "final_train_loss": 1.5911930322647094,
+        "final_val_loss": 1.5690387845039369,
+        "last_step_loss": 1.5882270336151123
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 278,
+          "mean": 86.33165467625899,
+          "max": 88.2,
+          "min": 79.0
+        },
+        "sm_clock_MHz": {
+          "n": 278,
+          "mean": 2584.223021582734,
+          "max": 2737.0,
+          "min": 1477.0
+        },
+        "gpu_util_pct": {
+          "n": 278,
+          "mean": 98.0431654676259,
+          "max": 99.0,
+          "min": 2.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 278,
+          "mean": 6776.60071942446,
+          "max": 6828.0,
+          "min": 838.0
+        },
+        "power_W": {
+          "n": 278,
+          "mean": 87.63528776978417,
+          "max": 97.38,
+          "min": 64.35
+        }
+      },
+      "divergence": null,
+      "stress_exception": false,
+      "full_evaluation": {
+        "variant": "a2_rmsnorm",
+        "seed": 2024,
+        "returncode": 0,
+        "seconds": 28.95053628200003,
+        "checkpoint_sha256": "6e386bd8c83d08eed6652cce2be4b0f2b7d3ab6f31a195a0505cabba1101812e",
+        "result": {
+          "val_loss": 1.581397210360154,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a2_rmsnorm/seed2024/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d"
+        }
+      }
+    },
+    {
+      "variant": "a2_preln_lr3e-3",
+      "seed": 1337,
+      "state": "completed",
+      "started_at": "2026-11-03T16:54:50.471191+08:00",
+      "ended_at": "2026-11-03T17:16:13.207978+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a2_preln_lr3e-3/seed1337",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.003,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 0.0003,
+          "norm": "layernorm",
+          "norm_position": "pre",
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 1337,
+          "device": "auto"
+        },
+        "git_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 13969152,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1277.1901365430003,
+        "tokens_per_sec": 78303.09140242326,
+        "peak_memory_mb": 5006.783203125,
+        "final_train_loss": 1.4534529864788055,
+        "final_val_loss": 1.4732302248477935,
+        "last_step_loss": 1.465762734413147
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 257,
+          "mean": 86.28560311284046,
+          "max": 88.3,
+          "min": 77.3
+        },
+        "sm_clock_MHz": {
+          "n": 257,
+          "mean": 2620.6575875486383,
+          "max": 2760.0,
+          "min": 600.0
+        },
+        "gpu_util_pct": {
+          "n": 257,
+          "mean": 97.93774319066148,
+          "max": 99.0,
+          "min": 2.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 257,
+          "mean": 6581.303501945526,
+          "max": 6711.0,
+          "min": 846.0
+        },
+        "power_W": {
+          "n": 257,
+          "mean": 85.40186770428015,
+          "max": 94.16,
+          "min": 59.19
+        }
+      },
+      "divergence": null,
+      "stress_exception": true,
+      "full_evaluation": {
+        "variant": "a2_preln_lr3e-3",
+        "seed": 1337,
+        "returncode": 0,
+        "seconds": 26.870432452000387,
+        "checkpoint_sha256": "152545c55f080f7bcc63a9c16e68581b8e06ef4f67cad42b46ab97cc811c7187",
+        "result": {
+          "val_loss": 1.465089369450769,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a2_preln_lr3e-3/seed1337/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d"
+        }
+      }
+    },
+    {
+      "variant": "a2_postln_lr3e-3",
+      "seed": 1337,
+      "state": "completed",
+      "started_at": "2026-11-03T17:16:40.391981+08:00",
+      "ended_at": "2026-11-03T17:37:41.083096+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a2_postln_lr3e-3/seed1337",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.003,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 0.0003,
+          "norm": "layernorm",
+          "norm_position": "post",
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 1337,
+          "device": "auto"
+        },
+        "git_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 13968384,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1254.6946282899999,
+        "tokens_per_sec": 79706.99303646416,
+        "peak_memory_mb": 4981.646484375,
+        "final_train_loss": 5.827622127532959,
+        "final_val_loss": 5.835900497436524,
+        "last_step_loss": 5.835031509399414
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 252,
+          "mean": 86.14404761904763,
+          "max": 88.6,
+          "min": 78.4
+        },
+        "sm_clock_MHz": {
+          "n": 252,
+          "mean": 2715.6150793650795,
+          "max": 2767.0,
+          "min": 2580.0
+        },
+        "gpu_util_pct": {
+          "n": 252,
+          "mean": 98.3015873015873,
+          "max": 99.0,
+          "min": 2.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 252,
+          "mean": 6555.6984126984125,
+          "max": 6670.0,
+          "min": 848.0
+        },
+        "power_W": {
+          "n": 252,
+          "mean": 89.39424603174604,
+          "max": 100.14,
+          "min": 64.21
+        }
+      },
+      "divergence": null,
+      "stress_exception": true,
+      "full_evaluation": {
+        "variant": "a2_postln_lr3e-3",
+        "seed": 1337,
+        "returncode": 0,
+        "seconds": 26.712360462000106,
+        "checkpoint_sha256": "c774919afd95a1fa7f73753b7960827d89473cf41f932cb3f013cfab62077f33",
+        "result": {
+          "val_loss": 5.834290949071072,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a2_postln_lr3e-3/seed1337/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d"
+        }
+      }
+    },
+    {
+      "variant": "a2_rmsnorm_lr3e-3",
+      "seed": 1337,
+      "state": "completed",
+      "started_at": "2026-11-03T17:38:08.008798+08:00",
+      "ended_at": "2026-11-03T18:00:52.785338+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a2_rmsnorm_lr3e-3/seed1337",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.003,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 0.0003,
+          "norm": "rmsnorm",
+          "norm_position": "pre",
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 1337,
+          "device": "auto"
+        },
+        "git_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 13964160,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1358.283249402999,
+        "tokens_per_sec": 73628.1891453466,
+        "peak_memory_mb": 5316.89453125,
+        "final_train_loss": 1.45766881108284,
+        "final_val_loss": 1.476956069469452,
+        "last_step_loss": 1.464515209197998
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 273,
+          "mean": 86.28571428571429,
+          "max": 89.0,
+          "min": 78.0
+        },
+        "sm_clock_MHz": {
+          "n": 273,
+          "mean": 2633.3369963369964,
+          "max": 2760.0,
+          "min": 1957.0
+        },
+        "gpu_util_pct": {
+          "n": 273,
+          "mean": 98.1941391941392,
+          "max": 99.0,
+          "min": 1.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 273,
+          "mean": 6790.860805860806,
+          "max": 6847.0,
+          "min": 851.0
+        },
+        "power_W": {
+          "n": 273,
+          "mean": 91.44157509157509,
+          "max": 100.88,
+          "min": 57.11
+        }
+      },
+      "divergence": null,
+      "stress_exception": true,
+      "full_evaluation": {
+        "variant": "a2_rmsnorm_lr3e-3",
+        "seed": 1337,
+        "returncode": 0,
+        "seconds": 28.65754072799973,
+        "checkpoint_sha256": "9e88696e7980635e652273316bf565ce27867f3d1ad00e456b4377f4c4eea4e6",
+        "result": {
+          "val_loss": 1.469356907290999,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a2_rmsnorm_lr3e-3/seed1337/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d"
+        }
+      }
+    }
+  ],
+  "current_variant": "a2_rmsnorm_lr3e-3",
+  "current_seed": 1337,
+  "phase_started_at": "2026-11-03T18:00:52.880387+08:00",
+  "last_eval": null,
+  "active_pid": 1584,
+  "last_evaluation_returncode": 0,
+  "command": [
+    "uv",
+    "run",
+    "python",
+    "scripts/train.py",
+    "--config",
+    "configs/ablations/a2_rmsnorm_lr3e-3.yaml",
+    "seed=1337",
+    "out_dir=runs/m3/a2_rmsnorm_lr3e-3/seed1337"
+  ],
+  "stress_divergence_exception": true,
+  "gpu_pid": 1447,
+  "last_training_returncode": 0,
+  "all_134_tracked_files_unchanged_through_training_and_evaluation": true,
+  "summary_returncode": 0,
+  "ended_at": "2026-11-03T18:01:22.755483+08:00"
+}

@@ -1,0 +1,76 @@
+{
+  "source_commit": "c72d450997f3e830fe36c895ed6e1bd55448213d",
+  "training_runs": 7,
+  "full_evaluations": 9,
+  "tokens_per_training": 100007936,
+  "tokens_per_full_evaluation": 5414547,
+  "control_checkpoints_not_retrained": true,
+  "all_tracked_files_unchanged_until_all_training_and_evaluation_finished": 134,
+  "all_training_and_evaluation_returncodes_zero": true,
+  "all_current_source_commits_clean": true,
+  "old_results_prefix_preserved": true,
+  "old_progress_history_preserved": true,
+  "new_results_rows": 7,
+  "full_val_scores": [
+    1.5785273295374371,
+    1.581352792248717,
+    1.612405422358201,
+    1.6149949159546062,
+    1.5829295170202389,
+    1.581397210360154,
+    1.465089369450769,
+    5.834290949071072,
+    1.469356907290999
+  ],
+  "summary_matches_canonical_script": true,
+  "control_full_val_mean": 1.579940060893077,
+  "control_full_val_spread": 0.0028254627112798136,
+  "independent_result_audit": "Codex m3_batch2_audit: no blocking findings; Claude review remains pending",
+  "Claude_review": "pending",
+  "commit_and_push_authorization": "User explicitly selected \u63d0\u4ea4\u5e76\u63a8\u9001\u5230 main in this chat",
+  "raw_runtime_and_archive_files_match": true,
+  "all_nine_checkpoints_unchanged_by_evaluation": true,
+  "no_live_training_evaluation_or_gpu_monitor": true,
+  "old_source_and_old_experiment_files_unchanged_except_three_intended_docs": true,
+  "exactly_seven_new_result_rows": true,
+  "gpu_sampling_intervals": {
+    "a2_postln/seed1337": {
+      "samples": 254,
+      "median_seconds": 5.002,
+      "max_seconds": 5.012
+    },
+    "a2_postln/seed2024": {
+      "samples": 256,
+      "median_seconds": 5.002,
+      "max_seconds": 5.015
+    },
+    "a2_rmsnorm/seed1337": {
+      "samples": 277,
+      "median_seconds": 5.002,
+      "max_seconds": 5.011
+    },
+    "a2_rmsnorm/seed2024": {
+      "samples": 278,
+      "median_seconds": 5.002,
+      "max_seconds": 5.011
+    },
+    "a2_preln_lr3e-3/seed1337": {
+      "samples": 257,
+      "median_seconds": 5.002,
+      "max_seconds": 5.012
+    },
+    "a2_postln_lr3e-3/seed1337": {
+      "samples": 252,
+      "median_seconds": 5.002,
+      "max_seconds": 5.01
+    },
+    "a2_rmsnorm_lr3e-3/seed1337": {
+      "samples": 273,
+      "median_seconds": 5.002,
+      "max_seconds": 5.017
+    }
+  },
+  "new_archive_file_count": 60,
+  "new_archive_bytes": 198092,
+  "approval_recorded_at": "2026-11-03T18:12:35.425235+08:00"
+}
