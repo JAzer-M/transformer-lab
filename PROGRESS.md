@@ -4,13 +4,13 @@
 
 ## 当前状态
 
-更新时间：2026-11-03 18:04（Asia/Hong_Kong，UTC+08:00）。
+更新时间：2026-11-04 12:41（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
 | 项目阶段 | M3第2批已完成：对照组2个存档补评、A2归一化4次训练、高学习率3次加测；本轮结果交付main，用户已授权提交推送；Claude核对待进行 |
 | 本轮范围 | 严格执行 docs/m3-windows-run.md 第2批；共7次完整训练和9次完整验证集打分 |
-| 实现方 / 审查方 | 用户手写RMSNorm，Claude提供已合并实现与手册；Codex在WSL执行；本轮结果经Codex只读子agent（m3_batch2_audit）复核，未发现阻塞问题；Claude尚未审查 |
+| 实现方 / 审查方 | 用户手写RMSNorm，Claude提供已合并实现与手册；Codex在WSL执行；本轮结果经Codex只读子agent（m3_batch2_audit）复核；Claude Code 于 2026-11-04 11:34 在 Mac 核对，见交接记录 |
 | 分支 / 来源 | main / c72d450997f3e830fe36c895ed6e1bd55448213d；7个新run.json与9个full_val.json记录的本轮commit均干净；旧对照训练commit保留 |
 | 配置与预算 | 每次3052步、100,007,936训练token；只覆盖seed/out_dir；不改变配置、实现、测试或依赖 |
 | 本次前置验证 | uv sync --locked、CUDA张量分配、170 passed in 6.94s；数据SHA256与M2一致；两个旧对照存档均step3052；134个跟踪文件在全部训练/评估完成前未变 |
@@ -19,7 +19,7 @@
 | 本轮结果 | 详见 experiments/m3_ablations/BATCH2_REPORT.md 与 SUMMARY.md；results.md只追加7行，含抽样与完整分数 |
 | GPU与异常 | 每5秒记录温度/频率/利用率/显存/功耗，逐组平均与最高温及高学习率发散状态见本轮报告；程序均退出0 |
 | 解释边界 | 结构比较遵循既有双种子判定；高学习率每种结构只有1个种子，只用于观察稳定性；长训练吞吐不用于速度结论 |
-| 下一步 | 用户已明确授权提交并推送main，随后由Claude拉取核对；若汇总提示补种子，另按后续明确任务执行，不自行新增训练 |
+| 下一步 | 并行两件事：① 用户在 m3-mlp（从 main fd79256 分出，改动未提交）写 SwiGLU，之后 agent 写 mlp 开关与 a3_swiglu 配置，手册第 3 批只有 a3_swiglu 2 个种子；② 用户让 Codex 在 main 上跑“第 2 批补充”（三个 a2_*_lr3e-3 的种子 2024）。Codex 推送后 main 会前进，m3-mlp 合并前要先并入 origin/main，PROGRESS 两边记录都保留 |
 
 ## 当前任务与下一步
 
@@ -57,7 +57,7 @@
 ## Codex 接手入口（M3 消融，2026-11-02）
 
 1. 在 WSL2 Ubuntu 的 `~/transformer-lab` 中工作；按用户指定的分支（`m3-ablate` 或合并后的 `main`）`git fetch origin && git switch <分支> && git pull --ff-only`。先读 `AGENTS.md`、`docs/PLAN.md`「M3 实施计划」、本文件「当前状态」。
-2. 严格按 `docs/m3-windows-run.md` 执行，**只做用户让你做的那一批**（第 1 批对照组已完成；当前是第 2 批：对照组两个存档补评、`a2_postln` 与 `a2_rmsnorm` 各 2 个种子、三个 `*_lr3e-3` 加测各 1 个种子）。
+2. 严格按 `docs/m3-windows-run.md` 执行，**只做用户让你做的那一批**（第 1 批、第 2 批已完成；当前是“第 2 批补充”：三个 `*_lr3e-3` 加测各补种子 2024）。
 3. 每次训练按手册的固定流程：后台记录 GPU、训练、停止记录、完整验证集打分（第 2 批起）、复制小文件到 `experiments/m3_ablations/<变体>/seed<种子>/`；整批完成后再统一追加 `results.md`、运行汇总脚本更新 `SUMMARY.md`，并在本文件追加署名 Codex 的记录；提交与推送前征得用户同意。
 4. 不改超参数、配置与用户手写文件；出错、OOM、loss NaN 或发散时立即停止并记录原文。唯一例外（2026-11-03 用户确认）：三个 `a2_*_lr3e-3` 加测出现 NaN 或发散时不中断，跑完并如实记录；程序报错仍停下。
 
@@ -1040,6 +1040,47 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 保护与交接：results.md仅在整批结束后追加7个新训练行，旧4行原文保留，对照补评不加训练行；历史交接保留。小文件与本批元数据归档，数据/checkpoint/runs不入Git；Codex只读子agent（m3_batch2_audit）已按手册/PLAN核对配置、预算、评分、日志、温度与历史保护，未发现阻塞问题；Claude审查待进行。本次未重跑ruff，不把Mac历史检查算本次验证。
 - 操作记录：Ubuntu通过Windows已有认证与代理fetch后切到main；Windows查看副本从旧main快进时，命令级autocrlf=false与既有CRLF不一致导致一次同步拒绝，确认默认规则下工作区干净后正常ff成功；未覆盖用户改动或更改全局设置。
 - 下一步：用户已在本聊天明确选择“提交并推送到 main”，按此授权发布本批结果；随后由Claude端拉取核对。
+
+### 2026-11-04 11:34（UTC+08:00）｜Claude Code｜在 Mac 核对 M3 第 2 批结果
+
+- 范围：用户说明 Codex 已跑完，请 Claude Code 拉取查看。Mac；`git merge --ff-only origin/main` 把 main 从 c72d450 快进到 fd79256（作者 J，由 Codex 提交）。
+- 保护（`runs/m3-a2-review/01-`）：src、tests、scripts、configs、依赖、AGENTS、PLAN、手册均未改；results.md 只追加 7 行且与原始文件逐行一致；PROGRESS 删除的只有顶部状态表旧行。
+- 数字：7 次训练配置与 yaml 只差 seed、out_dir；commit c72d450 不带 dirty；参数量为 13,968,384 / 13,964,160 / 13,969,152，train_tokens 均为 100,007,936；9 份 full_val.json 均 5,414,547 token、ckpt_step 3052、eval_commit 干净、cuda；本机重新生成 SUMMARY.md 逐字一致；GPU 温度复算与 Codex 一致（最高 89°C）。打分每次约 27–29 秒。pytest 170 passed（本机，main）。
+- 结果（完整验证集）：对照 1.5785 / 1.5814（均值 1.5799，差距 0.0028）；a2_postln 1.6124 / 1.6150（+0.0338，“更差”）；a2_rmsnorm 1.5829 / 1.5814（+0.0022，“差异不显著”）。对照的种子间差距从抽样时的 0.0175 降到 0.0028，且两个种子的高低顺序反转，证实原来的差距主要来自抽样。高学习率（各 1 个种子）：preln 1.4651，rmsnorm 1.4694，postln 5.8343。
+- 解读与证据（`02-`）：
+  - a2_postln_lr3e-3 按既定规则判“未发散”（无 NaN、无反弹、最终不高于第 250 步），但从第 250 步到最后都停在约 5.84，train 同样，没有学到东西；这个标签容易误读。样本验证集（词表不同，只作近似）的一元熵为 5.832，与平台值吻合，支持“模型只学到 token 频率、没用上上下文”；这是根据数值作的推断，未检查权重，具体机制未确认。
+  - preln 在 3e-3 下比同种子 6e-4 低 0.113：在 1 亿 token 的预算下 6e-4 偏小（1 个种子）。各变体学习率相同，对照比较仍公平；未改任何超参数。
+  - RMSNorm 显存 5316.9 MiB，比对照多 310.1 MiB；同批吞吐约 72–74k，LayerNorm 约 78–79k（长训练吞吐，不作速度结论）。测得 RMSNorm 为反向传播多留一块 (B,T,C) 内存（24.06 MiB，LayerNorm 0.12 MiB），13 × 24 = 312 MiB，与实测相符。更正：此前对用户说 RMSNorm “计算更省”，在本项目手写实现上不成立（显存与速度以 A7 短测为准）。
+  - 此前预计“6 层较浅，差别可能不明显”，实测两处差别都很明显。
+- 未验证：Post-LN 平台的具体机制；高学习率只有 1 个种子，按 AGENTS“主结论至少 2 个种子”尚不能作为主结论。
+- 决策：既定的“未发散”记录不改；是否补种子、是否增加“未收敛”标记交用户决定。本条未提交。
+- 学习状态：两道 RMSNorm 思考题与“用自己的话讲 Post-LN”已可回答，用户尚未作答。
+- 下一步：见顶部状态表。
+
+### 2026-11-04 12:14（UTC+08:00）｜Claude Code｜A2 自测题、“未收敛”标记，开始 m3-mlp
+
+- 用户确认：用户回答了 3 道题，并回复“接下来的话就按你说的来做吧”，即补高学习率组第 2 个种子、汇总表加“未收敛”标记、进入 m3-mlp。决定已写入 PLAN「M3 实施计划」。
+- 自测（`docs/self-test-qa.md` 第 31–33 题）：缩放不变性答错（答 1/√3，应为不变，已用真实 RMSNorm 实测）；参数差不知道（4,992）；Pre/Post-LN 仍说成“什么时候加残差”，与 M1 第 22 题同一误解，需复习。
+- 工作区：Mac；从 main（fd79256）分出 m3-mlp；上一条核对记录与本条均未提交。
+- 改动：`src/tlab/eval/ablation.py` 新增 `_stress_status`：高学习率表中未发散但从未达到 val ≤ 2.0 的写“未发散，但未收敛”，发散判定不改；测试 `test_stress_table_marks_runs_that_never_converged` 先失败再实现。
+- 本次验证：pytest 171 passed；ruff 通过；对第 2 批真实结果运行汇总脚本，只有 a2_postln_lr3e-3 被标记（输出未写入 SUMMARY.md，由下一批重新生成）。
+- 下一步：用户确认 m3-mlp 的测试接口。
+
+### 2026-11-04 12:20（UTC+08:00）｜Claude Code｜m3-mlp 开始：SwiGLU 测试；Codex 补种子的安排
+
+- 用户确认：用户回复“按推荐开始吧”，确认 m3-mlp 的 10 个测试接口与 4 个决定（写入 PLAN）；说明此前的题还有些没懂，要在 M3 结束后对本阶段所有题统一提问一遍（已写入 PLAN 与 Claude 记忆）；并问写代码时能否让 Codex 去跑别的训练。
+- 判断：三个 `a2_*_lr3e-3` 的种子 2024 只依赖 main 上已有的配置与代码，可以现在跑，不必等 m3-mlp；Codex 指令由用户转交（“第 2 批补充”，手册的第 3 批不再包含它，补充一节在写第 3 批时一并追加到手册留档）。
+- 改动（未提交）：`tests/test_layers.py` 新增 SwiGLU 4 个测试。当前 4 failed（`SwiGLU` 尚不存在）、171 passed，符合预期。故意改错（`runs/m3-mlp/01-`，scratchpad 副本）：正确版本通过；ReLU、GELU、激活放错路、两路都激活、相乘写成相加、门和内容共用一层、忘了缩回、gate 或 down 带 bias 共 9 种错误全部被抓到。
+- 学习状态：用户待手写 `SwiGLU`。
+- 下一步：用户写完后 Claude Code 检查，再写 mlp 开关。
+
+### 2026-11-04 12:41（UTC+08:00）｜Claude Code｜更正：把“第 2 批补充”的说明推到 main
+
+- 经过：用户转告 Codex 说 Claude 还没有推送。核对后 Codex 是对的：origin/main 仍是 fd79256，其中没有补种子的决定，也没有对应的手册内容；上一条给用户的 Codex 指令却要它读 PLAN 的决定，那些内容当时只在本机未提交的 m3-mlp 工作区里。这是 Claude Code 的疏漏。上一条记录里“补充一节在写第 3 批时一并追加到手册留档”的安排作废，改为现在就追加。
+- 改动：手册新增「第 2 批补充」一节；本文件「Codex 接手入口（M3 消融）」第 2 条更新为当前批次。
+- 提交范围：只把文档提交到 main 并推送（本文件、`docs/PLAN.md`、`docs/m3-windows-run.md`、`docs/self-test-qa.md`）。未带上 `src/tlab/eval/ablation.py`（“未收敛”标记）和测试：SwiGLU 测试此刻是预期内的失败，不能进 main；这些留在 m3-mlp。因此 main 上的汇总表暂时没有“未收敛”标记，手册要求 Codex 在记录里如实写明停滞的曲线。
+- 用户确认：用户转告上述情况，未单独说“推送”；Claude Code 按“这份说明需要在 GitHub 上 Codex 才能执行”理解后推送，范围限于文档。
+- 下一步：用户让 Codex 执行「第 2 批补充」，同时写 SwiGLU。
 
 ## 后续交接模板
 
