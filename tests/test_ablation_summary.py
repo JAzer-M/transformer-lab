@@ -409,3 +409,56 @@ def test_full_val_of_an_earlier_checkpoint_is_rejected(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError):
         load_variants(tmp_path)
+
+
+def test_stress_table_marks_runs_that_never_converged(tmp_path: Path) -> None:
+    from tlab.eval.ablation import load_variants, render_summary
+
+    # Post-LN 高学习率的实测形状：没有 NaN、没有反弹、最终不高于第 250 步，但一直停在高位
+    write_run(
+        tmp_path,
+        "a2_postln_lr3e-3",
+        1337,
+        5.84,
+        evals=[(0, 9.1), (250, 5.85), (3051, 5.84)],
+    )
+    write_run(
+        tmp_path,
+        "a2_preln_lr3e-3",
+        1337,
+        1.47,
+        evals=[(0, 9.1), (250, 2.7), (750, 1.95), (3051, 1.47)],
+    )
+    nan = float("nan")
+    write_run(tmp_path, "a2_rmsnorm_lr3e-3", 1337, nan, evals=[(0, 9.1), (250, nan)])
+
+    lines = render_summary(load_variants(tmp_path)).splitlines()
+
+    stuck = next(line for line in lines if "| a2_postln_lr3e-3 |" in line)
+    healthy = next(line for line in lines if "| a2_preln_lr3e-3 |" in line)
+    broken = next(line for line in lines if "| a2_rmsnorm_lr3e-3 |" in line)
+    # 事先定的发散判定不变，“未收敛”是另外标出来的
+    assert "未发散" in stuck and "未收敛" in stuck
+    assert "未发散" in healthy and "未收敛" not in healthy
+    # 真发散的写发散原因，不再多标未收敛
+    assert "NaN" in broken and "未收敛" not in broken
+
+
+def test_stress_table_does_not_call_a_run_unconverged_if_final_val_reached_it(
+    tmp_path: Path,
+) -> None:
+    from tlab.eval.ablation import load_variants, render_summary
+
+    # 周期评估都没到 2.0，但最终那次评估到了：不能写“从未达到”
+    write_run(
+        tmp_path,
+        "a2_preln_lr3e-3",
+        1337,
+        1.99,
+        evals=[(0, 9.1), (250, 2.5), (3000, 2.01)],
+    )
+
+    lines = render_summary(load_variants(tmp_path)).splitlines()
+
+    row = next(line for line in lines if "| a2_preln_lr3e-3 |" in line)
+    assert "未发散" in row and "未收敛" not in row

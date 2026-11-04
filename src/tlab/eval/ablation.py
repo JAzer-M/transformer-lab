@@ -256,6 +256,20 @@ def _converge_cell(run: SeedRun) -> str:
     return "—" if step is None else str(step)
 
 
+def _stress_status(run: SeedRun) -> str:
+    # 是否发散按事先定的规则；没发散、却一直没降到收敛线的另外标出，判定本身不改
+    reason = divergence(run.evals, run.final_val_loss, run.train_losses)
+    if reason:
+        return reason
+    # 周期评估和训练结束时的最终评估都没到收敛线，才算未收敛
+    if (
+        steps_to_threshold(run.evals, CONVERGE_AT) is None
+        and run.final_val_loss > CONVERGE_AT
+    ):
+        return f"未发散，但未收敛（从未达到 val≤{CONVERGE_AT}）"
+    return "未发散"
+
+
 def _variant_row(group: str, variant: Variant, control: Variant | None) -> str:
     if control is None or variant is control:
         (shown,), basis = _on_same_basis(variant)
@@ -322,11 +336,10 @@ def render_summary(variants: dict[str, Variant]) -> str:
     ]
     for name in STRESS:
         for seed, run in sorted(variants.get(name, Variant(name)).runs.items()):
-            reason = divergence(run.evals, run.final_val_loss, run.train_losses)
             final = f"{run.final_val_loss:.4f}"
             lines.append(
                 _md_row(
-                    [name, str(seed), final, _converge_cell(run), reason or "未发散"]
+                    [name, str(seed), final, _converge_cell(run), _stress_status(run)]
                 )
             )
 
