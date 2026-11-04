@@ -11,3 +11,6 @@
 | 2026-11-03 | M3-a2_preln_lr3e-3-s1337 | configs/ablations/a2_preln_lr3e-3.yaml（seed=1337） | c72d450997f3e830fe36c895ed6e1bd55448213d | 1337 | val 1.4732（完整验证集 1.4651） | 78303 | 5007 MB | 高学习率加测；未发散 |
 | 2026-11-03 | M3-a2_postln_lr3e-3-s1337 | configs/ablations/a2_postln_lr3e-3.yaml（seed=1337） | c72d450997f3e830fe36c895ed6e1bd55448213d | 1337 | val 5.8359（完整验证集 5.8343） | 79707 | 4982 MB | 高学习率加测；未发散；验证loss停留在约5.84 |
 | 2026-11-03 | M3-a2_rmsnorm_lr3e-3-s1337 | configs/ablations/a2_rmsnorm_lr3e-3.yaml（seed=1337） | c72d450997f3e830fe36c895ed6e1bd55448213d | 1337 | val 1.4770（完整验证集 1.4694） | 73628 | 5317 MB | 高学习率加测；未发散 |
+| 2026-11-04 | M3-a2_preln_lr3e-3-s2024 | configs/ablations/a2_preln_lr3e-3.yaml（seed=2024） | b9491f2661ab0c904eb8de73c490f21eef55b799 | 2024 | val 1.4567（完整验证集 1.4653） | 83828 | 5007 MB | 高学习率第2种子；未发散；首次抽样val≤2.0在第750步 |
+| 2026-11-04 | M3-a2_postln_lr3e-3-s2024 | configs/ablations/a2_postln_lr3e-3.yaml（seed=2024） | b9491f2661ab0c904eb8de73c490f21eef55b799 | 2024 | val 5.8236（完整验证集 5.8352） | 84395 | 4982 MB | 高学习率第2种子；未发散；全程记录的抽样val未达到2.0，未收敛 |
+| 2026-11-04 | M3-a2_rmsnorm_lr3e-3-s2024 | configs/ablations/a2_rmsnorm_lr3e-3.yaml（seed=2024） | b9491f2661ab0c904eb8de73c490f21eef55b799 | 2024 | val 1.4624（完整验证集 1.4717） | 76311 | 5317 MB | 高学习率第2种子；未发散；首次抽样val≤2.0在第750步 |

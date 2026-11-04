@@ -1,0 +1,54 @@
+{
+  "time": "2026-11-04T12:46:10.057099+08:00",
+  "source_commit": "b9491f2661ab0c904eb8de73c490f21eef55b799",
+  "branch": "main",
+  "scope": "runbook batch 2 supplement only",
+  "tracked_files": 194,
+  "data_hashes_match_M2": true,
+  "data_info": {
+    "mode": "full",
+    "revision": "f54c09fd23315a6f9c86f9dc80f725de7d8f9c64",
+    "sources": {
+      "train": {
+        "filename": "TinyStoriesV2-GPT4-train.txt",
+        "size": 2227753162,
+        "sha256": "6418d412de72888f52b5142c761ac21a582f7d1166f0bfbdb5f03ccfdec90443"
+      },
+      "valid": {
+        "filename": "TinyStoriesV2-GPT4-valid.txt",
+        "size": 22502601,
+        "sha256": "6874bae9a4c1a4e7edcf0e53b86c17817e9cf881fc75ff2368da457b80c0585d"
+      }
+    },
+    "vocab_size": 8192,
+    "eot_id": 0,
+    "train_tokens": 536174492,
+    "val_tokens": 5414548,
+    "train_stories": 2717495,
+    "val_stories": 27630,
+    "tokenizer_seconds": 44.963793057999965,
+    "encode_seconds": 102.77910430899999,
+    "total_seconds": 149.29187006400002
+  },
+  "jobs": [
+    [
+      "a2_preln_lr3e-3",
+      2024
+    ],
+    [
+      "a2_postln_lr3e-3",
+      2024
+    ],
+    [
+      "a2_rmsnorm_lr3e-3",
+      2024
+    ]
+  ],
+  "pytest": "170 passed",
+  "same_configs_as_seed1337": true,
+  "only_CLI_overrides": [
+    "seed",
+    "out_dir"
+  ],
+  "high_LR_nonfinite_or_stagnation_exception": true
+}

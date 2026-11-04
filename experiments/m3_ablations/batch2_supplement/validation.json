@@ -1,0 +1,56 @@
+{
+  "source_commit": "b9491f2661ab0c904eb8de73c490f21eef55b799",
+  "training_runs": 3,
+  "full_evaluations": 3,
+  "tokens_per_training": 100007936,
+  "tokens_per_full_evaluation": 5414547,
+  "old_tracked_files_protected_until_all_jobs_finished": 194,
+  "all_returncodes_zero": true,
+  "all_source_commits_clean": true,
+  "old_results_prefix_preserved": true,
+  "old_progress_history_preserved": true,
+  "new_results_rows": 3,
+  "summary_matches_canonical_script": true,
+  "scores": {
+    "a2_preln_lr3e-3": [
+      1.465089369450769,
+      1.465302538562121
+    ],
+    "a2_postln_lr3e-3": [
+      5.834290949071072,
+      5.835193674981046
+    ],
+    "a2_rmsnorm_lr3e-3": [
+      1.469356907290999,
+      1.471728193682986
+    ]
+  },
+  "independent_result_audit": "Codex m3_supplement_audit: no findings or blockers; Claude review pending",
+  "Claude_review": "pending",
+  "commit_and_push_authorization": "User explicitly selected \u63d0\u4ea4\u5e76\u63a8\u9001\u5230 main in this chat",
+  "raw_runtime_and_archive_files_match": true,
+  "all_three_checkpoints_unchanged_by_evaluation": true,
+  "no_live_training_evaluation_or_gpu_monitor": true,
+  "old_source_and_old_experiment_files_unchanged_except_three_intended_docs": true,
+  "exactly_three_new_result_rows": true,
+  "gpu_sampling_intervals": {
+    "a2_preln_lr3e-3/seed2024": {
+      "samples": 240,
+      "median_seconds": 5.002,
+      "max_seconds": 5.012
+    },
+    "a2_postln_lr3e-3/seed2024": {
+      "samples": 238,
+      "median_seconds": 5.002,
+      "max_seconds": 5.008
+    },
+    "a2_rmsnorm_lr3e-3/seed2024": {
+      "samples": 264,
+      "median_seconds": 5.002,
+      "max_seconds": 5.009
+    }
+  },
+  "new_archive_file_count": 28,
+  "new_archive_bytes": 102602,
+  "approval_recorded_at": "2026-11-04T14:12:29.604682+08:00"
+}
