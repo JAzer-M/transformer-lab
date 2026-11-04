@@ -1,8 +1,9 @@
 # USER-WRITTEN: agent 只提建议， 不改实现
-# 例外：标注“agent 编写”的 norm 开关代码，经用户 2026-11-03 同意由 agent 加入
+# 例外：标注“agent 编写”的 norm、mlp 开关代码，经用户 2026-11-03、11-04 同意由 agent 加入
 """现代 Transformer 组件：RMSNorm（M3 第 1 步）；之后的 SwiGLU、RoPE 也写在这里"""
 
 import torch
+import torch.nn.functional as F
 from torch import nn
 
 
@@ -23,13 +24,35 @@ class RMSNorm(nn.Module):
         return x_normed * self.weight  # (B, T, C)
 
 
-# agent 编写（norm 开关）：配置里两个开关的合法取值、取值检查，以及按名字建归一化层
+class SwiGLU(nn.Module):
+    def __init__(self, d_model: int, hidden_dim: int) -> None:
+        super().__init__()
+        # 门： C 维提升到 H 维， 激活后决定每个分量能通过多少
+        self.gate_proj = nn.Linear(d_model, hidden_dim, bias=False)
+        # 内容： C 维提升到 H 维， 这一路不过激活函数
+        self.up_proj = nn.Linear(d_model, hidden_dim, bias=False)
+        # 缩回层： H 维降回 C 维， 残差相加要求形状和输入一致
+        self.down_proj = nn.Linear(hidden_dim, d_model, bias=False)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # 门： SiLU(z) = z * sigmoid(z)
+        gate = F.silu(self.gate_proj(x))  # (B, T, H)
+        # 内容
+        content = self.up_proj(x)  # (B, T, H)
+        # 门控: 逐元素相乘， 每个分量各乘各的， 再缩回C维
+        return self.down_proj(gate * content)  # (B, T, C)
+
+
+# agent 编写（norm、mlp 开关）：配置里各开关的合法取值、取值检查，以及按名字建归一化层
 NORMS = ("layernorm", "rmsnorm")
 NORM_POSITIONS = ("pre", "post")
+MLPS = ("gelu", "swiglu")
 
 
-def check_norm_settings(norm: str, norm_position: str) -> None:
+def check_block_settings(norm: str, norm_position: str, mlp: str) -> None:
     """取值拼错时报错；训练配置、GPTConfig、Block 创建时都调用，不会被悄悄当成别的结构。"""
+    if mlp not in MLPS:
+        raise ValueError(f"mlp 应为 {MLPS} 之一，收到 {mlp!r}")
     if norm not in NORMS:
         raise ValueError(f"norm 应为 {NORMS} 之一，收到 {norm!r}")
     if norm_position not in NORM_POSITIONS:

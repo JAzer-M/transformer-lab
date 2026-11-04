@@ -253,3 +253,53 @@ def test_every_model_switch_is_a_train_config_field() -> None:
     switches = {f.name for f in fields(GPTConfig) if f.default is not MISSING}
     assert switches
     assert switches <= {f.name for f in fields(TrainConfig)}
+
+
+def test_load_config_reads_mlp_setting_and_rejects_typos(tmp_path: Path) -> None:
+    from tlab.train.config import load_config
+
+    path = write_yaml(tmp_path / "c.yaml", "mlp: swiglu\n")
+
+    assert load_config(path).mlp == "swiglu"
+    with pytest.raises(ValueError):
+        load_config(path, ["mlp=glu"])
+
+
+def test_old_saved_config_rebuilds_with_gelu_mlp() -> None:
+    from tlab.train.utils import gpt_config_from
+
+    # M1、M2 和 A2 的存档里都没有 mlp 这一项：按默认的 GELU MLP 重建
+    old = {"block_size": 8, "d_model": 16, "n_layers": 1, "n_heads": 2, "seed": 0}
+    assert gpt_config_from(old, vocab_size=11).mlp == "gelu"
+    assert gpt_config_from(dict(old, mlp="swiglu"), vocab_size=11).mlp == "swiglu"
+
+
+def test_run_with_swiglu_saves_a_checkpoint_that_rebuilds(tmp_path: Path) -> None:
+    from tlab.model.layers import SwiGLU
+    from tlab.train.run import run
+    from tlab.train.utils import load_model
+
+    write_tiny_dataset(tmp_path / "data")
+    out_dir = run(tiny_config(tmp_path, max_iters=2, mlp="swiglu"))
+
+    # 按存档重建并严格载入：训练时若没用上 SwiGLU，参数名就对不上，这里会报错
+    model, _ = load_model(out_dir / "ckpt.pt", torch.device("cpu"))
+    assert isinstance(model.blocks[0].mlp, SwiGLU)
+
+
+def test_checkpoint_saved_before_the_switches_still_loads(tmp_path: Path) -> None:
+    from tlab.model.block import MLP
+    from tlab.train.run import run
+    from tlab.train.utils import load_model
+
+    write_tiny_dataset(tmp_path / "data")
+    path = run(tiny_config(tmp_path, max_iters=2)) / "ckpt.pt"
+    # 做成 M1、M2 存档的样子：配置里没有后来加的开关
+    ckpt = torch.load(path, weights_only=False)
+    for key in ("norm", "norm_position", "mlp"):
+        del ckpt["config"][key]
+    torch.save(ckpt, path)
+
+    # 严格载入：缺的开关按默认值重建，参数名必须对得上
+    model, _ = load_model(path, torch.device("cpu"))
+    assert isinstance(model.blocks[0].mlp, MLP)

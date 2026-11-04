@@ -144,3 +144,27 @@ cp runs/m3/a0_control/seed<种子>/full_val.json experiments/m3_ablations/a0_con
 - 收尾同第 2 批：全部完成后统一追加 `results.md`（每次一行）、运行汇总命令更新 `SUMMARY.md`，并在 `PROGRESS.md` 追加署名 Codex 的记录。汇总表的高学习率部分应有这三个配置各 2 行。如果某次的 loss 一直停在高位（如第 2 批 Post-LN 的约 5.84），在记录里如实写明曲线，不要只写“未发散”。
 - 预计耗时：3 次训练各约 22 分钟，共约 1.1 小时，每次打分约 30 秒。
 - 提交与推送前先问用户。完成后告诉用户，由用户回到 Mac 让 Claude Code 核对。
+
+## 第 3 批：A3 SwiGLU（2 次训练）
+
+本批由 Claude Code 于 2026-11-04 追加，对应分支 `m3-mlp`（SwiGLU、`mlp` 开关、`a3_swiglu` 配置，以及汇总表的“未收敛”标记）。
+
+- 前提：用户已把 `m3-mlp` 合并到 `main`，或指定了要用的分支。先 `git fetch origin && git switch <用户指定的分支> && git pull --ff-only`，再 `uv sync --locked`。
+- GPU 自检同第 1 批；单元测试 `uv run pytest -q`，预期 **190 passed**（Mac 上提交前实测），全部通过才继续。
+- 数据仍复用 `data/tinystories/`（train 536,174,492、val 5,414,548 个 token）。
+- 按固定流程（记录 GPU、训练、完整验证集打分、复制小文件）依次运行：
+
+| 变体 | 种子 | 首行参数量 | 与对照组的唯一区别 |
+| --- | --- | --- | --- |
+| `a3_swiglu` | 1337、2024 | 13,969,152 | 前馈子层换成 SwiGLU（隐藏维度 1024），参数量与对照组相同 |
+
+- **参数量和对照组相同，首行查不出跑错结构。** 每次训练结束后多核对一步，必须打印 `swiglu`，否则停下汇报：
+
+```bash
+uv run python -c "import json; print(json.load(open('runs/m3/a3_swiglu/seed<种子>/run.json'))['config']['mlp'])"
+```
+
+- 通用规则 2 照常适用：出错、OOM、loss NaN 或发散都立即停下汇报。高学习率加测的例外不适用于本批。
+- 收尾同第 2 批：全部完成后统一追加 `results.md`（每次一行）、运行汇总命令更新 `SUMMARY.md`，并在 `PROGRESS.md` 追加署名 Codex 的记录。这次重新生成的 `SUMMARY.md`，`a3_swiglu` 一行的“依据”应为“完整验证集”；高学习率表里 Post-LN 两行会变成“未发散，但未收敛”，这是汇总脚本的更新，不是结果变了。
+- 预计耗时：2 次训练各约 22 分钟，共约 45 分钟。显存峰值估计约 5.2 GB（对照组实测 5.0 GB，SwiGLU 为反向传播多留约 190 MiB，是 Mac 上按真实形状算的，不是 GPU 实测；上限 8 GB），超过 7 GB 时在记录里提醒。
+- 提交与推送前先问用户。完成后告诉用户，由用户回到 Mac 让 Claude Code 核对。

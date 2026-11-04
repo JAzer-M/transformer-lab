@@ -163,3 +163,59 @@ def test_block_rejects_unknown_norm_settings() -> None:
         Block(d_model=8, n_heads=2, norm="rms")
     with pytest.raises(ValueError):
         Block(d_model=8, n_heads=2, norm_position="middle")
+
+
+def test_block_with_swiglu_has_the_same_parameter_count_as_gelu() -> None:
+    from tlab.model.block import Block
+    from tlab.model.layers import SwiGLU
+
+    torch.manual_seed(0)
+    # C = 6 能被 3 整除：隐藏维度 H = 8C/3 = 16，SwiGLU 3·C·H = 288，等于 GELU MLP 的 8C²
+    block = Block(d_model=6, n_heads=2, mlp="swiglu")
+
+    assert isinstance(block.mlp, SwiGLU)
+    assert block.mlp.down_proj.weight.shape == (6, 16)
+    # 注意力 4C² + 前馈 8C² + 两个 LayerNorm 4C = 144 + 288 + 24 = 456，与 GELU 版相同
+    assert sum(p.numel() for p in block.parameters()) == 456
+    gelu_block = Block(d_model=6, n_heads=2)
+    assert sum(p.numel() for p in gelu_block.parameters()) == 456
+
+    # 只换前馈子层，Pre-LN 的结构不变：参考答案用 block 自己的子模块按公式算一遍
+    x = torch.randn(2, 5, 6)  # (B, T, C)
+    x1 = x + block.attn(block.ln1(x))  # (B, T, C)
+    y_ref = x1 + block.mlp(block.ln2(x1))  # (B, T, C)
+    torch.testing.assert_close(block(x), y_ref)
+
+
+def test_block_rejects_unknown_mlp() -> None:
+    from tlab.model.block import Block
+
+    # 拼错时要直接报错，不能被悄悄当成 GELU MLP
+    with pytest.raises(ValueError):
+        Block(d_model=6, n_heads=2, mlp="glu")
+
+
+def test_make_mlp_rejects_unknown_kind() -> None:
+    from tlab.model.block import make_mlp
+
+    # 直接调用时也要报错，不能悄悄退回 GELU MLP（与 make_norm 的行为一致）
+    with pytest.raises(ValueError):
+        make_mlp("glu", 6)
+
+
+def test_default_block_parameter_names_are_unchanged() -> None:
+    from tlab.model.block import Block
+
+    # M1、M2 的存档按这些名字载入；这份名单写死，改名或挪动结构时测试会报错
+    assert set(Block(d_model=6, n_heads=2).state_dict()) == {
+        "ln1.weight",
+        "ln1.bias",
+        "attn.q_proj.weight",
+        "attn.k_proj.weight",
+        "attn.v_proj.weight",
+        "attn.out_proj.weight",
+        "ln2.weight",
+        "ln2.bias",
+        "mlp.fc.weight",
+        "mlp.proj.weight",
+    }

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from tlab.model.layers import check_norm_settings
+from tlab.model.layers import check_block_settings
 
 
 @dataclass
@@ -29,9 +29,10 @@ class TrainConfig:
     lr_schedule: str = "constant"  # "constant" 或 "cosine"
     warmup_iters: int = 0  # 前多少步把学习率从小线性升到 learning_rate
     min_lr: float = 0.0  # cosine 在最后一步（第 max_iters - 1 步）降到的学习率
-    # M3 新增（归一化消融）；默认值与 M1/M2 结构相同
+    # M3 新增（消融开关）；默认值与 M1/M2 结构相同
     norm: str = "layernorm"  # "layernorm" 或 "rmsnorm"
     norm_position: str = "pre"  # "pre"（子层前）或 "post"（加法后，不用 ln_f）
+    mlp: str = "gelu"  # "gelu"（M1/M2 的 MLP）或 "swiglu"
     # 存档：0 表示只在训练结束时存；resume=True 时从 out_dir/ckpt.pt 接着训练
     ckpt_interval: int = 0
     resume: bool = False
@@ -48,7 +49,7 @@ class TrainConfig:
             raise ValueError(
                 f"lr_schedule 应为 {LR_SCHEDULES} 之一，收到 {self.lr_schedule!r}"
             )
-        check_norm_settings(self.norm, self.norm_position)
+        check_block_settings(self.norm, self.norm_position, self.mlp)
 
 
 LR_SCHEDULES = ("constant", "cosine")

@@ -176,3 +176,59 @@ def test_gpt_config_rejects_unknown_norm_settings() -> None:
         small_config(norm="rms")
     with pytest.raises(ValueError):
         small_config(norm_position="middle", n_layers=0)
+
+
+def test_gpt_config_rejects_unknown_mlp() -> None:
+    # 与 norm 开关相同：建配置时就报错，0 层时也不例外
+    with pytest.raises(ValueError):
+        small_config(mlp="glu", n_layers=0)
+
+
+def test_swiglu_config_replaces_every_mlp() -> None:
+    from tlab.model.gpt import GPT, count_parameters
+    from tlab.model.layers import SwiGLU
+
+    V, block_size, C, L = 11, 8, 16, 2
+    model = GPT(small_config(mlp="swiglu"))
+
+    assert all(isinstance(block.mlp, SwiGLU) for block in model.blocks)
+    # C = 16 不能被 3 整除：H = 8C//3 = 42，前馈 3·C·H = 2016（比 8C² = 2048 略少）；
+    # 每层注意力 4C²、两个 LayerNorm 4C，再加查表、位置表和 ln_f 的 2C
+    block_params = 4 * C * C + 3 * C * 42 + 4 * C
+    assert count_parameters(model) == V * C + block_size * C + L * block_params + 2 * C
+
+
+def test_swiglu_initial_loss_is_close_to_log_vocab_size() -> None:
+    from tlab.model.gpt import GPT
+
+    torch.manual_seed(0)
+    V = 65
+    model = GPT(small_config(vocab_size=V, block_size=16, d_model=32, mlp="swiglu"))
+    idx = torch.randint(0, V, (4, 16))  # (B, T)
+    targets = torch.randint(0, V, (4, 16))  # (B, T)
+
+    logits = model(idx)  # (B, T, V)
+    loss = F.cross_entropy(logits.view(-1, V), targets.view(-1))  # ()
+
+    # SwiGLU 的三个 Linear 也走 N(0, 0.02) 初始化，开局仍是均匀乱猜的水平
+    assert abs(loss.item() - math.log(V)) < 0.1
+
+
+def test_switches_can_be_combined_and_stay_causal() -> None:
+    from tlab.model.gpt import GPT
+    from tlab.model.layers import RMSNorm, SwiGLU
+
+    torch.manual_seed(0)
+    # 以后的组合实验 a9_modern 要同时打开多个开关；这里用 Post-LN 把所有分支都走到
+    model = GPT(small_config(norm="rmsnorm", norm_position="post", mlp="swiglu"))
+    block = model.blocks[0]
+    assert isinstance(block.ln1, RMSNorm) and isinstance(block.mlp, SwiGLU)
+
+    idx = torch.randint(0, 11, (2, 6))  # (B, T)
+    idx_changed = idx.clone()  # (B, T)
+    idx_changed[:, -1] = (idx[:, -1] + 1) % 11  # (B,)
+    logits = model(idx)  # (B, T, V)
+    logits_changed = model(idx_changed)  # (B, T, V)
+
+    torch.testing.assert_close(logits_changed[:, :-1, :], logits[:, :-1, :])
+    assert not torch.allclose(logits_changed[:, -1, :], logits[:, -1, :])

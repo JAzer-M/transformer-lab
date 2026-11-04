@@ -4,25 +4,24 @@
 
 ## 当前状态
 
-更新时间：2026-11-04 13:55（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-04 16:39（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M3第2批补充完成：三个高学习率配置各补种子2024；本批结果交付main，用户已明确授权提交推送；Claude对本批的审查待进行 |
-| 本轮范围 | 严格执行 docs/m3-windows-run.md「第2批补充」，3次训练及3次完整验证；未重跑1337或其他配置 |
-| 实现方 / 审查方 | Claude提供main上既有代码/配置与新手册；Codex在WSL执行；本批经Codex只读子agent（m3_supplement_audit）复核，无阻塞；此前第2批已由Claude于11月4日核对 |
-| 分支 / 来源 | main / b9491f2661ab0c904eb8de73c490f21eef55b799；本批run.json与full_val.json来源均干净；代码与seed1337训练时相同 |
-| 配置与预算 | 每次3052步、100,007,936训练token；只覆盖seed=2024/out_dir，不改配置、实现、测试或依赖 |
-| 本次前置验证 | uv sync --locked、CUDA分配、pytest170 passed in6.39s；数据SHA256与M2一致；194个旧跟踪文件在全部训练与打分完成前未变 |
-| 完整验证集 | 每次5,414,547个目标token，存档step3052，CUDA/bf16；3次训练和3次打分均退出0 |
-| 高学习率双种子 | preln均值 1.465196；postln均值 5.834742；rmsnorm均值 1.470543；原始分数、曲线和解释见本批报告 |
-| 结果归档 | experiments/m3_ablations/BATCH2_SUPPLEMENT_REPORT.md、batch2_supplement/及三个新seed2024目录；results.md只追加3行，SUMMARY的高学习率表各有2个种子 |
-| GPU与异常 | 每5秒记录温度/频率/利用率/显存/功耗；均值与最高温及既定发散判定见报告；严格按高学习率例外跑满并如实记录 |
-| 解释边界 | 使用两个配对种子和完整验证分数；判定规则与历史数据不变；main尚无m3-mlp的“未收敛”标记代码，曲线另在报告注明；长训练吞吐不作速度结论 |
-| 下一步 | 用户已明确授权提交推送main，随后供Claude拉取复核；m3-mlp合并前并入origin/main并保留两边交接；本批不新增训练 |
+| 项目阶段 | M2 已验收并合并。M3：第 1 步 m3-norm 与第 2 批（A2）含补充种子已完成并在 main；第 2 步 m3-mlp 经用户同意提交、快进合并到 main 并推送（结果以 git log 与远端 ref 为准）；第 3 批（a3_swiglu）待 Codex 执行 |
+| 本轮范围 | m3-mlp：用户手写 SwiGLU，agent 写 mlp 开关、a3_swiglu 配置、手册第 3 批；另含汇总表“未收敛”标记 |
+| 实现方 / 审查方 | SwiGLU 由用户手写，其余由 Claude Code 实现；Claude 自己的 code-review（两个只读子 agent）自查，未请 Codex 交叉审查 |
+| 分支 / 来源 | main 快进到 m3-mlp，两者一同推送；哈希以 git log 与远端 ref 为准 |
+| 本机环境 | Mac：macOS arm64，/Users/j/Desktop/transformer-lab。Windows（Codex 记录）：Ubuntu 26.04.1 LTS / WSL2，RTX 5060 Laptop GPU 8151 MiB，PyTorch 2.9.1+cu128 / CUDA 12.8，/home/j/transformer-lab |
+| 配置与预算 | 对照组与所有变体：每次 3052 步、100,007,936 token，batch32×累积2、上下文512，warmup92，cosine 6e-4→6e-5；高学习率加测 3e-3→3e-4。a3_swiglu 参数量 13,969,152，显存峰值估计约 5.2 GB（未在 GPU 实测） |
+| pytest / 代码检查 | m3-mlp（Mac）：190 passed，ruff check 与 format --check 通过 |
+| A2 结果（完整验证集） | 对照 1.5799；Post-LN 1.6137（更差）；RMSNorm 1.5822（差异不显著）。高学习率 3e-3 两个种子：Pre-LN 1.4652；RMSNorm 1.4705；Post-LN 5.8347（未收敛）。详见 experiments/m3_ablations/SUMMARY.md |
+| 解释边界 | 结论只适用于 1 亿 token 的预算；长训练吞吐不作速度结论；Post-LN 停在约 5.83 的机制未检查权重，未确认；main 上的 SUMMARY.md 还没有“未收敛”标记，合并后由第 3 批重新生成 |
+| 下一步 | 用户让 Codex 在 main 上跑手册第 3 批（a3_swiglu 两个种子），完成后 Claude Code 拉取核对；同时可开始第 3 步 m3-pos（用户写 RoPE），先列测试接口 |
 
 ## 当前任务与下一步
 
+- 2026-11-04 16:28：m3-mlp 代码写完、提交前自查已修，等用户同意提交。顶部状态表已整表更新。
 - 2026-11-04 13:55：第2批补充3次训练和3次完整验证已完成，见 BATCH2_SUPPLEMENT_REPORT；独立只读复核通过，用户已授权提交推送，Claude核对待进行。
 
 - 2026-11-03 18:04：第2批7次训练与9次完整验证已完成；见 BATCH2_REPORT 与 SUMMARY，用户已授权提交推送，Claude核对待进行。以下较早状态保留作历史。
@@ -59,7 +58,7 @@
 ## Codex 接手入口（M3 消融，2026-11-02）
 
 1. 在 WSL2 Ubuntu 的 `~/transformer-lab` 中工作；按用户指定的分支（`m3-ablate` 或合并后的 `main`）`git fetch origin && git switch <分支> && git pull --ff-only`。先读 `AGENTS.md`、`docs/PLAN.md`「M3 实施计划」、本文件「当前状态」。
-2. 严格按 `docs/m3-windows-run.md` 执行，**只做用户让你做的那一批**（第 1 批、第 2 批已完成；当前是“第 2 批补充”：三个 `*_lr3e-3` 加测各补种子 2024）。
+2. 严格按 `docs/m3-windows-run.md` 执行，**只做用户让你做的那一批**（第 1 批、第 2 批及其补充已完成；当前是第 3 批：`a3_swiglu` 的种子 1337、2024）。
 3. 每次训练按手册的固定流程：后台记录 GPU、训练、停止记录、完整验证集打分（第 2 批起）、复制小文件到 `experiments/m3_ablations/<变体>/seed<种子>/`；整批完成后再统一追加 `results.md`、运行汇总脚本更新 `SUMMARY.md`，并在本文件追加署名 Codex 的记录；提交与推送前征得用户同意。
 4. 不改超参数、配置与用户手写文件；出错、OOM、loss NaN 或发散时立即停止并记录原文。唯一例外（2026-11-03 用户确认）：三个 `a2_*_lr3e-3` 加测出现 NaN 或发散时不中断，跑完并如实记录；程序报错仍停下。
 
@@ -1104,6 +1103,52 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 归档与保护：只追加results.md三行，旧行与全部旧实验文件原文保留；SUMMARY更新为每个高学习率配置两个种子；本批小文件与执行证据归档，数据/模型留在Ubuntu，不纳入Git；所有历史交接（含Claude的m3-mlp状态与更正）保留。
 - 审查与限制：本批经Codex只读子agent（m3_supplement_audit）核对配置、预算、存档、完整评分、原始归档、GPU统计、旧记录保护与双种子解读，未发现需修复问题；Claude本批审查待进行。本次未重跑ruff；旧批Claude审查单独保留，不视为本批已审查。
 - 下一步：用户已在本聊天选择“提交并推送到 main”，按此授权发布本批；之后Claude拉取复核，并在合并m3-mlp前并入origin/main、保留两边记录。M3自测按用户约定阶段末统一进行，本批不提问。
+
+### 2026-11-04 15:41（UTC+08:00）｜Claude Code｜用户 SwiGLU 通过；核对“第 2 批补充”；SwiGLU 答疑
+
+- 用户手写：`layers.py` 的 `SwiGLU`。tests/test_layers.py 9 passed，完整 pytest 175 passed，ruff 通过。已指出（由用户决定是否改，agent 不改）：第 39 行行尾多了一个 `\`（在注释里，无害）；注释里的 `h` 建议改成 `H`，因为本项目 `h` 已表示注意力头数。agent 自己测试注释里的 `h` 已改为 `H`。
+- 核对 Codex（`git merge --ff-only origin/main`，b9491f2 → 3e3a703，证据 `runs/m3-mlp/02-`）：只新增结果文件、改 PROGRESS、results.md 追加 3 行且与原始文件一致；3 次配置与 yaml 只差 seed、out_dir；commit b9491f2 不带 dirty；参数量与 token 数正确；full_val 均 5,414,547 token、第 3052 步；用 main 的代码重新生成 SUMMARY.md 逐字一致；GPU 最高 89°C。
+- 结果（完整验证集，种子 1337 / 2024）：Pre-LN 1.4651 / 1.4653，RMSNorm 1.4694 / 1.4717，Post-LN 5.8343 / 5.8352。至此高学习率组也有 2 个种子。
+  - Post-LN 在 3e-3 下两个种子都停在约 5.83，差距只有 0.0009，从第 250 步起未收敛；“只学到 token 频率”的推断因此更有依据，但仍未检查权重，机制未确认。
+  - Pre-LN 从 6e-4 提到 3e-3，同种子 val 分别低 0.1134、0.1161：这个预算下 6e-4 偏小。A1、A3、A4 仍按已确认的决定用 6e-4。
+  - RMSNorm − LayerNorm：6e-4 为 +0.0044、+0.0000（差异不显著）；3e-3 为 +0.0043、+0.0064，均值差 0.0054 大于种子差距 0.0024，按同一规则手算记“更差”，幅度约 0.4%（汇总脚本不比较高学习率组，这里是手算）。
+- 答疑：用真实代码跑了门控、共用一层、`@` 与 `*` 的例子（`runs/m3-mlp/03-`）。论文日期用 arXiv API 查询：SiLU/GELU 2016-06-27（1606.08415）；GLU 2016-12-23（1612.08083）；SiLU 用于强化学习 2017-02-10（1702.03118）；Swish 2017-10-16（1710.05941）；SwiGLU 2020-02-12（2002.05202）；LLaMA 2023-02-27（2302.13971）。只查日期，未调用 research 技能。
+- 本次验证：pytest 175 passed（m3-mlp，本机）。
+- 下一步：见顶部状态表。
+
+### 2026-11-04 16:14（UTC+08:00）｜Claude Code｜m3-mlp：mlp 开关、a3_swiglu 配置、手册第 3 批
+
+- 用户确认：用户问清 MLP 与神经网络的关系后说“解释清楚这个问题后继续”，视为继续写开关。
+- 改动（未提交）：`block.py` 新增 `make_mlp`，`Block` 增加 `mlp` 参数；`gpt.py` 的 `GPTConfig` 增加 `mlp` 字段并传给每层；`layers.py` 增加 `MLPS`，`check_norm_settings` 改名为 `check_block_settings` 并检查 mlp；`config.py` 增加 `mlp` 字段；`gpt_config_from` 按设计无需改动。用户手写文件里的 agent 代码都标注“agent 编写”，用户写的类与 Pre-LN 两行未动。新增 `configs/ablations/a3_swiglu.yaml`（与对照组只差 mlp 与 out_dir）；手册新增第 3 批；本文件接手入口更新。
+- 测试：Block 2 个、GPT 4 个、训练入口 3 个，配置参数化 2 项；已有断言未改。GPT 的 3 个测试接好字段后直接通过（字段与 typo 测试一起接入），由下面的故意改错确认它们能失败。
+- 本次验证：pytest 186 passed；ruff 通过。复现（`runs/m3-mlp/04-`）：tiny_smoke、tinystories_smoke 与 main（3e3a703）的 metrics.csv 逐字节相同。SwiGLU 冒烟：tiny_smoke 参数 27,936（C = 32 时 H = 85，比 8C² 每层少 32，手算一致），loss 下降；sample.py 能载入 SwiGLU 存档与旧存档；eval_full_val.py 能给 SwiGLU 的 BPE 小存档打分。故意改错（`05-`）：15 种全部抓到。
+- 未验证：GPU 上 SwiGLU 的训练、显存与速度。
+- 下一步：提交前 code-review。
+
+### 2026-11-04 16:28（UTC+08:00）｜Claude Code（matt-pocock-skills:code-review，两个只读子 agent）｜m3-mlp 提交前自查与修复
+
+- 范围与用户确认：提交前自查，固定点 3e3a703，审查未提交改动与 `a3_swiglu.yaml`；`docs/agents/issue-tracker.md` 不存在，规格取 PLAN 与 11/04 确认的 10 个接口。实现方 Claude Code（SwiGLU 除外），审查方同为 Claude 的子 agent，不等于 Codex 交叉审查。
+- 工作区与设备：Mac，/Users/j/Desktop/transformer-lab；分支 m3-mlp，基于 3e3a703，改动未提交。
+- Standards：无阻塞。硬性（都较轻）：gpt.py 两处标注未写 mlp；本文件顶部状态表只改了“下一步”；15:41、16:14 两条记录缺模板字段（工作区、审查状态、学习状态）；test_layers.py 部分张量操作缺形状注释；新配置没有显存估算。坏味道（判断项）：`make_mlp` 与 `make_norm` 对未知值行为不一致；`norm, norm_position, mlp` 成组出现在 4 个文件，后面还要加 pos_encoding、rope_theta、n_kv_heads；“未收敛”与 mlp 开关同在一个分支。
+- Spec：接口 1–10 实测都成立，无阻塞。缺口：没有真实旧存档的自动测试；“与 GELU 相同”只断言一侧。可能有问题：`make_mlp("glu")` 静默返回 GELU；a3_swiglu 首行参数量与对照相同，查不出跑错结构；“未收敛”只看周期评估，最终 val 到 1.99 时仍写“从未达到”。子 agent 核对无问题：C=384 时 H=1024、总参数 13,969,152、初始 loss 9.088；默认结构 metrics 与 state_dict 与 3e3a703 相同；旧存档载入、采样、打分、续训通过；SwiGLU 分段续训与一次跑完相同；重新生成 SUMMARY 只有 Post-LN 两行变化。
+- 改动：先写测试再修（2 个先失败）：`make_mlp` 未知取值报错；未收敛还要看最终评估；守卫测试（默认 Block 参数名写死的名单，在 main 代码上也通过；去掉开关字段的模拟旧存档严格载入；GELU 一侧也断言 456）。补 mlp 标注与形状注释（只给已有测试行加注释，断言未改）。手册第 3 批：每次训练后核对 `config.mlp`、显存估计、预期 190 passed。PLAN 写明测试对应与未收敛口径。本文件整表更新顶部状态。
+- 决策与原因：未收敛的口径是“已判发散的只写发散原因，不再叠加”，这是实现时定的，已写入 PLAN，向用户说明；`norm, norm_position, mlp` 成组的问题暂不改，合成新类型要动用户手写文件，等后面开关更多时再问用户；“未收敛”与 SwiGLU 分两次提交。
+- 本次验证：pytest 190 passed；ruff 通过；故意改错与复现结果见 `runs/m3-mlp/07-`、`08-`。显存估计 `06-`：按真实形状用 CPU bf16 算，SwiGLU 每层为反向传播多留 32 MiB，6 层约 192 MiB，峰值约 5.2 GB。
+- 未验证与失败：GPU 上的 SwiGLU 训练、bf16 数值与实际显存。
+- 审查状态：Claude 自查已完成、问题已修；未请 Codex 交叉审查。
+- 学习状态：用户已手写 SwiGLU；关于 SwiGLU、Pre/Post-LN 的理解尚需巩固，M3 结束时统一提问。用户问过 MLP 与神经网络的关系，已讲解，未作为自测题记录。
+- 下一步：用户决定是否提交；合并与推送另需同意。
+
+### 2026-11-04 16:39（UTC+08:00）｜Claude Code｜提交 m3-mlp，合并到 main 并推送
+
+- 范围与用户确认：用户回复“提交合并并推送”。
+- 工作区与设备：Mac，/Users/j/Desktop/transformer-lab；m3-mlp 基于 3e3a703。
+- 改动：分两次提交，“未收敛”标记一次，SwiGLU、mlp 开关、a3_swiglu 配置与手册第 3 批一次；`.idea/` 未加入。先确认 main = origin/main 且为 m3-mlp 的祖先，再 `git merge --ff-only m3-mlp`，推送 main 与 m3-mlp。结果以 git log 和远端 ref 为准。
+- 本次验证：两个提交分别做干净导出并跑 pytest；合并后在 main 上 `uv sync --locked`、pytest、ruff 复查。
+- 未验证与失败：GPU 上的 SwiGLU 训练、bf16 数值与实际显存，由第 3 批回答。experiments/m3_ablations/SUMMARY.md 未在此重新生成，“未收敛”标记由第 3 批生成时出现。
+- 审查状态：Claude 自查（见上一条）；未请 Codex 交叉审查。
+- 学习状态：SwiGLU 已手写；相关题目留到 M3 结束统一提问。
+- 下一步：用户让 Codex 执行手册第 3 批。
 
 ## 后续交接模板
 
