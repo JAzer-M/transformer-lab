@@ -56,7 +56,7 @@ mkdir -p experiments/m3_ablations/<变体>/seed<种子> && cp runs/m3/<变体>/s
 一批全部跑完后，生成汇总表：
 
 ```bash
-uv run python scripts/summarize_ablations.py experiments/m3_ablations --out experiments/m3_ablations/SUMMARY.md
+uv run python scripts/summarize_ablations.py experiments/m3_ablations --configs configs/ablations --out experiments/m3_ablations/SUMMARY.md
 ```
 
 最后更新 `PROGRESS.md` 顶部「当前状态」，并在交接记录末尾（「后续交接模板」一节之前）追加一条署名 Codex 的记录：设备、分支与 commit、每次训练的退出码、最终 train/val loss、tokens/s、显存峰值、训练时长、GPU 平均与最高温度、是否出现异常。经用户同意后提交并推送当前分支：
@@ -150,7 +150,7 @@ cp runs/m3/a0_control/seed<种子>/full_val.json experiments/m3_ablations/a0_con
 本批由 Claude Code 于 2026-11-04 追加，对应分支 `m3-mlp`（SwiGLU、`mlp` 开关、`a3_swiglu` 配置，以及汇总表的“未收敛”标记）。
 
 - 前提：用户已把 `m3-mlp` 合并到 `main`，或指定了要用的分支。先 `git fetch origin && git switch <用户指定的分支> && git pull --ff-only`，再 `uv sync --locked`。
-- GPU 自检同第 1 批；单元测试 `uv run pytest -q`，预期 **190 passed**（Mac 上提交前实测），全部通过才继续。
+- GPU 自检同第 1 批；单元测试 `uv run pytest -q`，预期 **190 passed**（`efb4883` 上实测；如果在之后的 `main` 上执行，以最新一批写的数字为准），全部通过才继续。
 - 数据仍复用 `data/tinystories/`（train 536,174,492、val 5,414,548 个 token）。
 - 按固定流程（记录 GPU、训练、完整验证集打分、复制小文件）依次运行：
 
@@ -167,4 +167,41 @@ uv run python -c "import json; print(json.load(open('runs/m3/a3_swiglu/seed<种�
 - 通用规则 2 照常适用：出错、OOM、loss NaN 或发散都立即停下汇报。高学习率加测的例外不适用于本批。
 - 收尾同第 2 批：全部完成后统一追加 `results.md`（每次一行）、运行汇总命令更新 `SUMMARY.md`，并在 `PROGRESS.md` 追加署名 Codex 的记录。这次重新生成的 `SUMMARY.md`，`a3_swiglu` 一行的“依据”应为“完整验证集”；高学习率表里 Post-LN 两行会变成“未发散，但未收敛”，这是汇总脚本的更新，不是结果变了。
 - 预计耗时：2 次训练各约 22 分钟，共约 45 分钟。显存峰值估计约 5.2 GB（对照组实测 5.0 GB，SwiGLU 为反向传播多留约 190 MiB，是 Mac 上按真实形状算的，不是 GPU 实测；上限 8 GB），超过 7 GB 时在记录里提醒。
+- 提交与推送前先问用户。完成后告诉用户，由用户回到 Mac 让 Claude Code 核对。
+
+## 第 4 批：A1 位置编码（4 次训练 + 4 次外推评测）
+
+本批由 Claude Code 于 2026-11-04 追加，对应分支 `m3-pos`（RoPE、正弦位置编码、`pos_encoding` 开关、外推评测）。
+
+- 前提：用户已把 `m3-pos` 合并到 `main`，或指定了要用的分支。先 `git fetch origin && git switch <用户指定的分支> && git pull --ff-only`，再 `uv sync --locked`。
+- GPU 自检同第 1 批；单元测试 `uv run pytest -q`，预期 **235 passed**（Mac 上提交前实测），全部通过才继续。
+- 数据仍复用 `data/tinystories/`（train 536,174,492、val 5,414,548 个 token）。
+- 按固定流程（记录 GPU、训练、完整验证集打分、复制小文件）依次运行：
+
+| 变体 | 种子 | 首行参数量 | 与对照组的唯一区别 |
+| --- | --- | --- | --- |
+| `a1_sinusoidal` | 1337、2024 | 13,772,544 | 原论文的正弦位置编码（token 向量乘 √C），没有位置表 |
+| `a1_rope` | 1337、2024 | 13,772,544 | RoPE，每层注意力里旋转 q、k，没有位置表 |
+
+- **两个变体参数量相同，首行分不开。** 每次训练结束后多核对一步，打印结果必须和变体一致（`sinusoidal` 或 `rope`），否则停下汇报：
+
+```bash
+uv run python -c "import json; print(json.load(open('runs/m3/<变体>/seed<种子>/run.json'))['config']['pos_encoding'])"
+```
+
+- **外推评测**：每次复制完小文件之后，再在 2 倍长度（1024）上评测一次，并把结果复制进仓库。这一步同样要在改动任何已跟踪文件之前做：
+
+```bash
+uv run python scripts/eval_extrapolation.py --ckpt runs/m3/<变体>/seed<种子>/ckpt.pt --out runs/m3/<变体>/seed<种子>/extrapolation.json 2>&1 | tee runs/m3_<变体>_seed<种子>_extrapolation.txt
+```
+
+```bash
+mkdir -p experiments/m3_ablations/<变体>/seed<种子> && cp runs/m3/<变体>/seed<种子>/extrapolation.json experiments/m3_ablations/<变体>/seed<种子>/
+```
+
+  输出应为 `长度 1024：前半段 …，后半段 …（每半段 2,706,944 个 token，第 3052 步的存档）`；长度、token 数或步数不对就停下汇报。显存不足时停下汇报，不要自行改 batch 大小。
+
+- 通用规则 2 照常适用：出错、OOM、loss NaN 或发散都立即停下汇报。高学习率加测的例外不适用于本批。
+- 收尾同第 2 批：全部完成后统一追加 `results.md`（每次一行）、运行汇总命令更新 `SUMMARY.md`，并在 `PROGRESS.md` 追加署名 Codex 的记录，其中写明每次的外推结果和耗时。汇总命令会把每次结果与配置文件核对，不一致时报错，此时停下汇报，不要去掉 `--configs`。`SUMMARY.md` 应出现“A1 外推”一节；两个 `a1_*` 行的“依据”应为“完整验证集”。
+- 预计耗时：4 次训练各约 22 分钟，共约 1.5 小时，外推评测每次预计 1–2 分钟（以实测为准）。显存峰值估计约 5.0 GB（对照组实测 5.0 GB，RoPE 为反向传播多留的内存很少；是 Mac 上按真实形状算的，不是 GPU 实测），超过 7 GB 时在记录里提醒。
 - 提交与推送前先问用户。完成后告诉用户，由用户回到 Mac 让 Claude Code 核对。

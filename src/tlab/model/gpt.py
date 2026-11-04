@@ -1,5 +1,5 @@
 # USER-WRITTEN: agent 只提建议， 不改实现
-# 例外：标注“agent 编写”的 norm、mlp 开关代码，经用户 2026-11-03、11-04 同意由 agent 加入
+# 例外：标注“agent 编写”的 norm、mlp、pos_encoding 开关代码，经用户 2026-11-03、11-04 同意由 agent 加入
 from dataclasses import dataclass
 
 import torch
@@ -7,8 +7,13 @@ from torch import nn
 
 from tlab.model.block import Block
 
-# agent 编写（norm、mlp 开关）：检查开关取值、按配置名建最终归一化层
-from tlab.model.layers import check_block_settings, make_norm
+# agent 编写（各开关）：检查开关取值、按配置名建最终归一化层、正弦位置编码
+from tlab.model.layers import (
+    check_block_settings,
+    check_pos_encoding,
+    make_norm,
+    sinusoidal_positions,
+)
 
 
 @dataclass
@@ -19,14 +24,17 @@ class GPTConfig:
     d_model: int  # 每个 token 的向量长度 C
     n_layers: int  # block 层数 L
     n_heads: int  # 注意力头数 h
-    # agent 编写（norm、mlp 开关）：M3 消融用，默认值与 M1/M2 相同
+    # agent 编写（各开关）：M3 消融用，默认值与 M1/M2 相同
     norm: str = "layernorm"  # 归一化种类："layernorm" 或 "rmsnorm"
     norm_position: str = "pre"  # 归一化位置："pre"（子层前）或 "post"（加法后）
     mlp: str = "gelu"  # 前馈子层："gelu"（M1/M2 的 MLP）或 "swiglu"
+    pos_encoding: str = "learned"  # 位置编码："learned"、"sinusoidal" 或 "rope"
+    rope_theta: float = 10000.0  # RoPE 转速公式里的底数，只在 "rope" 时有用
 
     def __post_init__(self) -> None:
-        # agent 编写（norm、mlp 开关）：建配置时就检查取值，0 层时也不会被悄悄放过
+        # agent 编写（各开关）：建配置时就检查取值，0 层时也不会被悄悄放过
         check_block_settings(self.norm, self.norm_position, self.mlp)
+        check_pos_encoding(self.pos_encoding, self.rope_theta)
 
 
 class GPT(nn.Module):
@@ -36,10 +44,14 @@ class GPT(nn.Module):
         self.block_size = config.block_size
         # token 查表： 每个编号对应一个 C 维可学习向量， 形状 (V, C)
         self.tok_emb = nn.Embedding(config.vocab_size, config.d_model)
-        # 位置查表：第 i 行是第 i 个位置的可学习向量， 形状 (block_size, C)
-        self.pos_emb = nn.Embedding(config.block_size, config.d_model)
+        # agent 编写（pos_encoding 开关）：只有 learned 才有位置表；forward 按种类走分支
+        self.pos_encoding = config.pos_encoding
+        self.d_model = config.d_model
+        if config.pos_encoding == "learned":
+            # 位置查表：第 i 行是第 i 个位置的可学习向量， 形状 (block_size, C)
+            self.pos_emb = nn.Embedding(config.block_size, config.d_model)
         # 叠 n_layers 个block；必须用 ModuleList, 普通列表里的参数不会被登记
-        # agent 编写（norm、mlp 开关）：把归一化的种类、位置和前馈子层的种类传给每个 block
+        # agent 编写（各开关）：把归一化的种类、位置和前馈子层的种类传给每个 block
         self.blocks = nn.ModuleList(
             [
                 Block(
@@ -48,6 +60,8 @@ class GPT(nn.Module):
                     config.norm,
                     config.norm_position,
                     config.mlp,
+                    # agent 编写（pos_encoding 开关）：只有 rope 才在注意力里旋转
+                    config.rope_theta if config.pos_encoding == "rope" else None,
                 )
                 for _ in range(config.n_layers)
             ]
@@ -72,13 +86,23 @@ class GPT(nn.Module):
             nn.init.normal_(module.weight, mean=0, std=0.02)
 
     def forward(self, idx: torch.Tensor) -> torch.Tensor:
-        # 检查序列长度：位置表只有 block_size 行
         B, T = idx.shape
-        assert T <= self.block_size, f"序列长度{T}超过 block_size {self.block_size}"
-        # 位置编号 0, 1, ..., T - 1, 和 idx 放在同一个设备上
-        pos = torch.arange(T, device=idx.device)  # (T,)
-        # token 向量加上位置向量，(T, C)会广播到每条序列
-        x = self.tok_emb(idx) + self.pos_emb(pos)  # (B, T, C)
+        # agent 编写（pos_encoding 开关）：正弦和 RoPE 没有位置表，也就没有长度上限
+        if self.pos_encoding == "sinusoidal":
+            # 原论文做法：token 向量乘 √C，否则初始标准差 0.02 的 token 向量
+            # 会被均方根约 0.7 的位置向量盖住
+            pe = sinusoidal_positions(T, self.d_model, idx.device)  # (T, C)
+            x = self.tok_emb(idx) * self.d_model**0.5 + pe  # (B, T, C)
+        elif self.pos_encoding == "rope":
+            # 位置信息在每层注意力里给，入口只有 token 向量
+            x = self.tok_emb(idx)  # (B, T, C)
+        else:
+            # 检查序列长度：位置表只有 block_size 行
+            assert T <= self.block_size, f"序列长度{T}超过 block_size {self.block_size}"
+            # 位置编号 0, 1, ..., T - 1, 和 idx 放在同一个设备上
+            pos = torch.arange(T, device=idx.device)  # (T,)
+            # token 向量加上位置向量，(T, C)会广播到每条序列
+            x = self.tok_emb(idx) + self.pos_emb(pos)  # (B, T, C)
         # 逐层通过 block， 每层的输出是下一层的输入
         for block in self.blocks:
             x = block(x)  # (B, T, C)

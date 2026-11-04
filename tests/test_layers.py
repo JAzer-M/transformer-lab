@@ -1,3 +1,4 @@
+import pytest
 import torch
 import torch.nn.functional as F
 
@@ -145,3 +146,129 @@ def test_swiglu_keeps_shape_and_does_not_mix_tokens() -> None:
     # 和 MLP 一样，每个 token 各自加工：其余 token 的输出不变，被改的那个要变
     torch.testing.assert_close(y_changed[:, 1:, :], y[:, 1:, :])
     assert not torch.allclose(y_changed[:, 0, :], y[:, 0, :])
+
+
+def rotate_one(
+    rope: torch.nn.Module, vector: torch.Tensor, position: int, T: int
+) -> torch.Tensor:
+    """把 vector 放在第 position 个位置（其余位置填 0），返回旋转后这个位置的向量。"""
+    x = torch.zeros(1, 1, T, vector.numel())  # (B, h, T, d)
+    x[0, 0, position] = vector  # (d,)
+    return rope(x)[0, 0, position]  # (d,)
+
+
+def test_rotary_has_no_parameters_and_stores_nothing_in_checkpoints() -> None:
+    from tlab.model.layers import RotaryEmbedding
+
+    rope = RotaryEmbedding(8)
+
+    # RoPE 只用公式旋转，没有要学的东西；转速表也不进存档，旧存档才不受影响
+    assert sum(p.numel() for p in rope.parameters()) == 0
+    assert rope.state_dict() == {}
+    # 分量要两两配对旋转，维度必须是偶数
+    with pytest.raises(AssertionError):
+        RotaryEmbedding(7)
+
+
+def test_rotary_matches_hand_computed_values_for_one_pair() -> None:
+    from tlab.model.layers import RotaryEmbedding
+
+    # d = 2 只有一对分量，转速 1：位置 t 转 t 弧度
+    x = torch.tensor([1.0, 0.0]).repeat(1, 1, 3, 1)  # (1, 1, 3, 2)
+
+    y = RotaryEmbedding(2)(x)  # (1, 1, 3, 2)
+
+    # [1, 0] 转 t 弧度是 [cos t, sin t]；位置 0 不转
+    expected = torch.tensor(
+        [[[[1.0, 0.0], [0.540302, 0.841471], [-0.416147, 0.909297]]]]
+    )  # (1, 1, 3, 2)
+    torch.testing.assert_close(y, expected, rtol=1e-5, atol=1e-5)
+
+
+def test_rotary_pairs_the_two_halves_at_different_speeds() -> None:
+    from tlab.model.layers import RotaryEmbedding
+
+    # d = 4：x0 与 x2 一对，x1 与 x3 一对。x = [1, 1, 0, 0]，输出是
+    # [cos(快), cos(慢), sin(快), sin(慢)]
+    x = torch.tensor([1.0, 1.0, 0.0, 0.0]).repeat(1, 1, 101, 1)  # (1, 1, 101, 4)
+
+    # theta = 10000：转速 1 和 1/100，位置 100 分别转 100 和 1 弧度
+    y = RotaryEmbedding(4)(x)[0, 0, 100]  # (4,)
+    expected = torch.tensor([0.862319, 0.540302, -0.506366, 0.841471])  # (4,)
+    torch.testing.assert_close(y, expected, rtol=1e-5, atol=1e-5)
+
+    # theta = 100：转速 1 和 1/10，位置 10 分别转 10 和 1 弧度
+    y = RotaryEmbedding(4, theta=100.0)(x)[0, 0, 10]  # (4,)
+    expected = torch.tensor([-0.839072, 0.540302, -0.544021, 0.841471])  # (4,)
+    torch.testing.assert_close(y, expected, rtol=1e-5, atol=1e-5)
+
+
+def test_rotary_keeps_every_vector_length() -> None:
+    from tlab.model.layers import RotaryEmbedding
+
+    torch.manual_seed(0)
+    x = torch.randn(2, 3, 16, 8)  # (B, h, T, d)
+
+    y = RotaryEmbedding(8)(x)  # (B, h, T, d)
+
+    # 旋转只改方向，不改长度
+    assert y.shape == x.shape
+    torch.testing.assert_close(y.norm(dim=-1), x.norm(dim=-1))  # (B, h, T)
+
+
+def test_rotary_score_depends_only_on_the_relative_distance() -> None:
+    from tlab.model.layers import RotaryEmbedding
+
+    torch.manual_seed(0)
+    rope = RotaryEmbedding(64)
+    q, k = torch.randn(64), torch.randn(64)  # (d,), (d,)
+
+    def score(q_position: int, k_position: int) -> torch.Tensor:
+        return rotate_one(rope, q, q_position, 64) @ rotate_one(rope, k, k_position, 64)
+
+    # RoPE 的核心性质：绝对位置变了，只要距离相同，点积就相同
+    base = score(1, 3)  # ()
+    torch.testing.assert_close(score(5, 7), base, rtol=1e-4, atol=1e-4)
+    torch.testing.assert_close(score(40, 42), base, rtol=1e-4, atol=1e-4)
+    # 距离不同，点积就不同（这组向量实测约 -7.09 和 -5.99）
+    assert abs(score(1, 4) - base) > 0.5
+
+
+def test_rotary_has_no_length_limit_and_treats_heads_alike() -> None:
+    from tlab.model.layers import RotaryEmbedding
+
+    torch.manual_seed(0)
+    rope = RotaryEmbedding(8)
+    x = torch.randn(2, 3, 1024, 8)  # (B, h, T, d)
+
+    y = rope(x)  # (B, h, T, d)
+
+    # 1024 个位置也能算（可学习位置表做不到）；角度只看位置，不看序列总长
+    assert y.shape == (2, 3, 1024, 8)
+    torch.testing.assert_close(y[:, :, :8], rope(x[:, :, :8]))
+    # 每条序列、每个头都用同一套角度
+    torch.testing.assert_close(y[1, 2], rope(x[1:2, 2:3])[0, 0])
+
+
+def test_sinusoidal_positions_match_hand_computed_values() -> None:
+    from tlab.model.layers import sinusoidal_positions
+
+    pe = sinusoidal_positions(3, 4, torch.device("cpu"))  # (T, C)
+
+    # 原论文公式，C = 4：[sin(t), cos(t), sin(t/100), cos(t/100)]
+    expected = torch.tensor(
+        [
+            [0.0, 1.0, 0.0, 1.0],
+            [0.841471, 0.540302, 0.0099998, 0.99995],
+            [0.909297, -0.416147, 0.0199987, 0.9998],
+        ]
+    )  # (T, C)
+    torch.testing.assert_close(pe, expected, rtol=1e-5, atol=1e-5)
+
+
+def test_sinusoidal_positions_need_an_even_dimension() -> None:
+    from tlab.model.layers import sinusoidal_positions
+
+    # sin、cos 成对出现；奇数维时要给出看得懂的报错，不是形状对不上
+    with pytest.raises(AssertionError, match="偶数"):
+        sinusoidal_positions(3, 5, torch.device("cpu"))

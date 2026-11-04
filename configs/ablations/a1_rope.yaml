@@ -1,0 +1,28 @@
+# M3 消融 A1 位置编码：RoPE（rope_theta 用默认的 10000），没有位置表，参数量 13,772,544
+# 与 configs/ablations/a0_control.yaml 只差：pos_encoding（以及 out_dir）；由 tests/test_ablation_configs.py 检查
+# 种子用命令行覆盖 seed 与 out_dir，命令见 docs/m3-windows-run.md
+data_dir: data/tinystories
+out_dir: runs/m3/a1_rope/seed1337
+
+n_layers: 6
+n_heads: 6
+d_model: 384
+block_size: 512
+pos_encoding: rope
+
+batch_size: 32
+grad_accum_steps: 2
+learning_rate: 6.0e-4
+weight_decay: 0.01
+max_iters: 3052
+grad_clip: 1.0
+lr_schedule: cosine
+warmup_iters: 92
+min_lr: 6.0e-5
+
+eval_interval: 250
+eval_iters: 20
+ckpt_interval: 1000
+resume: false
+seed: 1337
+device: auto

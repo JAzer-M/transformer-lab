@@ -115,6 +115,22 @@ def load_model(ckpt_path: Path, device: torch.device) -> tuple[GPT, dict[str, An
     return model, ckpt
 
 
+def check_same_structure(saved_config: Mapping[str, Any], config: TrainConfig) -> None:
+    """续训前核对结构开关：RoPE 和正弦都没有位置参数，严格载入看不出区别。
+
+    旧存档缺的字段按 GPTConfig 的默认值算，那就是当时的结构。
+    """
+    for f in fields(GPTConfig):
+        if f.default is MISSING:
+            continue
+        saved = saved_config.get(f.name, f.default)
+        current = getattr(config, f.name)
+        if saved != current:
+            raise ValueError(
+                f"续训的结构与存档不同：{f.name} 存档是 {saved!r}，配置是 {current!r}"
+            )
+
+
 def save_checkpoint(
     path: Path,
     model: nn.Module,

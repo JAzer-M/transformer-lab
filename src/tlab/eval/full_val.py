@@ -1,8 +1,9 @@
-"""完整验证集评估：把 token 序列切成首尾相接、互不重叠的窗口，每个 token 恰好预测一次。
+"""完整验证集评估与外推评测：把 token 序列切成首尾相接、互不重叠的窗口。
 
-M3 消融的最终比较用它。训练中的 estimate_loss 只按种子随机抽 eval_iters 个 batch
+完整评估里每个 token 恰好预测一次，M3 消融的最终比较用它。训练中的 estimate_loss 只按种子随机抽 eval_iters 个 batch
 （约占验证集 6%），不同种子抽到的子集不同，带来约 0.02 的抽样误差
-（见 PROGRESS 2026-11-03 14:03 记录）。
+（见 PROGRESS 2026-11-03 14:03 记录）。外推评测用 2 倍训练长度的窗口，
+前后半段分开报，见 evaluate_extrapolation。
 """
 
 from collections.abc import Iterator
@@ -86,6 +87,76 @@ def evaluate_checkpoint(
         "val_loss": loss,
         "n_tokens": n_tokens,
         "block_size": config["block_size"],
+        "ckpt": str(ckpt_path),
+        "ckpt_step": ckpt["step"],
+        "device": str(device),
+        "eval_commit": git_commit(),
+    }
+
+
+@torch.no_grad()
+def evaluate_extrapolation(
+    model: nn.Module,
+    data: torch.Tensor | np.ndarray,
+    length: int,
+    batch_size: int,
+    device: torch.device,
+) -> dict[str, Any]:
+    """用长度为 length 的窗口打分，前半段和后半段位置的 loss 分开算。
+
+    A1 的外推评测：length 是训练长度的 2 倍时，后半段的位置都超出了训练时见过的范围。
+    只算满窗口，最后不满一窗的部分没有完整的后半段。
+    """
+    assert length % 2 == 0, "外推窗口长度必须是偶数，前后半段才一样长"
+    was_training = model.training
+    model.eval()
+    half = length // 2
+    first_sum, second_sum, windows = 0.0, 0.0, 0
+    for x, y in _window_batches(data, length, batch_size):
+        if y.size(1) != length:
+            continue
+        x, y = x.to(device), y.to(device)  # (B, T), (B, T)
+        with autocast_context(device):
+            logits = model(x)  # (B, T, V)
+        # 每个位置各算一个 loss，再按位置分成两段加总
+        per_token = F.cross_entropy(
+            logits.flatten(0, 1).float(), y.flatten(), reduction="none"
+        ).view(y.shape)  # (B, T)
+        first_sum += per_token[:, :half].sum().item()  # (B, T/2) 加总成一个数
+        second_sum += per_token[:, half:].sum().item()  # (B, T/2) 加总成一个数
+        windows += y.size(0)
+    model.train(was_training)
+    if windows == 0:
+        raise ValueError(
+            f"数据只有 {len(data)} 个 token，不够一个长度 {length} 的满窗口"
+        )
+    n_tokens = windows * half
+    return {
+        "first_half_loss": first_sum / n_tokens,
+        "second_half_loss": second_sum / n_tokens,
+        "n_tokens_per_half": n_tokens,
+    }
+
+
+def extrapolate_checkpoint(
+    ckpt_path: Path, batch_size: int, device: torch.device
+) -> dict[str, Any]:
+    """在 2 倍训练长度上评测存档；返回写进 extrapolation.json 的内容。"""
+    model, ckpt = load_model(ckpt_path, device)
+    config = ckpt["config"]
+    block_size = config["block_size"]
+    if model.pos_encoding == "learned":
+        raise ValueError(
+            f"可学习位置表只有 {block_size} 行，超出训练长度的位置没有向量，不能做外推评测"
+        )
+    _, val_data = load_splits(Path(config["data_dir"]))  # (N_val,)
+    length = 2 * block_size
+    result = evaluate_extrapolation(model, val_data, length, batch_size, device)
+    return {
+        **result,
+        "pos_encoding": model.pos_encoding,
+        "length": length,
+        "block_size": block_size,
         "ckpt": str(ckpt_path),
         "ckpt_step": ckpt["step"],
         "device": str(device),

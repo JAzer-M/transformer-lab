@@ -145,3 +145,56 @@ def test_rejects_d_model_not_divisible_by_n_heads() -> None:
     # 6 // 4 = 1，拆头时 4 × 1 ≠ 6，应在构造时就报错
     with pytest.raises(AssertionError):
         CausalSelfAttention(d_model=6, n_heads=4)
+
+
+def test_rope_rotates_q_and_k_but_not_v() -> None:
+    from tlab.model.layers import RotaryEmbedding
+
+    torch.manual_seed(0)
+    B, T, C, h = 2, 5, 8, 2
+    attn = CausalSelfAttention(C, h, rope_theta=10000.0)
+    x = torch.randn(B, T, C)  # (B, T, C)
+
+    # 参考答案：用同样的投影层拆头，只旋转 q、k，再交给 SDPA（只在测试里当参考）
+    def split(y: torch.Tensor) -> torch.Tensor:
+        return y.view(B, T, h, C // h).transpose(1, 2)  # (B, h, T, d)
+
+    rope = RotaryEmbedding(C // h)
+    q = rope(split(attn.q_proj(x)))  # (B, h, T, d)
+    k = rope(split(attn.k_proj(x)))  # (B, h, T, d)
+    v = split(attn.v_proj(x))  # (B, h, T, d)
+    z = F.scaled_dot_product_attention(q, k, v, is_causal=True)  # (B, h, T, d)
+    y_ref = attn.out_proj(z.transpose(1, 2).contiguous().view(B, T, C))  # (B, T, C)
+
+    torch.testing.assert_close(attn(x), y_ref, rtol=1e-5, atol=1e-5)
+
+
+def test_rope_changes_nothing_about_parameters_and_stays_causal() -> None:
+    torch.manual_seed(0)
+    attn = CausalSelfAttention(8, 2, rope_theta=10000.0)
+
+    # RoPE 没有参数，也不进存档：参数名和不开 RoPE 时完全相同
+    assert set(attn.state_dict()) == set(CausalSelfAttention(8, 2).state_dict())
+
+    # 只改最后一个 token，前面位置的输出不变
+    x = torch.randn(2, 5, 8)  # (B, T, C)
+    x_changed = x.clone()  # (B, T, C)
+    x_changed[:, 4, :] = torch.randn(2, 8)  # (B, C)
+    y = attn(x)  # (B, T, C)
+    y_changed = attn(x_changed)  # (B, T, C)
+    torch.testing.assert_close(y_changed[:, :4, :], y[:, :4, :])
+    assert not torch.allclose(y_changed[:, 4, :], y[:, 4, :])
+
+
+def test_attention_can_tell_the_order_of_earlier_tokens_only_with_rope() -> None:
+    torch.manual_seed(0)
+    x = torch.randn(1, 4, 8)  # (B, T, C)
+    swapped = x[:, [1, 0, 2, 3], :]  # (B, T, C)，交换第 0、1 个 token
+
+    # 因果掩码只决定能看谁：不开 RoPE 时，最后一个位置分不出前面 token 的先后
+    plain = CausalSelfAttention(8, 2)
+    torch.testing.assert_close(plain(swapped)[:, -1], plain(x)[:, -1])
+
+    # 开了 RoPE，同样的 token 换了位置，最后一个位置的输出就会变
+    rope = CausalSelfAttention(8, 2, rope_theta=10000.0)
+    assert not torch.allclose(rope(swapped)[:, -1], rope(x)[:, -1])

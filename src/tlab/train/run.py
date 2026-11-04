@@ -13,6 +13,7 @@ from tlab.train.config import TrainConfig
 from tlab.train.trainer import train
 from tlab.train.utils import (
     RunLogger,
+    check_same_structure,
     estimate_loss,
     gpt_config_from,
     load_checkpoint,
@@ -52,6 +53,8 @@ def run(config: TrainConfig) -> Path:
         # 说了要续训却没有存档时直接报错，免得以为在续训、其实从头开始
         if not ckpt_path.exists():
             raise FileNotFoundError(f"resume=True，但找不到 {ckpt_path}")
+        saved = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+        check_same_structure(saved["config"], config)
         start_step = load_checkpoint(ckpt_path, model, optimizer, generator)
         # 总步数比存档已训的还少：继续下去会写出 step 倒退的存档和负的 token 数
         if config.max_iters < start_step:

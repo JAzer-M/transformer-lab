@@ -1,7 +1,8 @@
 """消融结果汇总：读取每次训练回传的 run.json 与 metrics.csv，按变体合并种子，与对照组比较。
 
 目录结构（见 docs/m3-windows-run.md）：<root>/<变体>/seed<种子>/{run.json, metrics.csv}，
-第 2 批起每个种子目录还有完整验证集评估的 full_val.json（scripts/eval_full_val.py）。
+第 2 批起每个种子目录还有完整验证集评估的 full_val.json（scripts/eval_full_val.py），
+A1 的变体另有外推评测的 extrapolation.json（scripts/eval_extrapolation.py）。
 """
 
 import csv
@@ -11,7 +12,7 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
-from tlab.train.config import TrainConfig
+from tlab.train.config import TrainConfig, load_config
 
 # 同一变体的几个种子，只允许这些配置字段不同
 PER_SEED_KEYS = ("seed", "out_dir")
@@ -47,6 +48,7 @@ class SeedRun:
     train_losses: list[float]  # 每次评估的 train loss，以及最终的 train loss
     config: dict
     full_val_loss: float | None = None  # 完整验证集上的 val loss；还没评估时为 None
+    extrapolation: dict | None = None  # 2 倍长度上的外推评测；没做时为 None
 
 
 @dataclass
@@ -156,6 +158,8 @@ def _read_run(run_dir: Path) -> SeedRun:
     train_losses = [float(r["train_loss"]) for r in rows]
     if "final_train_loss" in info:
         train_losses.append(float(info["final_train_loss"]))
+    max_iters = int(info["config"]["max_iters"])
+    full_val = _read_final_eval(run_dir / "full_val.json", max_iters)
     return SeedRun(
         seed=int(info["config"]["seed"]),
         final_val_loss=float(info["final_val_loss"]),
@@ -163,12 +167,12 @@ def _read_run(run_dir: Path) -> SeedRun:
         evals=[(int(r["step"]), float(r["val_loss"])) for r in rows],
         train_losses=train_losses,
         config=info["config"],
-        full_val_loss=_read_full_val(run_dir, int(info["config"]["max_iters"])),
+        full_val_loss=None if full_val is None else float(full_val["val_loss"]),
+        extrapolation=_read_final_eval(run_dir / "extrapolation.json", max_iters),
     )
 
 
-def _read_full_val(run_dir: Path, max_iters: int) -> float | None:
-    path = run_dir / "full_val.json"
+def _read_final_eval(path: Path, max_iters: int) -> dict | None:
     if not path.exists():
         return None
     result = json.loads(path.read_text(encoding="utf-8"))
@@ -177,7 +181,7 @@ def _read_full_val(run_dir: Path, max_iters: int) -> float | None:
         raise ValueError(
             f"{path} 评的是第 {result['ckpt_step']} 步的存档，不是最终的第 {max_iters} 步"
         )
-    return float(result["val_loss"])
+    return result
 
 
 # 字段是后来加的（如 M3 的 norm 开关）时，之前存的 run.json 里没有它；新字段的默认值
@@ -190,12 +194,29 @@ def _shared_config(config: dict) -> dict:
     return {k: v for k, v in full.items() if k not in PER_SEED_KEYS}
 
 
-def load_variants(root: Path) -> dict[str, Variant]:
-    """读取 root 下所有 <变体>/seed<种子>/，按变体名合并。"""
+def _check_against_config_file(run: SeedRun, name: str, config_dir: Path) -> None:
+    # 目录名说是这个变体，实际配置就得和它的配置文件一致（只有种子和输出目录可以不同）。
+    # 正弦和 RoPE 参数量相同，只看数字发现不了跑错结构。名单外的变体没有配置文件，不核对
+    path = config_dir / f"{name}.yaml"
+    if not path.exists():
+        return
+    expected = _shared_config(asdict(load_config(path)))
+    actual = _shared_config(run.config)
+    diff = sorted(
+        k for k in expected.keys() | actual.keys() if expected.get(k) != actual.get(k)
+    )
+    if diff:
+        raise ValueError(f"{name} 的种子 {run.seed} 与配置文件 {path} 不同：{diff}")
+
+
+def load_variants(root: Path, config_dir: Path | None = None) -> dict[str, Variant]:
+    """读取 root 下所有 <变体>/seed<种子>/，按变体名合并；给了 config_dir 就与配置文件核对。"""
     variants: dict[str, Variant] = {}
     for run_json in sorted(Path(root).glob("*/seed*/run.json")):
         run = _read_run(run_json.parent)
         name = run_json.parent.parent.name
+        if config_dir is not None:
+            _check_against_config_file(run, name, Path(config_dir))
         variant = variants.setdefault(name, Variant(name))
         # 同一变体的种子之间，除 seed、out_dir 外配置必须相同：防止复制错目录、混进别的实验
         if variant.runs:
@@ -302,6 +323,46 @@ def _variant_row(group: str, variant: Variant, control: Variant | None) -> str:
     )
 
 
+def _extrapolation_lines(variants: dict[str, Variant]) -> list[str]:
+    runs = [
+        (variant.name, seed, run)
+        for variant in variants.values()
+        for seed, run in sorted(variant.runs.items())
+        if run.extrapolation is not None
+    ]
+    if not runs:
+        return []
+    lines = [
+        "",
+        "## A1 外推",
+        "",
+        "窗口长度是训练长度的 2 倍：前半段的位置都训练过，后半段超出了训练长度。"
+        "注意后半段的上下文也更长，所以差值同时包含“位置超出训练范围”和“能看的内容变多”"
+        "两个影响，不能全算到其中一个头上。",
+        "",
+        "| 变体 | 种子 | 窗口长度 | 完整验证集 val | 前半段 | 后半段 | 后半段 − 前半段 |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for name, seed, run in runs:
+        first = run.extrapolation["first_half_loss"]
+        second = run.extrapolation["second_half_loss"]
+        full = "—" if run.full_val_loss is None else f"{run.full_val_loss:.4f}"
+        lines.append(
+            _md_row(
+                [
+                    name,
+                    str(seed),
+                    str(run.extrapolation["length"]),
+                    full,
+                    f"{first:.4f}",
+                    f"{second:.4f}",
+                    f"{second - first:+.4f}",
+                ]
+            )
+        )
+    return lines + ["", f"{CONTROL}：可学习位置表只有训练长度那么多行，不支持外推。"]
+
+
 def render_summary(variants: dict[str, Variant]) -> str:
     """生成 SUMMARY.md 的内容；还没跑的变体直接跳过，名单外的变体单独列出。"""
     control = variants.get(CONTROL)
@@ -327,6 +388,7 @@ def render_summary(variants: dict[str, Variant]) -> str:
             if name in variants:
                 lines.append(_variant_row(group, variants[name], control))
 
+    lines += _extrapolation_lines(variants)
     lines += [
         "",
         "## A2 高学习率加测",

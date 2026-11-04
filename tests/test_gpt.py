@@ -7,7 +7,7 @@ import torch.nn.functional as F
 # 待实现模块在各测试内导入，与 test_block.py 保持一致
 
 
-def small_config(**overrides: int | str):
+def small_config(**overrides: int | float | str):
     from tlab.model.gpt import GPTConfig
 
     # 测试用的小模型：词表 11、最长 8 个 token、C=16、2 层、2 个头
@@ -232,3 +232,131 @@ def test_switches_can_be_combined_and_stay_causal() -> None:
 
     torch.testing.assert_close(logits_changed[:, :-1, :], logits[:, :-1, :])
     assert not torch.allclose(logits_changed[:, -1, :], logits[:, -1, :])
+
+
+def run_blocks_and_head(model: torch.nn.Module, x: torch.Tensor) -> torch.Tensor:
+    """参考答案的后半段：已经算好入口向量 x，走完所有 block、ln_f 和 lm_head。"""
+    for block in model.blocks:
+        x = block(x)  # (B, T, C)
+    return model.lm_head(model.ln_f(x))  # (B, T, V)
+
+
+def test_default_model_keeps_its_top_level_parameter_names() -> None:
+    from tlab.model.gpt import GPT
+
+    # M1、M2 的存档按这些名字载入；默认仍是可学习的位置表
+    names = {
+        name
+        for name in GPT(small_config()).state_dict()
+        if not name.startswith("blocks.")
+    }
+    assert names == {
+        "tok_emb.weight",
+        "pos_emb.weight",
+        "ln_f.weight",
+        "ln_f.bias",
+        "lm_head.weight",
+    }
+
+
+def test_sinusoidal_scales_tokens_and_adds_fixed_positions() -> None:
+    from tlab.model.gpt import GPT, count_parameters
+    from tlab.model.layers import sinusoidal_positions
+
+    V, C, L = 11, 16, 2
+    torch.manual_seed(0)
+    model = GPT(small_config(pos_encoding="sinusoidal"))
+
+    # 没有位置表：比默认公式少 block_size·C
+    assert not hasattr(model, "pos_emb")
+    assert count_parameters(model) == V * C + L * (12 * C * C + 4 * C) + 2 * C
+
+    # 入口向量 = token 向量 × √C + 正弦位置（原论文做法）
+    idx = torch.randint(0, V, (2, 5))  # (B, T)
+    pe = sinusoidal_positions(5, C, idx.device)  # (T, C)
+    x = model.tok_emb(idx) * C**0.5 + pe  # (B, T, C)
+    torch.testing.assert_close(model(idx), run_blocks_and_head(model, x))
+
+
+def test_rope_config_adds_nothing_at_the_entrance_and_rotates_in_every_layer() -> None:
+    from tlab.model.gpt import GPT, count_parameters
+    from tlab.model.layers import RotaryEmbedding
+
+    V, C, L = 11, 16, 2
+    torch.manual_seed(0)
+    model = GPT(small_config(pos_encoding="rope", rope_theta=100.0))
+
+    assert not hasattr(model, "pos_emb")
+    assert count_parameters(model) == V * C + L * (12 * C * C + 4 * C) + 2 * C
+    # 每层注意力都旋转；d = 8、theta = 100 时第 1 对的转速是 1 / 100^(2/8) ≈ 0.316228
+    for block in model.blocks:
+        assert isinstance(block.attn.rope, RotaryEmbedding)
+        assert block.attn.rope.inv_freq[1].item() == pytest.approx(0.316228, rel=1e-5)
+
+    # 入口只有 token 向量，不缩放、不加位置
+    idx = torch.randint(0, V, (2, 5))  # (B, T)
+    torch.testing.assert_close(
+        model(idx), run_blocks_and_head(model, model.tok_emb(idx))
+    )
+
+
+@pytest.mark.parametrize("pos_encoding", ["sinusoidal", "rope"])
+def test_fixed_position_encodings_accept_longer_sequences_and_stay_causal(
+    pos_encoding: str,
+) -> None:
+    from tlab.model.gpt import GPT
+
+    torch.manual_seed(0)
+    model = GPT(small_config(block_size=8, pos_encoding=pos_encoding))
+    # 比 block_size 长一倍：这是 A1 外推评测要用的
+    idx = torch.randint(0, 11, (2, 16))  # (B, T)
+    idx_changed = idx.clone()  # (B, T)
+    idx_changed[:, -1] = (idx[:, -1] + 1) % 11  # (B,)
+
+    logits = model(idx)  # (B, T, V)
+    logits_changed = model(idx_changed)  # (B, T, V)
+
+    assert logits.shape == (2, 16, 11)
+    torch.testing.assert_close(logits_changed[:, :-1, :], logits[:, :-1, :])
+    assert not torch.allclose(logits_changed[:, -1, :], logits[:, -1, :])
+
+
+@pytest.mark.parametrize("pos_encoding", ["sinusoidal", "rope"])
+def test_fixed_position_encodings_start_near_log_vocab_size(pos_encoding: str) -> None:
+    from tlab.model.gpt import GPT
+
+    torch.manual_seed(0)
+    V = 65
+    model = GPT(
+        small_config(vocab_size=V, block_size=16, d_model=32, pos_encoding=pos_encoding)
+    )
+    idx = torch.randint(0, V, (4, 16))  # (B, T)
+    targets = torch.randint(0, V, (4, 16))  # (B, T)
+
+    logits = model(idx)  # (B, T, V)
+    loss = F.cross_entropy(logits.view(-1, V), targets.view(-1))  # ()
+
+    assert abs(loss.item() - math.log(V)) < 0.1
+
+
+def test_rope_rejects_an_odd_head_dim_and_unknown_pos_encoding() -> None:
+    from tlab.model.gpt import GPT
+
+    # C = 6、2 个头：每头 3 维，没法两两配对
+    with pytest.raises(AssertionError):
+        GPT(small_config(d_model=6, n_heads=2, pos_encoding="rope"))
+    # 拼错时建配置就报错
+    with pytest.raises(ValueError):
+        small_config(pos_encoding="abs")
+    # theta 是转速公式的底数，必须大于 0，否则角度不是有限数
+    with pytest.raises(ValueError):
+        small_config(pos_encoding="rope", rope_theta=0.0)
+
+
+@pytest.mark.parametrize("pos_encoding", ["learned", "sinusoidal"])
+def test_only_the_rope_config_rotates_in_attention(pos_encoding: str) -> None:
+    from tlab.model.gpt import GPT
+
+    # RoPE 没有参数，开错了参数量也看不出来，所以要直接检查：其余两种不能旋转
+    model = GPT(small_config(pos_encoding=pos_encoding))
+    assert all(block.attn.rope is None for block in model.blocks)

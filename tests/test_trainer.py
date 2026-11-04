@@ -296,10 +296,92 @@ def test_checkpoint_saved_before_the_switches_still_loads(tmp_path: Path) -> Non
     path = run(tiny_config(tmp_path, max_iters=2)) / "ckpt.pt"
     # 做成 M1、M2 存档的样子：配置里没有后来加的开关
     ckpt = torch.load(path, weights_only=False)
-    for key in ("norm", "norm_position", "mlp"):
+    for key in ("norm", "norm_position", "mlp", "pos_encoding", "rope_theta"):
         del ckpt["config"][key]
     torch.save(ckpt, path)
 
     # 严格载入：缺的开关按默认值重建，参数名必须对得上
     model, _ = load_model(path, torch.device("cpu"))
     assert isinstance(model.blocks[0].mlp, MLP)
+
+
+def test_load_config_reads_position_settings_and_rejects_typos(tmp_path: Path) -> None:
+    from tlab.train.config import load_config
+
+    path = write_yaml(tmp_path / "c.yaml", "pos_encoding: rope\nrope_theta: 1000000\n")
+
+    config = load_config(path)
+
+    assert config.pos_encoding == "rope"
+    # 配置文件里的整数按字段类型转成小数
+    assert config.rope_theta == 1000000.0 and isinstance(config.rope_theta, float)
+    with pytest.raises(ValueError):
+        load_config(path, ["pos_encoding=abs"])
+
+
+def test_old_saved_config_rebuilds_with_learned_positions() -> None:
+    from tlab.train.utils import gpt_config_from
+
+    old = {"block_size": 8, "d_model": 16, "n_layers": 1, "n_heads": 2, "seed": 0}
+    assert gpt_config_from(old, vocab_size=11).pos_encoding == "learned"
+    new = dict(old, pos_encoding="rope", rope_theta=100.0)
+    rebuilt = gpt_config_from(new, vocab_size=11)
+    assert (rebuilt.pos_encoding, rebuilt.rope_theta) == ("rope", 100.0)
+
+
+@pytest.mark.parametrize("pos_encoding", ["sinusoidal", "rope"])
+def test_run_with_fixed_positions_saves_a_checkpoint_that_rebuilds(
+    tmp_path: Path, pos_encoding: str
+) -> None:
+    from tlab.train.run import run
+    from tlab.train.utils import load_model
+
+    write_tiny_dataset(tmp_path / "data")
+    out_dir = run(tiny_config(tmp_path, max_iters=2, pos_encoding=pos_encoding))
+
+    # 严格载入：训练时若没用上这个开关，存档里会多出 pos_emb，这里就会报错
+    model, _ = load_model(out_dir / "ckpt.pt", torch.device("cpu"))
+    assert not hasattr(model, "pos_emb")
+
+
+def test_resume_refuses_a_different_position_setting(tmp_path: Path) -> None:
+    from tlab.train.run import run
+
+    write_tiny_dataset(tmp_path / "data")
+    run(tiny_config(tmp_path, max_iters=2, pos_encoding="rope"))
+
+    # RoPE 和正弦都没有位置参数，严格载入看不出区别：不查的话会悄悄换结构接着训
+    with pytest.raises(ValueError, match="pos_encoding"):
+        run(tiny_config(tmp_path, max_iters=3, pos_encoding="sinusoidal", resume=True))
+    with pytest.raises(ValueError, match="rope_theta"):
+        run(
+            tiny_config(
+                tmp_path,
+                max_iters=3,
+                pos_encoding="rope",
+                rope_theta=100.0,
+                resume=True,
+            )
+        )
+    # 结构相同才能接着训
+    out_dir = run(tiny_config(tmp_path, max_iters=3, pos_encoding="rope", resume=True))
+    ckpt = torch.load(out_dir / "ckpt.pt", weights_only=False)
+    assert ckpt["step"] == 3
+
+
+def test_resume_of_an_old_checkpoint_counts_missing_switches_as_default(
+    tmp_path: Path,
+) -> None:
+    from tlab.train.run import run
+
+    write_tiny_dataset(tmp_path / "data")
+    path = run(tiny_config(tmp_path, max_iters=2)) / "ckpt.pt"
+    ckpt = torch.load(path, weights_only=False)
+    for key in ("norm", "norm_position", "mlp", "pos_encoding", "rope_theta"):
+        del ckpt["config"][key]
+    torch.save(ckpt, path)
+
+    # 旧存档没有这些字段，等于当时的默认结构：默认配置可以接着训，换结构不行
+    with pytest.raises(ValueError, match="pos_encoding"):
+        run(tiny_config(tmp_path, max_iters=3, pos_encoding="rope", resume=True))
+    run(tiny_config(tmp_path, max_iters=3, resume=True))

@@ -462,3 +462,127 @@ def test_stress_table_does_not_call_a_run_unconverged_if_final_val_reached_it(
 
     row = next(line for line in lines if "| a2_preln_lr3e-3 |" in line)
     assert "未发散" in row and "未收敛" not in row
+
+
+# ---------- A1 外推（scripts/eval_extrapolation.py） ----------
+
+
+def write_extrapolation(
+    root: Path,
+    variant: str,
+    seed: int,
+    first: float,
+    second: float,
+    ckpt_step: int = 3052,
+) -> None:
+    result = {
+        "first_half_loss": first,
+        "second_half_loss": second,
+        "length": 1024,
+        "ckpt_step": ckpt_step,
+    }
+    path = root / variant / f"seed{seed}" / "extrapolation.json"
+    path.write_text(json.dumps(result), encoding="utf-8")
+
+
+def test_summary_lists_extrapolation_and_says_learned_cannot_do_it(
+    tmp_path: Path,
+) -> None:
+    from tlab.eval.ablation import load_variants, render_summary
+
+    write_run(tmp_path, "a0_control", 1337, 1.50)
+    write_run(tmp_path, "a1_rope", 1337, 1.46)
+    write_full_val(tmp_path, "a1_rope", 1337, 1.47)
+    write_extrapolation(tmp_path, "a1_rope", 1337, 1.48, 1.45)
+
+    lines = render_summary(load_variants(tmp_path)).splitlines()
+
+    title = lines.index("## A1 外推")
+    row = next(line for line in lines[title:] if line.startswith("| a1_rope | 1337 |"))
+    # 完整验证集 1.4700；前半段 1.4800；后半段 1.4500；后半段比前半段低 0.0300
+    assert "1.4700" in row and "1.4800" in row and "1.4500" in row and "-0.0300" in row
+    # 窗口长度写在表里，不靠标题里的一句话
+    assert "| 1024 |" in row
+    assert any("a0_control" in line and "不支持" in line for line in lines[title:])
+
+
+def test_summary_has_no_extrapolation_section_without_data(tmp_path: Path) -> None:
+    from tlab.eval.ablation import load_variants, render_summary
+
+    write_run(tmp_path, "a0_control", 1337, 1.50)
+
+    assert "A1 外推" not in render_summary(load_variants(tmp_path))
+
+
+def test_extrapolation_of_an_earlier_checkpoint_is_rejected(tmp_path: Path) -> None:
+    from tlab.eval.ablation import load_variants
+
+    write_run(tmp_path, "a1_rope", 1337, 1.46)
+    write_extrapolation(tmp_path, "a1_rope", 1337, 1.48, 1.45, ckpt_step=1000)
+
+    with pytest.raises(ValueError):
+        load_variants(tmp_path)
+
+
+# ---------- 结果与配置文件核对 ----------
+
+
+def write_config_file(config_dir: Path, variant: str, text: str) -> None:
+    config_dir.mkdir(exist_ok=True)
+    (config_dir / f"{variant}.yaml").write_text(text, encoding="utf-8")
+
+
+def test_load_variants_checks_runs_against_their_config_file(tmp_path: Path) -> None:
+    from tlab.eval.ablation import load_variants
+
+    root, configs = tmp_path / "results", tmp_path / "configs"
+    write_config_file(
+        configs, "a1_rope", "d_model: 384\nmax_iters: 3052\npos_encoding: rope\n"
+    )
+    # 目录叫 a1_rope，实际跑的却是正弦：两者参数量相同，只有核对配置才能发现
+    write_run(root, "a1_rope", 1337, 1.46, pos_encoding="sinusoidal")
+
+    with pytest.raises(ValueError, match="pos_encoding"):
+        load_variants(root, config_dir=configs)
+
+
+def test_load_variants_accepts_runs_matching_their_config_file(tmp_path: Path) -> None:
+    from tlab.eval.ablation import load_variants
+
+    root, configs = tmp_path / "results", tmp_path / "configs"
+    write_config_file(
+        configs, "a1_rope", "d_model: 384\nmax_iters: 3052\npos_encoding: rope\n"
+    )
+    write_run(root, "a1_rope", 1337, 1.46, pos_encoding="rope")
+    # seed、out_dir 本来就按种子不同；没有配置文件的变体不核对
+    write_run(root, "a1_rope", 2024, 1.47, pos_encoding="rope")
+    write_run(root, "x_misc", 1337, 1.70)
+
+    variants = load_variants(root, config_dir=configs)
+
+    assert sorted(variants["a1_rope"].runs) == [1337, 2024]
+
+
+def test_summarize_script_can_check_against_config_files(tmp_path: Path) -> None:
+    import subprocess
+    import sys
+
+    root, configs = tmp_path / "results", tmp_path / "configs"
+    write_config_file(
+        configs, "a1_rope", "d_model: 384\nmax_iters: 3052\npos_encoding: rope\n"
+    )
+    write_run(root, "a1_rope", 1337, 1.46, pos_encoding="sinusoidal")
+
+    done = subprocess.run(
+        [
+            sys.executable,
+            "scripts/summarize_ablations.py",
+            str(root),
+            "--configs",
+            str(configs),
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert done.returncode != 0 and "pos_encoding" in done.stderr

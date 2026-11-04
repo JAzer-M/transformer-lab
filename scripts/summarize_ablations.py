@@ -2,7 +2,7 @@
 
 用法：
     uv run python scripts/summarize_ablations.py experiments/m3_ablations \
-        --out experiments/m3_ablations/SUMMARY.md
+        --configs configs/ablations --out experiments/m3_ablations/SUMMARY.md
 目录结构：<root>/<变体>/seed<种子>/{run.json, metrics.csv}
 """
 
@@ -16,9 +16,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", type=Path, help="各变体结果所在的目录")
     parser.add_argument("--out", type=Path, default=None, help="写入的 SUMMARY.md 路径")
+    parser.add_argument(
+        "--configs", type=Path, default=None, help="给了就把结果与这里的配置文件核对"
+    )
     args = parser.parse_args()
 
-    text = render_summary(load_variants(args.root))
+    text = render_summary(load_variants(args.root, config_dir=args.configs))
     print(text)
     if args.out is not None:
         args.out.write_text(text, encoding="utf-8")

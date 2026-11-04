@@ -179,3 +179,137 @@ def test_script_writes_full_val_json(tmp_path: Path) -> None:
         result
     )
     assert result["ckpt_step"] == 2
+
+
+class ProbsByPosition(nn.Module):
+    """假模型：前半段位置给 token 1 概率 1/2，后半段给 3/4；还记下前向时的模式。"""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.unused = nn.Parameter(torch.zeros(()))
+        self.register_buffer("first", torch.tensor([0.5, 0.5]).log())
+        self.register_buffer("second", torch.tensor([0.25, 0.75]).log())
+        self.modes: list[bool] = []
+
+    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+        self.modes.append(self.training)
+        B, T = idx.shape
+        logits = self.first.repeat(B, T, 1)  # (B, T, V)
+        logits[:, T // 2 :] = self.second  # (V,) 广播到后半段
+        return logits + self.unused  # (B, T, V)
+
+
+@pytest.mark.parametrize("batch_size", [1, 3])
+def test_extrapolation_reports_each_half_separately(batch_size: int) -> None:
+    from tlab.eval.full_val import evaluate_extrapolation
+
+    model = ProbsByPosition()
+    model.train()
+    # 11 个 token 全是 1、窗口长 4：2 个满窗口，最后不满一窗的部分不算（它没有后半段可比）
+    data = torch.ones(11, dtype=torch.long)  # (N,)
+
+    result = evaluate_extrapolation(model, data, 4, batch_size, torch.device("cpu"))
+
+    # 前半段 -ln(1/2) ≈ 0.6931，后半段 -ln(3/4) ≈ 0.2877，每半段 2 个窗口 × 2 个 token
+    assert result["first_half_loss"] == pytest.approx(math.log(2))
+    assert result["second_half_loss"] == pytest.approx(-math.log(0.75))
+    assert result["n_tokens_per_half"] == 4
+    # 评估时是 eval 模式，评估完回到原来的模式
+    assert model.modes and not any(model.modes)
+    assert model.training
+
+
+def test_first_half_of_a_long_window_equals_a_normal_short_forward() -> None:
+    from tlab.eval.full_val import evaluate_extrapolation
+    from tlab.model.gpt import GPT, GPTConfig
+    from tlab.train.utils import cross_entropy_loss
+
+    torch.manual_seed(0)
+    model = GPT(GPTConfig(11, 8, 16, 1, 2, pos_encoding="rope"))
+    data = torch.randint(0, 11, (33,))  # (N,)
+    model.eval()
+
+    result = evaluate_extrapolation(model, data, 16, 2, torch.device("cpu"))
+
+    # 模型是因果的：长窗口前半段的位置看不到后半段，和只输入前 8 个 token 算出来一样
+    with torch.no_grad():
+        losses = [
+            cross_entropy_loss(
+                model(data[s : s + 8][None]), data[s + 1 : s + 9][None]
+            ).item()
+            for s in (0, 16)
+        ]
+    assert result["first_half_loss"] == pytest.approx(sum(losses) / 2, rel=1e-5)
+
+
+@pytest.mark.parametrize("pos_encoding", ["sinusoidal", "rope"])
+def test_checkpoint_extrapolation_uses_twice_the_training_length(
+    tmp_path: Path, pos_encoding: str
+) -> None:
+    from tlab.eval.full_val import extrapolate_checkpoint
+
+    out_dir = train_tiny_run(tmp_path, pos_encoding=pos_encoding)
+
+    result = extrapolate_checkpoint(out_dir / "ckpt.pt", 4, torch.device("cpu"))
+
+    assert result["block_size"] == 8 and result["length"] == 16
+    assert result["ckpt_step"] == 2
+    # 记下评的是哪种位置编码：两种参数量相同，文件名之外还要有据可查
+    assert result["pos_encoding"] == pos_encoding
+    assert result["n_tokens_per_half"] > 0
+    assert math.isfinite(result["first_half_loss"])
+    assert math.isfinite(result["second_half_loss"])
+
+
+def test_learned_positions_cannot_be_extrapolated(tmp_path: Path) -> None:
+    from tlab.eval.full_val import extrapolate_checkpoint
+
+    out_dir = train_tiny_run(tmp_path)
+
+    # 位置表只有 block_size 行，超出的位置根本没有向量：直接说明白，不要算出一个假数
+    with pytest.raises(ValueError, match="位置表"):
+        extrapolate_checkpoint(out_dir / "ckpt.pt", 4, torch.device("cpu"))
+
+
+def test_extrapolation_script_writes_json(tmp_path: Path) -> None:
+    import json
+    import subprocess
+    import sys
+
+    out_dir = train_tiny_run(tmp_path, pos_encoding="rope")
+    out = tmp_path / "extrapolation.json"
+
+    done = subprocess.run(
+        [
+            sys.executable,
+            "scripts/eval_extrapolation.py",
+            "--ckpt",
+            str(out_dir / "ckpt.pt"),
+            "--out",
+            str(out),
+            "--device",
+            "cpu",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "第 2 步" in done.stdout
+    result = json.loads(out.read_text(encoding="utf-8"))
+    expected = {"first_half_loss", "second_half_loss", "length", "ckpt_step"}
+    assert expected <= set(result)
+
+
+def test_extrapolation_rejects_an_odd_length_and_too_little_data() -> None:
+    from tlab.eval.full_val import evaluate_extrapolation
+
+    cpu = torch.device("cpu")
+    data = torch.ones(11, dtype=torch.long)  # (N,)
+
+    # 前后半段要一样长，才好比较
+    with pytest.raises(AssertionError, match="偶数"):
+        evaluate_extrapolation(ProbsByPosition(), data, 5, 1, cpu)
+    # 数据连一个满窗口都不够时，要说明原因，不是除以 0
+    with pytest.raises(ValueError, match="满窗口"):
+        evaluate_extrapolation(ProbsByPosition(), data, 16, 1, cpu)

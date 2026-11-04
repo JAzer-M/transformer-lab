@@ -4,23 +4,24 @@
 
 ## 当前状态
 
-更新时间：2026-11-04 16:39（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-04 19:10（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M2 已验收并合并。M3：第 1 步 m3-norm 与第 2 批（A2）含补充种子已完成并在 main；第 2 步 m3-mlp 经用户同意提交、快进合并到 main 并推送（结果以 git log 与远端 ref 为准）；第 3 批（a3_swiglu）待 Codex 执行 |
-| 本轮范围 | m3-mlp：用户手写 SwiGLU，agent 写 mlp 开关、a3_swiglu 配置、手册第 3 批；另含汇总表“未收敛”标记 |
-| 实现方 / 审查方 | SwiGLU 由用户手写，其余由 Claude Code 实现；Claude 自己的 code-review（两个只读子 agent）自查，未请 Codex 交叉审查 |
-| 分支 / 来源 | main 快进到 m3-mlp，两者一同推送；哈希以 git log 与远端 ref 为准 |
+| 项目阶段 | M2 已验收并合并。M3：第 1、2 步已在 main（efb4883）；第 3 步 m3-pos 经用户同意提交、快进合并到 main 并推送（结果以 git log 与远端 ref 为准）。第 3、4 批由用户安排 Codex 一起执行，尚未开始 |
+| 本轮范围 | m3-pos：用户手写 RotaryEmbedding，agent 写注意力接入、正弦位置编码、pos_encoding 与 rope_theta 开关、外推评测、A1 配置、手册第 4 批，以及续训结构检查和结果与配置文件核对 |
+| 实现方 / 审查方 | RotaryEmbedding 由用户手写，其余由 Claude Code 实现；Claude 自己的 code-review（两个只读子 agent）自查，未请 Codex 交叉审查 |
+| 分支 / 来源 | main 快进到 m3-pos，两者一同推送；哈希以 git log 与远端 ref 为准 |
 | 本机环境 | Mac：macOS arm64，/Users/j/Desktop/transformer-lab。Windows（Codex 记录）：Ubuntu 26.04.1 LTS / WSL2，RTX 5060 Laptop GPU 8151 MiB，PyTorch 2.9.1+cu128 / CUDA 12.8，/home/j/transformer-lab |
-| 配置与预算 | 对照组与所有变体：每次 3052 步、100,007,936 token，batch32×累积2、上下文512，warmup92，cosine 6e-4→6e-5；高学习率加测 3e-3→3e-4。a3_swiglu 参数量 13,969,152，显存峰值估计约 5.2 GB（未在 GPU 实测） |
-| pytest / 代码检查 | m3-mlp（Mac）：190 passed，ruff check 与 format --check 通过 |
+| 配置与预算 | 对照组与所有变体：每次 3052 步、100,007,936 token，batch32×累积2、上下文512，warmup92，cosine 6e-4→6e-5。a1_sinusoidal、a1_rope 参数量 13,772,544，显存峰值估计约 5.0 GB（未在 GPU 实测） |
+| pytest / 代码检查 | m3-pos（Mac）：235 passed，ruff check 与 format --check 通过 |
 | A2 结果（完整验证集） | 对照 1.5799；Post-LN 1.6137（更差）；RMSNorm 1.5822（差异不显著）。高学习率 3e-3 两个种子：Pre-LN 1.4652；RMSNorm 1.4705；Post-LN 5.8347（未收敛）。详见 experiments/m3_ablations/SUMMARY.md |
 | 解释边界 | 结论只适用于 1 亿 token 的预算；长训练吞吐不作速度结论；Post-LN 停在约 5.83 的机制未检查权重，未确认；main 上的 SUMMARY.md 还没有“未收敛”标记，合并后由第 3 批重新生成 |
-| 下一步 | 用户让 Codex 在 main 上跑手册第 3 批（a3_swiglu 两个种子），完成后 Claude Code 拉取核对；同时可开始第 3 步 m3-pos（用户写 RoPE），先列测试接口 |
+| 下一步 | 用户让 Codex 在 main 上一起跑手册第 3、4 批（6 次训练），完成后 Claude Code 拉取核对；可同时开始第 4 步 m3-attn（用户写 GQA），先列测试接口 |
 
 ## 当前任务与下一步
 
+- 2026-11-04 19:03：m3-pos 代码写完、提交前自查已修，等用户同意提交。
 - 2026-11-04 16:28：m3-mlp 代码写完、提交前自查已修，等用户同意提交。顶部状态表已整表更新。
 - 2026-11-04 13:55：第2批补充3次训练和3次完整验证已完成，见 BATCH2_SUPPLEMENT_REPORT；独立只读复核通过，用户已授权提交推送，Claude核对待进行。
 
@@ -58,7 +59,7 @@
 ## Codex 接手入口（M3 消融，2026-11-02）
 
 1. 在 WSL2 Ubuntu 的 `~/transformer-lab` 中工作；按用户指定的分支（`m3-ablate` 或合并后的 `main`）`git fetch origin && git switch <分支> && git pull --ff-only`。先读 `AGENTS.md`、`docs/PLAN.md`「M3 实施计划」、本文件「当前状态」。
-2. 严格按 `docs/m3-windows-run.md` 执行，**只做用户让你做的那一批**（第 1 批、第 2 批及其补充已完成；当前是第 3 批：`a3_swiglu` 的种子 1337、2024）。
+2. 严格按 `docs/m3-windows-run.md` 执行，**只做用户让你做的那一批**（第 1 批、第 2 批及其补充已完成；当前是第 3、4 批：`a3_swiglu`、`a1_sinusoidal`、`a1_rope` 各跑种子 1337、2024，两个 `a1_*` 另做外推评测）。
 3. 每次训练按手册的固定流程：后台记录 GPU、训练、停止记录、完整验证集打分（第 2 批起）、复制小文件到 `experiments/m3_ablations/<变体>/seed<种子>/`；整批完成后再统一追加 `results.md`、运行汇总脚本更新 `SUMMARY.md`，并在本文件追加署名 Codex 的记录；提交与推送前征得用户同意。
 4. 不改超参数、配置与用户手写文件；出错、OOM、loss NaN 或发散时立即停止并记录原文。唯一例外（2026-11-03 用户确认）：三个 `a2_*_lr3e-3` 加测出现 NaN 或发散时不中断，跑完并如实记录；程序报错仍停下。
 
@@ -1149,6 +1150,53 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 审查状态：Claude 自查（见上一条）；未请 Codex 交叉审查。
 - 学习状态：SwiGLU 已手写；相关题目留到 M3 结束统一提问。
 - 下一步：用户让 Codex 执行手册第 3 批。
+
+### 2026-11-04 16:58（UTC+08:00）｜Claude Code｜m3-pos 开始：决定、RoPE 测试
+
+- 范围与用户确认：用户问清三种位置编码的区别后回复“按推荐开始”，确认 17 个测试接口与 6 条决定（写入 PLAN）。
+- 工作区与设备：Mac；从 main efb4883 分出 m3-pos，改动未提交。
+- 核实来源：arXiv API 查论文日期；只读取 HF `modeling_qwen3.py` 与 Qwen3-0.6B `config.json` 的文字：确认 `Qwen3MLP` 与 `gate_proj`、`up_proj`、`down_proj`，`rotate_half` 写法，`rope_theta` 为 1,000,000，隐藏维度 1024、`intermediate_size` 3072、16 个注意力头、8 组 KV、`head_dim` 128。只查这几项，未调用 research 技能。
+- 改动：`tests/test_layers.py` 新增 RoPE 6 个测试；PLAN 写入决定。当前 6 failed（`RotaryEmbedding` 尚不存在）、190 passed，符合预期。
+- 本次验证：故意改错见 `runs/m3-pos/02-`；讲解用的例子与缩放小实验见 `01-`（小实验只作决定参考，不写入 results.md）。
+- 未验证与失败：RoPE 在 GPU、bf16 下的行为。
+- 审查状态：未到提交前自查。
+- 学习状态：用户待手写 `RotaryEmbedding`；相关题目留到 M3 结束统一提问。
+- 下一步：用户写完后 Claude Code 检查，再写 B、C、D 三部分。
+
+### 2026-11-04 18:32（UTC+08:00）｜Claude Code｜用户 RoPE 通过；逐行讲解
+
+- 范围与用户确认：用户写完 `RotaryEmbedding`，并表示 inv_freq、T、arange、angles、cat 和 forward 都有些没懂，请求详细讲解。
+- 工作区与设备：Mac；m3-pos，改动未提交。
+- 本次验证：test_layers.py 15 passed，完整 pytest 196 passed，ruff 通过。逐行跟踪用用户的类实际运行（`runs/m3-pos/03-`）：手算的位置 1 结果与类的输出一致。
+- 决策与原因：此前说“注意力本身不知道 token 的先后顺序”不够准确，已向用户更正：因果掩码决定能看谁，但分不清看到的 token 之间的先后。实测（d=16，1 个头）交换第 0、1 个 token，最后一个位置的输出：没有位置编码时变化 0，有 RoPE 时变化 0.011。
+- 审查状态：未到提交前自查。
+- 学习状态：用户对 RoPE 的代码尚需巩固；代码注释第 64 行“后半对配对”是笔误，已告知（agent 不改）。相关题目留到 M3 结束统一提问。
+- 下一步：用户同意后写注意力接入。
+
+### 2026-11-04 19:03（UTC+08:00）｜Claude Code（matt-pocock-skills:code-review，两个只读子 agent）｜m3-pos：接入与开关、外推评测、提交前自查
+
+- 范围与用户确认：用户回复“开始接入”。实现方 Claude Code（RotaryEmbedding 除外），审查方同为 Claude 的子 agent，不等于 Codex 交叉审查。
+- 工作区与设备：Mac，/Users/j/Desktop/transformer-lab；m3-pos，基于 efb4883，改动未提交。
+- 改动：`attention.py` 增加 `rope_theta` 参数，拆头后旋转 q、k；`block.py` 传递 `rope_theta`；`gpt.py` 的 `GPTConfig` 增加 `pos_encoding`、`rope_theta`，`learned` 分支保留用户原有几行（只缩进），`sinusoidal` 入口 token 乘 √C，`rope` 入口只有 token 向量；`layers.py` 增加 `POS_ENCODINGS`、`check_pos_encoding`、`sinusoidal_positions`；`config.py` 增加同名字段。`full_val.py` 增加 `evaluate_extrapolation`、`extrapolate_checkpoint`，新增 `scripts/eval_extrapolation.py`；汇总增加“A1 外推”一节；新增 `a1_sinusoidal`、`a1_rope` 配置；手册第 4 批。用户手写文件里的 agent 代码都标注“agent 编写”。
+- 自查结果：Standards 无阻塞，硬性（较轻）：layers.py、gpt.py 部分标注没写 pos_encoding，`full_val.py` 缺形状注释；判断项：评估函数与脚本有重复，`first`、`second` 命名含糊，`extrapolation` 用字典。Spec 所有功能都已实现，接口都有测试，两个中等问题：续训时 rope 与 sinusoidal 或 rope_theta 不一致不报错；汇总不校验目录名与配置。低优先级：外推表不写长度、JSON 不记 pos_encoding、奇数长度分母错、数据不足时除以 0、C 为奇数报错难懂、rope_theta ≤ 0 不报错、手册外推的 cp 没有 mkdir、generate.py 注释过时、差值混入上下文变长的影响、两个测试断言偏弱。子 agent 核对无问题：三种结构参数量；默认 metrics 与权重与 efb4883 相同；旧存档载入、采样、打分、续训；RoPE 与 HF 公式差 0；√C 不影响权重共用；MPS 与 CPU autocast 能跑。
+- 修复：先写测试再修（11 个先失败）：新增 `check_same_structure`，续训前核对结构开关；`load_variants(config_dir=...)` 与脚本 `--configs` 把结果与配置文件核对（在第 1–2 批真实结果上运行通过）；外推表加窗口长度列、说明差值的读法；JSON 记 pos_encoding；奇数长度、数据不足、正弦奇数维、rope_theta ≤ 0 都给清楚的报错；两个弱断言加强；补标注、形状注释、类型标注，改名 `first_sum`、`second_sum`，用 `model.pos_encoding`；手册加 mkdir、调整顺序、固定流程的汇总命令加 `--configs`、第 3 批说明数字以最新一批为准。
+- 决策与原因：故意改错第一轮 25/26，漏掉“GPT 一律开 RoPE”（没有参数，参数量看不出来），补测试后抓到。`evaluate_full` 与 `evaluate_extrapolation` 的重复暂不合并：改成共用会让第 2 批的打分在浮点上有微小差别，不值得。`extrapolation` 字典、开关成组传参暂不改。
+- 本次验证：pytest 235 passed；ruff 通过；测试 diff 只改了一处类型标注，并在一个已有测试里多删两个字段（覆盖更广，未放宽断言）。复现与故意改错见 `runs/m3-pos/06-`、`07-`。
+- 未验证与失败：GPU 上的 RoPE、正弦训练与外推耗时；未安装 transformers，RoPE 只与按 HF 源码手写的公式核对，M4 再做实跑对比。
+- 审查状态：Claude 自查已完成、问题已修；未请 Codex 交叉审查。
+- 学习状态：用户已手写 RoPE，理解尚需巩固，M3 结束时统一提问。
+- 下一步：用户决定是否提交；合并与推送另需同意。
+
+### 2026-11-04 19:10（UTC+08:00）｜Claude Code｜提交 m3-pos，合并到 main 并推送
+
+- 范围与用户确认：用户回复“提交合并并推送吧”，并说明 Codex 还没开始第 3 批，要把第 3、4 批一起跑。本文件接手入口同步为第 3、4 批。
+- 工作区与设备：Mac，/Users/j/Desktop/transformer-lab；m3-pos 基于 efb4883。
+- 改动：提交全部 m3-pos 改动，`.idea/` 未加入；先确认 main = origin/main 且为 m3-pos 的祖先，再 `git merge --ff-only m3-pos`，推送 main 与 m3-pos。结果以 git log 和远端 ref 为准。
+- 本次验证：提交做干净导出并跑 pytest；合并后在 main 上 `uv sync --locked`、pytest、ruff 复查。
+- 未验证与失败：GPU 上的 SwiGLU、RoPE、正弦训练与外推耗时，由第 3、4 批回答。
+- 审查状态：Claude 自查（见上一条）；未请 Codex 交叉审查。
+- 学习状态：RoPE 已手写，相关题目留到 M3 结束统一提问；本段没有新答的自测题。
+- 下一步：用户让 Codex 执行第 3、4 批。
 
 ## 后续交接模板
 

@@ -23,7 +23,8 @@ def generate(
     model.eval()
 
     for _ in range(max_new_tokens):
-        # 位置表只有 block_size 行：只把最后 block_size 个 token 送进模型
+        # 只把最后 block_size 个 token 送进模型：可学习位置表只有这么多行；
+        # 正弦和 RoPE 没有这个限制，但也按训练时的长度截断，与训练时的上下文一致
         idx_cond = idx[:, -model.block_size :]  # (B, T')，T' ≤ block_size
         # 只需要最后一个位置的分数，它预测的是“下一个 token”
         logits = model(idx_cond)[:, -1, :]  # (B, V)

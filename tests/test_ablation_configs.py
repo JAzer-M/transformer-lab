@@ -16,6 +16,8 @@ EXPECTED_DIFFS = {
     "a2_postln_lr3e-3": {"norm_position": "post", **HIGH_LR},
     "a2_rmsnorm_lr3e-3": {"norm": "rmsnorm", **HIGH_LR},
     "a3_swiglu": {"mlp": "swiglu"},
+    "a1_sinusoidal": {"pos_encoding": "sinusoidal"},
+    "a1_rope": {"pos_encoding": "rope"},
 }
 
 # 按 TinyStories 的 8192 词表手算：V·C + 512·C + 6 层 × 每层参数 + 最终归一化
@@ -23,6 +25,7 @@ EXPECTED_DIFFS = {
 #   Post-LN：没有 ln_f → 少 2C = 768 → 13,968,384
 #   RMSNorm：13 个归一化各少 C = 384 → 少 4,992 → 13,964,160
 #   SwiGLU：前馈 3·C·1024 = 1,179,648，与 GELU MLP 的 8C² 相同 → 13,969,152
+#   正弦、RoPE：没有位置表 → 少 512·C = 196,608 → 13,772,544
 EXPECTED_PARAMS = {
     "a0_control": 13_969_152,
     "a2_postln": 13_968_384,
@@ -31,6 +34,8 @@ EXPECTED_PARAMS = {
     "a2_postln_lr3e-3": 13_968_384,
     "a2_rmsnorm_lr3e-3": 13_964_160,
     "a3_swiglu": 13_969_152,
+    "a1_sinusoidal": 13_772_544,
+    "a1_rope": 13_772_544,
 }
 
 

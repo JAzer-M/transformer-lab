@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from tlab.model.layers import check_block_settings
+from tlab.model.layers import check_block_settings, check_pos_encoding
 
 
 @dataclass
@@ -33,6 +33,8 @@ class TrainConfig:
     norm: str = "layernorm"  # "layernorm" 或 "rmsnorm"
     norm_position: str = "pre"  # "pre"（子层前）或 "post"（加法后，不用 ln_f）
     mlp: str = "gelu"  # "gelu"（M1/M2 的 MLP）或 "swiglu"
+    pos_encoding: str = "learned"  # "learned"、"sinusoidal" 或 "rope"
+    rope_theta: float = 10000.0  # 只在 pos_encoding 为 "rope" 时有用
     # 存档：0 表示只在训练结束时存；resume=True 时从 out_dir/ckpt.pt 接着训练
     ckpt_interval: int = 0
     resume: bool = False
@@ -50,6 +52,7 @@ class TrainConfig:
                 f"lr_schedule 应为 {LR_SCHEDULES} 之一，收到 {self.lr_schedule!r}"
             )
         check_block_settings(self.norm, self.norm_position, self.mlp)
+        check_pos_encoding(self.pos_encoding, self.rope_theta)
 
 
 LR_SCHEDULES = ("constant", "cosine")

@@ -1,5 +1,5 @@
 # USER-WRITTEN: agent 只提建议， 不改实现
-# 例外：标注“agent 编写”的 norm、mlp 开关代码，经用户 2026-11-03、11-04 同意由 agent 加入
+# 例外：标注“agent 编写”的 norm、mlp、pos_encoding 开关代码，经用户 2026-11-03、11-04 同意由 agent 加入
 
 import torch
 import torch.nn.functional as F
@@ -40,7 +40,7 @@ def make_mlp(kind: str, d_model: int) -> nn.Module:
 
 
 class Block(nn.Module):
-    # agent 编写（norm、mlp 开关）：多了 norm、norm_position、mlp 参数，默认值与 M1/M2 相同
+    # agent 编写（各开关）：多了 norm、norm_position、mlp、rope_theta 参数，默认值与 M1/M2 相同
     def __init__(
         self,
         d_model: int,
@@ -48,6 +48,7 @@ class Block(nn.Module):
         norm: str = "layernorm",
         norm_position: str = "pre",
         mlp: str = "gelu",
+        rope_theta: float | None = None,
     ) -> None:
         super().__init__()
         # agent 编写（norm、mlp 开关）：检查取值；记下归一化放在子层前（pre）还是加法后（post）
@@ -57,7 +58,8 @@ class Block(nn.Module):
         # 里面装的可能是 LayerNorm 或 RMSNorm
         # 注意力子层： 先归一化， 再让 token 之间交换信息
         self.ln1 = make_norm(norm, d_model)  # agent 编写（norm 开关）
-        self.attn = CausalSelfAttention(d_model, n_heads)
+        # agent 编写（pos_encoding 开关）：rope_theta 为 None 时不用 RoPE
+        self.attn = CausalSelfAttention(d_model, n_heads, rope_theta)
         # MLP子层： 先归一化， 再让每个 token 各自加工
         self.ln2 = make_norm(norm, d_model)  # agent 编写（norm 开关）
         self.mlp = make_mlp(mlp, d_model)  # agent 编写（mlp 开关）
