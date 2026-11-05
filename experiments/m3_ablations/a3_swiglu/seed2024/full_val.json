@@ -1,0 +1,9 @@
+{
+  "val_loss": 1.5450726605909175,
+  "n_tokens": 5414547,
+  "block_size": 512,
+  "ckpt": "runs/m3/a3_swiglu/seed2024/ckpt.pt",
+  "ckpt_step": 3052,
+  "device": "cuda",
+  "eval_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563"
+}

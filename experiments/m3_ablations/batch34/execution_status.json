@@ -1,0 +1,713 @@
+{
+  "state": "completed",
+  "source_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563",
+  "branch": "main",
+  "started_at": "2026-11-05T09:04:47.088083+08:00",
+  "phase": "finished",
+  "control_evaluations": [],
+  "runs": [
+    {
+      "variant": "a3_swiglu",
+      "seed": 1337,
+      "state": "completed",
+      "started_at": "2026-11-05T09:04:47.148499+08:00",
+      "ended_at": "2026-11-05T09:26:04.013546+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a3_swiglu/seed1337",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.0006,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 6e-05,
+          "norm": "layernorm",
+          "norm_position": "pre",
+          "mlp": "swiglu",
+          "pos_encoding": "learned",
+          "rope_theta": 10000.0,
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 1337,
+          "device": "auto"
+        },
+        "git_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 13969152,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1269.9185074060001,
+        "tokens_per_sec": 78751.45957537171,
+        "peak_memory_mb": 5269.783203125,
+        "final_train_loss": 1.5349223256111144,
+        "final_val_loss": 1.5546528697013855,
+        "last_step_loss": 1.5499815344810486
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 256,
+          "mean": 84.252734375,
+          "max": 88.2,
+          "min": 54.4
+        },
+        "sm_clock_MHz": {
+          "n": 256,
+          "mean": 2742.40625,
+          "max": 2790.0,
+          "min": 427.0
+        },
+        "gpu_util_pct": {
+          "n": 256,
+          "mean": 97.8984375,
+          "max": 99.0,
+          "min": 1.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 256,
+          "mean": 6944.4921875,
+          "max": 7010.0,
+          "min": 1048.0
+        },
+        "power_W": {
+          "n": 256,
+          "mean": 93.35109375,
+          "max": 103.25,
+          "min": 13.86
+        }
+      },
+      "divergence": null,
+      "stress_exception": false,
+      "full_evaluation": {
+        "variant": "a3_swiglu",
+        "seed": 1337,
+        "returncode": 0,
+        "seconds": 27.203752009000027,
+        "checkpoint_sha256": "ecfcf503717fa0a4dc6933ded80ab5a545fa75ed7c3d6a2f62aa69f324253a4c",
+        "result": {
+          "val_loss": 1.5469416829868692,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a3_swiglu/seed1337/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563"
+        }
+      }
+    },
+    {
+      "variant": "a3_swiglu",
+      "seed": 2024,
+      "state": "completed",
+      "started_at": "2026-11-05T09:26:31.411042+08:00",
+      "ended_at": "2026-11-05T09:47:41.186259+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a3_swiglu/seed2024",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.0006,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 6e-05,
+          "norm": "layernorm",
+          "norm_position": "pre",
+          "mlp": "swiglu",
+          "pos_encoding": "learned",
+          "rope_theta": 10000.0,
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 2024,
+          "device": "auto"
+        },
+        "git_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 13969152,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1263.3950502889998,
+        "tokens_per_sec": 79158.08754919795,
+        "peak_memory_mb": 5269.783203125,
+        "final_train_loss": 1.5524006187915802,
+        "final_val_loss": 1.532771110534668,
+        "last_step_loss": 1.5468499064445496
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 254,
+          "mean": 86.2775590551181,
+          "max": 88.1,
+          "min": 75.7
+        },
+        "sm_clock_MHz": {
+          "n": 254,
+          "mean": 2674.5708661417325,
+          "max": 2767.0,
+          "min": 1125.0
+        },
+        "gpu_util_pct": {
+          "n": 254,
+          "mean": 98.3740157480315,
+          "max": 99.0,
+          "min": 1.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 254,
+          "mean": 6936.53937007874,
+          "max": 6996.0,
+          "min": 1018.0
+        },
+        "power_W": {
+          "n": 254,
+          "mean": 92.20594488188976,
+          "max": 102.02,
+          "min": 62.33
+        }
+      },
+      "divergence": null,
+      "stress_exception": false,
+      "full_evaluation": {
+        "variant": "a3_swiglu",
+        "seed": 2024,
+        "returncode": 0,
+        "seconds": 26.911552501000187,
+        "checkpoint_sha256": "532c35530ee8dd0f80769baa2add6a72a0e517347aaf60fb00be8033e5b7d57c",
+        "result": {
+          "val_loss": 1.5450726605909175,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a3_swiglu/seed2024/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563"
+        }
+      }
+    },
+    {
+      "variant": "a1_sinusoidal",
+      "seed": 1337,
+      "state": "completed",
+      "started_at": "2026-11-05T09:48:08.296743+08:00",
+      "ended_at": "2026-11-05T10:09:12.131509+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a1_sinusoidal/seed1337",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.0006,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 6e-05,
+          "norm": "layernorm",
+          "norm_position": "pre",
+          "mlp": "gelu",
+          "pos_encoding": "sinusoidal",
+          "rope_theta": 10000.0,
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 1337,
+          "device": "auto"
+        },
+        "git_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 13772544,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1257.495934907,
+        "tokens_per_sec": 79529.43085052297,
+        "peak_memory_mb": 5003.779296875,
+        "final_train_loss": 1.5891989767551422,
+        "final_val_loss": 1.6046945929527283,
+        "last_step_loss": 1.6022371649742126
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 253,
+          "mean": 86.2094861660079,
+          "max": 88.3,
+          "min": 78.7
+        },
+        "sm_clock_MHz": {
+          "n": 253,
+          "mean": 2647.292490118577,
+          "max": 2775.0,
+          "min": 2040.0
+        },
+        "gpu_util_pct": {
+          "n": 253,
+          "mean": 97.81027667984189,
+          "max": 99.0,
+          "min": 1.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 253,
+          "mean": 6785.818181818182,
+          "max": 6995.0,
+          "min": 1000.0
+        },
+        "power_W": {
+          "n": 253,
+          "mean": 87.86573122529644,
+          "max": 100.3,
+          "min": 69.84
+        }
+      },
+      "divergence": null,
+      "stress_exception": false,
+      "full_evaluation": {
+        "variant": "a1_sinusoidal",
+        "seed": 1337,
+        "returncode": 0,
+        "seconds": 27.426450393999858,
+        "checkpoint_sha256": "0292fca37bcf7a0ebbd179e497ac47d5e9f78a24e2aa93eb13668449cd138c9a",
+        "result": {
+          "val_loss": 1.5959790833804466,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a1_sinusoidal/seed1337/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563"
+        }
+      },
+      "extrapolation": {
+        "returncode": 0,
+        "seconds": 38.581736226999965,
+        "checkpoint_sha256": "0292fca37bcf7a0ebbd179e497ac47d5e9f78a24e2aa93eb13668449cd138c9a",
+        "result": {
+          "first_half_loss": 1.597143964008052,
+          "second_half_loss": 4.92509409509626,
+          "n_tokens_per_half": 2706944,
+          "pos_encoding": "sinusoidal",
+          "length": 1024,
+          "block_size": 512,
+          "ckpt": "runs/m3/a1_sinusoidal/seed1337/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563"
+        }
+      }
+    },
+    {
+      "variant": "a1_sinusoidal",
+      "seed": 2024,
+      "state": "completed",
+      "started_at": "2026-11-05T10:10:18.593456+08:00",
+      "ended_at": "2026-11-05T10:31:28.381450+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a1_sinusoidal/seed2024",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.0006,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 6e-05,
+          "norm": "layernorm",
+          "norm_position": "pre",
+          "mlp": "gelu",
+          "pos_encoding": "sinusoidal",
+          "rope_theta": 10000.0,
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 2024,
+          "device": "auto"
+        },
+        "git_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 13772544,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1263.9763326759999,
+        "tokens_per_sec": 79121.68401782523,
+        "peak_memory_mb": 5003.779296875,
+        "final_train_loss": 1.5998685300350188,
+        "final_val_loss": 1.5798962533473968,
+        "last_step_loss": 1.5956919193267822
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 254,
+          "mean": 86.26614173228346,
+          "max": 88.6,
+          "min": 78.2
+        },
+        "sm_clock_MHz": {
+          "n": 254,
+          "mean": 2619.7086614173227,
+          "max": 2767.0,
+          "min": 2205.0
+        },
+        "gpu_util_pct": {
+          "n": 254,
+          "mean": 98.16141732283465,
+          "max": 99.0,
+          "min": 2.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 254,
+          "mean": 6799.677165354331,
+          "max": 6914.0,
+          "min": 1072.0
+        },
+        "power_W": {
+          "n": 254,
+          "mean": 85.29854330708662,
+          "max": 96.65,
+          "min": 57.05
+        }
+      },
+      "divergence": null,
+      "stress_exception": false,
+      "full_evaluation": {
+        "variant": "a1_sinusoidal",
+        "seed": 2024,
+        "returncode": 0,
+        "seconds": 27.163224880000598,
+        "checkpoint_sha256": "b9c306826e530281d4263a052e3d9dc5b7c850e66e2520511a505c5f115e0a9b",
+        "result": {
+          "val_loss": 1.5910725258265523,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a1_sinusoidal/seed2024/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563"
+        }
+      },
+      "extrapolation": {
+        "returncode": 0,
+        "seconds": 38.51623454900073,
+        "checkpoint_sha256": "b9c306826e530281d4263a052e3d9dc5b7c850e66e2520511a505c5f115e0a9b",
+        "result": {
+          "first_half_loss": 1.59251411655167,
+          "second_half_loss": 5.056366952398627,
+          "n_tokens_per_half": 2706944,
+          "pos_encoding": "sinusoidal",
+          "length": 1024,
+          "block_size": 512,
+          "ckpt": "runs/m3/a1_sinusoidal/seed2024/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563"
+        }
+      }
+    },
+    {
+      "variant": "a1_rope",
+      "seed": 1337,
+      "state": "completed",
+      "started_at": "2026-11-05T10:32:34.538472+08:00",
+      "ended_at": "2026-11-05T10:55:29.399481+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a1_rope/seed1337",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.0006,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 6e-05,
+          "norm": "layernorm",
+          "norm_position": "pre",
+          "mlp": "gelu",
+          "pos_encoding": "rope",
+          "rope_theta": 10000.0,
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 1337,
+          "device": "auto"
+        },
+        "git_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 13772544,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1367.9387524600006,
+        "tokens_per_sec": 73108.48955784977,
+        "peak_memory_mb": 5006.9072265625,
+        "final_train_loss": 1.5180123686790465,
+        "final_val_loss": 1.5332589030265809,
+        "last_step_loss": 1.5249149203300476
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 275,
+          "mean": 86.20036363636363,
+          "max": 88.2,
+          "min": 78.8
+        },
+        "sm_clock_MHz": {
+          "n": 275,
+          "mean": 2545.1890909090907,
+          "max": 2715.0,
+          "min": 1402.0
+        },
+        "gpu_util_pct": {
+          "n": 275,
+          "mean": 98.02181818181818,
+          "max": 99.0,
+          "min": 1.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 275,
+          "mean": 6390.585454545455,
+          "max": 6507.0,
+          "min": 1065.0
+        },
+        "power_W": {
+          "n": 275,
+          "mean": 87.52490909090909,
+          "max": 101.57,
+          "min": 54.49
+        }
+      },
+      "divergence": null,
+      "stress_exception": false,
+      "full_evaluation": {
+        "variant": "a1_rope",
+        "seed": 1337,
+        "returncode": 0,
+        "seconds": 30.403060362999895,
+        "checkpoint_sha256": "b7a3fcb28bc7de3722c7bdd9ffdbfe4d0963209b16c0d7b2a0239fcf4f3f77f7",
+        "result": {
+          "val_loss": 1.5281261570584779,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a1_rope/seed1337/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563"
+        }
+      },
+      "extrapolation": {
+        "returncode": 0,
+        "seconds": 41.67701265800042,
+        "checkpoint_sha256": "b7a3fcb28bc7de3722c7bdd9ffdbfe4d0963209b16c0d7b2a0239fcf4f3f77f7",
+        "result": {
+          "first_half_loss": 1.5296889134293945,
+          "second_half_loss": 2.300977699333178,
+          "n_tokens_per_half": 2706944,
+          "pos_encoding": "rope",
+          "length": 1024,
+          "block_size": 512,
+          "ckpt": "runs/m3/a1_rope/seed1337/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563"
+        }
+      }
+    },
+    {
+      "variant": "a1_rope",
+      "seed": 2024,
+      "state": "completed",
+      "started_at": "2026-11-05T10:56:42.086009+08:00",
+      "ended_at": "2026-11-05T11:19:32.910219+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a1_rope/seed2024",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.0006,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 6e-05,
+          "norm": "layernorm",
+          "norm_position": "pre",
+          "mlp": "gelu",
+          "pos_encoding": "rope",
+          "rope_theta": 10000.0,
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 2024,
+          "device": "auto"
+        },
+        "git_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 13772544,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1363.814322278,
+        "tokens_per_sec": 73329.58333576906,
+        "peak_memory_mb": 5006.9072265625,
+        "final_train_loss": 1.5339611232280732,
+        "final_val_loss": 1.5132379114627839,
+        "last_step_loss": 1.5255826115608215
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 274,
+          "mean": 86.2985401459854,
+          "max": 88.3,
+          "min": 77.3
+        },
+        "sm_clock_MHz": {
+          "n": 274,
+          "mean": 2548.6204379562046,
+          "max": 2677.0,
+          "min": 1087.0
+        },
+        "gpu_util_pct": {
+          "n": 274,
+          "mean": 98.33576642335767,
+          "max": 99.0,
+          "min": 1.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 274,
+          "mean": 6383.401459854014,
+          "max": 6436.0,
+          "min": 1078.0
+        },
+        "power_W": {
+          "n": 274,
+          "mean": 87.85014598540145,
+          "max": 94.55,
+          "min": 57.36
+        }
+      },
+      "divergence": null,
+      "stress_exception": false,
+      "full_evaluation": {
+        "variant": "a1_rope",
+        "seed": 2024,
+        "returncode": 0,
+        "seconds": 30.41434880700035,
+        "checkpoint_sha256": "7056f3c519c568c13dc4f07aff4e99fd8d73a1acbe3ddc0f52d19a18ab30c65b",
+        "result": {
+          "val_loss": 1.5271886421159568,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a1_rope/seed2024/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563"
+        }
+      },
+      "extrapolation": {
+        "returncode": 0,
+        "seconds": 41.445961296999485,
+        "checkpoint_sha256": "7056f3c519c568c13dc4f07aff4e99fd8d73a1acbe3ddc0f52d19a18ab30c65b",
+        "result": {
+          "first_half_loss": 1.5286931665087549,
+          "second_half_loss": 2.125277117697981,
+          "n_tokens_per_half": 2706944,
+          "pos_encoding": "rope",
+          "length": 1024,
+          "block_size": 512,
+          "ckpt": "runs/m3/a1_rope/seed2024/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563"
+        }
+      }
+    }
+  ],
+  "current_variant": "a1_rope",
+  "current_seed": 2024,
+  "phase_started_at": "2026-11-05T11:20:03.711913+08:00",
+  "last_eval": null,
+  "command": [
+    "uv",
+    "run",
+    "python",
+    "scripts/train.py",
+    "--config",
+    "configs/ablations/a1_rope.yaml",
+    "seed=2024",
+    "out_dir=runs/m3/a1_rope/seed2024"
+  ],
+  "stress_divergence_exception": false,
+  "active_pid": 1754,
+  "gpu_pid": 1599,
+  "last_training_returncode": 0,
+  "last_evaluation_returncode": 0,
+  "last_extrapolation_returncode": 0,
+  "all_original_tracked_files_unchanged_through_training_and_evaluation": true,
+  "summary_returncode": 0,
+  "ended_at": "2026-11-05T11:20:46.375992+08:00"
+}

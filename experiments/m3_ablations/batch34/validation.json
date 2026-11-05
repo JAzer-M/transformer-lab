@@ -1,0 +1,65 @@
+{
+  "source_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563",
+  "training_runs": 6,
+  "full_evaluations": 6,
+  "extrapolation_evaluations": 4,
+  "tokens_per_training": 100007936,
+  "tokens_per_full_evaluation": 5414547,
+  "tokens_per_extrapolation_half": 2706944,
+  "protected_old_tracked_files": 226,
+  "all_returncodes_zero": true,
+  "source_commits_clean": true,
+  "structure_fields_verified": true,
+  "old_results_prefix_preserved": true,
+  "old_progress_history_preserved": true,
+  "new_results_rows": 6,
+  "summary_matches_canonical_script_with_configs": true,
+  "independent_result_audit": "Codex m3_batch34_audit: no blocking findings; Claude review pending",
+  "Claude_review": "pending",
+  "commit_and_push_authorization": "User explicitly selected \u63d0\u4ea4\u5e76\u63a8\u9001\u5230 main in this chat",
+  "raw_runtime_and_archive_files_match": true,
+  "all_six_checkpoints_unchanged_by_evaluation": true,
+  "no_live_training_evaluation_or_gpu_monitor": true,
+  "old_source_and_old_experiment_files_unchanged_except_three_intended_docs": true,
+  "exactly_six_new_result_rows": true,
+  "gpu_sampling_intervals": {
+    "a3_swiglu/seed1337": {
+      "samples": 256,
+      "median_seconds": 5.002,
+      "max_seconds": 5.011
+    },
+    "a3_swiglu/seed2024": {
+      "samples": 254,
+      "median_seconds": 5.002,
+      "max_seconds": 5.021
+    },
+    "a1_sinusoidal/seed1337": {
+      "samples": 253,
+      "median_seconds": 5.002,
+      "max_seconds": 5.418
+    },
+    "a1_sinusoidal/seed2024": {
+      "samples": 254,
+      "median_seconds": 5.002,
+      "max_seconds": 5.021
+    },
+    "a1_rope/seed1337": {
+      "samples": 275,
+      "median_seconds": 5.002,
+      "max_seconds": 5.013
+    },
+    "a1_rope/seed2024": {
+      "samples": 274,
+      "median_seconds": 5.002,
+      "max_seconds": 5.007
+    }
+  },
+  "new_archive_file_count": 63,
+  "new_archive_bytes": 187195,
+  "independent_audit_recorded_at": "2026-11-05T11:59:38.937439+08:00",
+  "verification_access_interruption": {
+    "initial_attempt": "not executed: automatic approval review usage limit",
+    "resumed_attempt": "passed through normal approval flow after user requested continuation"
+  },
+  "approval_recorded_at": "2026-11-05T12:13:18.797078+08:00"
+}

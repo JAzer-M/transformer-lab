@@ -1,0 +1,12 @@
+{
+  "first_half_loss": 1.59251411655167,
+  "second_half_loss": 5.056366952398627,
+  "n_tokens_per_half": 2706944,
+  "pos_encoding": "sinusoidal",
+  "length": 1024,
+  "block_size": 512,
+  "ckpt": "runs/m3/a1_sinusoidal/seed2024/ckpt.pt",
+  "ckpt_step": 3052,
+  "device": "cuda",
+  "eval_commit": "6629ec8847f6446aa142979bbccd5e4e63a63563"
+}
