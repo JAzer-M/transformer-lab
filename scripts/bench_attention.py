@@ -30,6 +30,12 @@ def main() -> None:
     )
     parser.add_argument("--repeats", type=int, default=3, help="每项测几次，取中位数")
     parser.add_argument("--train-steps", type=int, default=20)
+    parser.add_argument(
+        "--generate-batch-size",
+        type=int,
+        default=1,
+        help="生成时同时生成几条；只影响生成吞吐和生成的显存峰值",
+    )
     parser.add_argument("--prompt-len", type=int, default=32)
     parser.add_argument(
         "--new-tokens",
@@ -56,6 +62,7 @@ def main() -> None:
             train_steps=args.train_steps,
             prompt_len=args.prompt_len,
             new_tokens=args.new_tokens,
+            generate_batch_size=args.generate_batch_size,
         ) | {"cooldown_seconds": args.cooldown}
         # 每测完一个就写一次，中途断了也不丢前面的结果
         table = render_table(results)

@@ -173,8 +173,14 @@ def bench_variant(
     train_steps: int,
     prompt_len: int,
     new_tokens: int,
+    generate_batch_size: int,
 ) -> dict[str, Any]:
-    """按配置建一个随机权重的模型，测完所有项。"""
+    """按配置建一个随机权重的模型，测完所有项。
+
+    generate_batch_size 只影响生成吞吐和生成的显存峰值，完整缓存的字节数始终按 B=1 算。
+    """
+    if generate_batch_size < 1:
+        raise ValueError(f"generate_batch_size 至少是 1，收到 {generate_batch_size}")
     # 窗口满了以后缓存每一步都要重建，测出来的就不是缓存的速度
     if prompt_len + new_tokens > config.block_size:
         raise ValueError(
@@ -184,7 +190,9 @@ def bench_variant(
     torch.manual_seed(config.seed)
     config_dict = asdict(config)
     model = GPT(gpt_config_from(config_dict, vocab_size)).to(device)
-    prompt = torch.randint(0, vocab_size, (1, prompt_len), device=device)  # (1, T)
+    prompt = torch.randint(
+        0, vocab_size, (generate_batch_size, prompt_len), device=device
+    )  # (B, T)，B 是 generate_batch_size
     temperature_start = gpu_temperature_c()
 
     train = median_of_runs(
@@ -209,6 +217,7 @@ def bench_variant(
         "train_steps": train_steps,
         "prompt_len": prompt_len,
         "new_tokens": new_tokens,
+        "generate_batch_size": generate_batch_size,
         "train": train,
         "generate_no_cache": no_cache,
         "generate_cache": cached,
@@ -229,6 +238,7 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
         "参数量",
         "训练 tokens/s",
         "训练峰值 MiB",
+        "生成 batch",
         "生成 tokens/s（无缓存）",
         "生成 tokens/s（有缓存）",
         "提速倍数",
@@ -248,6 +258,8 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             f"{r['n_params']:,}",
             _cell(r["train"]["tokens_per_sec"]),
             _cell(r["train"]["peak_memory_mb"]),
+            # 第 5 批的 bench.json 没有这个字段，当时都是 B=1
+            str(r.get("generate_batch_size", 1)),
             _cell(no_cache["tokens_per_sec"]),
             _cell(cached["tokens_per_sec"]),
             f"{speedup:.2f}",

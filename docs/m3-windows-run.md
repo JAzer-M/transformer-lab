@@ -240,3 +240,33 @@ uv run python scripts/bench_attention.py --configs configs/ablations/a0_control.
 - 预计耗时：6 次训练各约 23 分钟，共约 2.3 小时；短测约 15–20 分钟（以实测为准）。显存峰值估计：`a4_gqa2`、`a4_mqa` 不超过约 5.0 GB（k、v 变小，对照组实测 5.0 GB）；`a9_modern` 约 5.6 GB（SwiGLU 和 RMSNorm 的实测增量相加）。超过 7000 MiB 时在记录里提醒。
 - 提交与推送前先问用户。完成后告诉用户，由用户回到 Mac 让 Claude Code 核对。
 
+## 第 5 批补充：不同生成 batch 下的缓存速度（只有短测，不训练）
+
+本批由 Claude Code 于 2026-11-06 追加，对应分支 `m3-bench-batch`（短测脚本加 `--generate-batch-size`）。
+
+第 5 批的短测里，RTX 5060 上 B=1 时 KV 缓存基本不提速。推断是这张卡上 B=1 时时间主要花在每个操作的固定开销上，这一批用更大的 batch 和同一台机器的 CPU 来验证。结果无论是否符合推断都如实记录，不调参、不重测。
+
+- 前提：用户已把 `m3-bench-batch` 合并到 `main`，或指定了要用的分支。先 `git fetch origin && git switch <用户指定的分支> && git pull --ff-only`，再 `uv sync --locked`。
+- GPU 自检同第 1 批；单元测试 `uv run pytest -q`，预期 **367 passed**（Mac 上提交前实测），全部通过才继续。
+- 这一批不读存档和数据，也不需要 GPU 状态记录（脚本自己记录每次测量的温度）。开始前不要运行其他占用 GPU 或 CPU 的程序。
+- 依次运行下面两条命令。每个配置开始前默认空闲 60 秒。这一步要在改动任何已跟踪文件之前做：
+
+```bash
+mkdir -p experiments/m3_ablations/bench_batch && for B in 1 8 32; do uv run python scripts/bench_attention.py --configs configs/ablations/a0_control.yaml configs/ablations/a4_gqa2.yaml --generate-batch-size $B --repeats 5 --train-steps 5 --out experiments/m3_ablations/bench_batch/b$B.json 2>&1 | tee runs/m3_bench_b$B.txt; done
+```
+
+```bash
+uv run python scripts/bench_attention.py --configs configs/ablations/a0_control.yaml --device cpu --repeats 3 --train-steps 1 --out experiments/m3_ablations/bench_batch/cpu_b1.json 2>&1 | tee runs/m3_bench_cpu_b1.txt
+```
+
+- 核对：每个 json 的 `git_commit` 不带 `-dirty`。“完整缓存 MiB”一列（始终按 B=1 算）：GPU 上 `a0_control` 是 4.50、`a4_gqa2` 是 1.50，类型都是 `torch.bfloat16 / torch.bfloat16`；CPU 上是 fp32，`a0_control` 是 9.00，类型 `torch.float32 / torch.float32`。不对就停下汇报。速度和显存峰值如实记录，不作判断。
+- 通用规则 2 照常适用：出错、OOM 就立即停下汇报。B=32 时显存峰值应远低于训练时的 5 GB。
+- 收尾：在 `experiments/results.md` 追加一行，编号 `M3-bench-batch`（配置文件写 `scripts/bench_attention.py（a0_control、a4_gqa2；B=1、8、32；CPU B=1）`，commit 取自 json，种子写 1337，val loss 写 `—`，tokens/s 写 `a0_control` 在 B=32 时的“无缓存 / 有缓存”，显存峰值写同一条的有缓存生成峰值，结论写“详见 experiments/m3_ablations/bench_batch/”），并在 `PROGRESS.md` 追加署名 Codex 的记录，写明命令、设备和温度。不用重新生成 `SUMMARY.md`。
+
+```bash
+git add experiments/ PROGRESS.md && git commit -m "record M3 batch 5 supplement benchmark on RTX 5060" && git push
+```
+
+- 预计耗时：15–20 分钟（估算，以实测为准）。
+- 提交与推送前先问用户。完成后告诉用户，由用户回到 Mac 让 Claude Code 核对。
+

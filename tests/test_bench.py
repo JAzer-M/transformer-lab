@@ -175,6 +175,7 @@ def test_bench_variant_reports_every_item(monkeypatch: pytest.MonkeyPatch) -> No
         train_steps=2,
         prompt_len=4,
         new_tokens=4,
+        generate_batch_size=1,
     )
 
     # 短测用的是配置里的结构
@@ -205,6 +206,7 @@ def test_bench_variant_rejects_a_generation_that_would_rebuild_the_cache() -> No
             train_steps=1,
             prompt_len=8,
             new_tokens=9,
+            generate_batch_size=1,
         )
 
 
@@ -323,3 +325,155 @@ def test_script_cools_down_before_every_config(
     assert sleeps == [7.0, 7.0]
     results = json.loads(out.read_text(encoding="utf-8"))
     assert results["first"]["cooldown_seconds"] == 7.0
+
+
+def test_bench_variant_generates_with_the_requested_batch_size(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from tlab.eval import bench
+
+    real_generate = bench.generate
+    sent: list[list[tuple[int, ...]]] = []
+
+    def spying_generate(model, prompt, new_tokens, **kwargs):
+        # 记下这次生成每一步送进模型的形状 (B, T)
+        shapes: list[tuple[int, ...]] = []
+        hook = model.register_forward_pre_hook(
+            lambda _, args: shapes.append(tuple(args[0].shape))
+        )
+        out = real_generate(model, prompt, new_tokens, **kwargs)  # (B, T + new_tokens)
+        hook.remove()
+        sent.append(shapes)
+        return out
+
+    monkeypatch.setattr(bench, "generate", spying_generate)
+
+    result = bench.bench_variant(
+        tiny_config(),
+        vocab_size=11,
+        device=torch.device("cpu"),
+        repeats=1,
+        train_steps=1,
+        prompt_len=4,
+        new_tokens=3,
+        generate_batch_size=3,
+    )
+
+    # 先测不用缓存：每一步都送整段；再测用缓存：开头之后每步只送 1 个 token
+    assert sent == [[(3, 4), (3, 5), (3, 6)], [(3, 4), (3, 1), (3, 1)]]
+    assert result["generate_batch_size"] == 3
+
+
+@pytest.mark.parametrize("batch_size", [1, 3])
+def test_generate_batch_size_does_not_change_the_full_cache_size(
+    batch_size: int,
+) -> None:
+    from tlab.eval.bench import bench_variant
+
+    result = bench_variant(
+        tiny_config(n_kv_heads=2),
+        vocab_size=11,
+        device=torch.device("cpu"),
+        repeats=1,
+        train_steps=1,
+        prompt_len=4,
+        new_tokens=2,
+        generate_batch_size=batch_size,
+    )
+
+    # 这一项永远按 B=1 算，和第 5 批可比。手算：2 层 × 2 × 2 组 × T=16 × d=4 × 4 字节
+    assert result["cache_bytes_full_window"] == 2048
+
+
+@pytest.mark.parametrize("batch_size", [0, -1])
+def test_bench_variant_rejects_a_generate_batch_size_below_one(batch_size: int) -> None:
+    from tlab.eval.bench import bench_variant
+
+    with pytest.raises(ValueError, match="generate_batch_size"):
+        bench_variant(
+            tiny_config(),
+            vocab_size=11,
+            device=torch.device("cpu"),
+            repeats=1,
+            train_steps=1,
+            prompt_len=4,
+            new_tokens=2,
+            generate_batch_size=batch_size,
+        )
+
+
+def table_column(table: str, title: str) -> list[str]:
+    """取出 Markdown 表格里某一列的所有单元格（不含表头和分隔行）。"""
+    rows = [
+        [cell.strip() for cell in line.strip("|").split("|")]
+        for line in table.strip().splitlines()
+    ]
+    column = rows[0].index(title)
+    return [row[column] for row in rows[2:]]
+
+
+@pytest.mark.parametrize(
+    ("extra_args", "expected"), [([], 1), (["--generate-batch-size", "3"], 3)]
+)
+def test_script_passes_the_generate_batch_size_to_json_and_table(
+    tmp_path: Path, extra_args: list[str], expected: int
+) -> None:
+    config = tmp_path / "tiny.yaml"
+    config.write_text(
+        "n_layers: 1\nn_heads: 2\nd_model: 8\nblock_size: 8\nbatch_size: 2\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "bench.json"
+
+    done = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "bench_attention.py"),
+            "--configs",
+            str(config),
+            "--out",
+            str(out),
+            "--device",
+            "cpu",
+            "--vocab-size",
+            "11",
+            "--repeats",
+            "1",
+            "--train-steps",
+            "1",
+            "--prompt-len",
+            "2",
+            "--new-tokens",
+            "2",
+            "--cooldown",
+            "0",
+            *extra_args,
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert done.returncode == 0, done.stderr
+    results = json.loads(out.read_text(encoding="utf-8"))
+    assert results["tiny"]["generate_batch_size"] == expected
+    table = out.with_suffix(".md").read_text(encoding="utf-8")
+    assert table_column(table, "生成 batch") == [str(expected)]
+
+
+def test_table_counts_results_without_the_field_as_batch_size_one() -> None:
+    from tlab.eval.bench import bench_variant, render_table
+
+    result = bench_variant(
+        tiny_config(),
+        vocab_size=11,
+        device=torch.device("cpu"),
+        repeats=1,
+        train_steps=1,
+        prompt_len=4,
+        new_tokens=2,
+        generate_batch_size=1,
+    )
+    # 第 5 批的 bench.json 没有这个字段，当时都是 B=1
+    del result["generate_batch_size"]
+
+    assert table_column(render_table({"old": result}), "生成 batch") == ["1"]
