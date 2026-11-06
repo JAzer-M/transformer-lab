@@ -4,22 +4,27 @@
 
 ## 当前状态
 
-更新时间：2026-11-06 21:21（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-06 22:24（Asia/Hong_Kong，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M3：A1–A4 与组合的训练结果已齐并经 Claude 核对；m3-bench-batch 已合并；第 5 批补充（生成 batch 短测）等 Codex 执行；第 6 步未开始 |
-| 本轮范围 | 提交 m3-bench-batch，合并到 main 并推送（用户回复“提交合并并推送”）；Codex 第 5 批补充尚未开始 |
-| 实现方 / 审查方 | 第 5 批：Codex 执行，其只读子 agent（m3_batch5_audit）复核；Claude 从原始文件另行核对，未发现问题，也审查了 Codex 的测试修复 ca964f7 |
-| 分支 / 来源 | main 快进到 m3-bench-batch，两者一同推送，从 main f9ecdfb 分出；哈希以 git log 为准 |
-| 预算与前置 | 每次3052步、100,007,936 token；正式前置359 passed in15.06s、CUDA分配和M2数据SHA通过；295个旧跟踪文件在全部运行结束前未变 |
-| 完整验证 | 每次5,414,547目标token、step3052、CUDA/bf16；GQA-2均值1.591322，MQA1.592267，组合1.502256（仅整体参考） |
-| 短测 | 9配置，60秒降温，3次中位数，总耗时877.768s；完整缓存尺寸/类型核对通过，全部测量与温度见bench.json/md |
-| 归档与解释 | 见BATCH5_REPORT与batch5/；results仅追加7行；组合不作单变量归因，长训练吞吐不作速度结论，短测实数不调参重跑 |
-| 代码检查 | m3-bench-batch（Mac，提交前）：367 passed，ruff 通过；导出到没有 data、runs、experiments、.git 的目录后 367 passed。没有在 RTX 5060 上跑过 |
-| 下一步 | 用户让 Codex 在 main 上跑手册“第 5 批补充”（只有短测，不训练）；回传后 Claude 核对；之后第 6 步：汇总表、loss 曲线、生成样例、README 初版，M3 自测统一进行 |
+| 项目阶段 | M3第5批补充已完成；此前A1–A4与组合训练结果已由Claude核对；第6步未开始 |
+| 本轮范围 | 只有短测：GPU a0_control/a4_gqa2的B=1、8、32；CPU a0_control的B=1；4条命令、7个配置结果、99次测量 |
+| 实现方 / 审查方 | Claude提供脚本/手册，Codex执行；执行者已完成99次测量及文件核对；独立只读复核因会话中断未完成，用户已明确要求直接提交；Claude本批审查待进行 |
+| 来源 | main / 4e6bb179f182d9c65d4ba7e828c84810117f7b5e，7个结果来源均干净；360个跟踪文件在全部短测结束前未变 |
+| 前置 | uv sync --locked、CUDA分配通过；367 passed in20.85s；RTX5060 Laptop、PyTorch2.9.1+cu128/CUDA12.8 |
+| 执行 | GPU每项5次/train-steps5；CPU每项3次/train-steps1；prompt32+新增480，每配置60秒降温；4条命令退出0，总耗时879.062s |
+| 缓存 | GPU对照4.50MiB/GQA-2 1.50MiB，k/v均bf16；CPU对照9.00MiB，k/v均fp32；完整缓存按B=1核对 |
+| 归档 | bench_batch/REPORT.md及原始JSON/MD/日志；results只追加1行，原bench.json/md与SUMMARY保持原文 |
+| 结果记录 | B=32对照生成无缓存1156.58/有缓存7866.12tokens/s，有缓存生成峰值267.01MiB；其余实数见报告 |
+| 温度 | GPU90次测量起始温度53.5–86.3°C；CPU项温度字段为GPU温度，CPU温度未测 |
+| 下一步 | 按用户明确要求提交并发布main供Claude核对；第6步另按安排执行 |
 
 ## 当前任务与下一步
+
+- 2026-11-06 22:24：用户明确要求“请直接提交，因为没有额度了”。按本次授权直接提交并按既定流程发布main；独立复核中断未完成，执行者已完成99次测量及文件核对；Claude本批审查待进行。
+
+- 2026-11-06 22:10：第5批补充4条短测/99次测量完成，原始结果已归档，独立结果复核及用户提交推送确认待进行。
 
 - 2026-11-06 21:21：m3-bench-batch 已提交、合并到 main 并推送，等 Codex 跑第 5 批补充。
 - 2026-11-06 21:19：m3-bench-batch 写完，367 passed，等用户同意提交。
@@ -1427,6 +1432,24 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 审查状态：只有 Claude 自查（用户确认不开审查子 agent）；Codex 未审查。
 - 学习状态：M3 结束时统一提问，含 `docs/self-test-qa.md` 第 31–33 题。
 - 下一步：用户让 Codex 跑第 5 批补充。
+
+### 2026-11-06 22:10｜Codex｜M3第5批补充短测
+
+- 来源main 4e6bb179f182d9c65d4ba7e828c84810117f7b5e；RTX5060 Laptop及同机i7-14650HX，自检时PyTorch默认12线程。按手册依次执行以下4条命令（uv使用已确认绝对路径）：
+
+`/home/j/.local/bin/uv run python scripts/bench_attention.py --configs configs/ablations/a0_control.yaml configs/ablations/a4_gqa2.yaml --generate-batch-size 1 --repeats 5 --train-steps 5 --out experiments/m3_ablations/bench_batch/b1.json`
+
+`/home/j/.local/bin/uv run python scripts/bench_attention.py --configs configs/ablations/a0_control.yaml configs/ablations/a4_gqa2.yaml --generate-batch-size 8 --repeats 5 --train-steps 5 --out experiments/m3_ablations/bench_batch/b8.json`
+
+`/home/j/.local/bin/uv run python scripts/bench_attention.py --configs configs/ablations/a0_control.yaml configs/ablations/a4_gqa2.yaml --generate-batch-size 32 --repeats 5 --train-steps 5 --out experiments/m3_ablations/bench_batch/b32.json`
+
+`/home/j/.local/bin/uv run python scripts/bench_attention.py --configs configs/ablations/a0_control.yaml --device cpu --repeats 3 --train-steps 1 --out experiments/m3_ablations/bench_batch/cpu_b1.json`
+
+- 4条命令退出0，7个配置结果/99次测量，总耗时879.062s；每配置60秒降温，缓存检查全部通过。GPU测量起始温度53.5–86.3°C；CPU项读取GPU温度60.1–62.9°C，CPU温度未测。
+- CUDA分配通过，367 passed in20.85s。启动器两次设置错误均在规定命令启动前，见launcher_setup_failures.json；正式短测没有重测，运行期间360个跟踪文件未变。
+- results只追加M3-bench-batch一行（B=32对照1156.58/7866.12tokens/s，缓存生成峰值267.01MiB）；SUMMARY及原bench.json/md保持原文。所有实数与证据见bench_batch/REPORT.md。
+- 执行者已完成99次测量及文件核对；独立只读复核因会话中断未完成，用户已明确要求直接提交；Claude本批审查待进行。用户随后已明确要求直接提交（见当前任务新增授权记录）；第6步未开始。
+
 
 ## 后续交接模板
 

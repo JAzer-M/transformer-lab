@@ -1,0 +1,10 @@
+{
+  "errors": [
+    "FileNotFoundError: [Errno 2] No such file or directory: 'uv'",
+    "SyntaxError: '{' was never closed (inline diagnostic only; no code executed)"
+  ],
+  "gpu_self_check_started": false,
+  "pytest_started": false,
+  "benchmark_started": false,
+  "correction": "use file-based launcher with verified /home/j/.local/bin/uv absolute path"
+}

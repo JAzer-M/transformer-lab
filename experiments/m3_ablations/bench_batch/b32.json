@@ -1,0 +1,286 @@
+{
+  "a0_control": {
+    "config": {
+      "data_dir": "data/tinystories",
+      "out_dir": "runs/m3/a0_control/seed1337",
+      "n_layers": 6,
+      "n_heads": 6,
+      "d_model": 384,
+      "block_size": 512,
+      "batch_size": 32,
+      "learning_rate": 0.0006,
+      "weight_decay": 0.01,
+      "max_iters": 3052,
+      "grad_accum_steps": 2,
+      "grad_clip": 1.0,
+      "lr_schedule": "cosine",
+      "warmup_iters": 92,
+      "min_lr": 6e-05,
+      "norm": "layernorm",
+      "norm_position": "pre",
+      "mlp": "gelu",
+      "pos_encoding": "learned",
+      "rope_theta": 10000.0,
+      "n_kv_heads": null,
+      "ckpt_interval": 1000,
+      "resume": false,
+      "eval_interval": 250,
+      "eval_iters": 20,
+      "seed": 1337,
+      "device": "auto"
+    },
+    "git_commit": "4e6bb179f182d9c65d4ba7e828c84810117f7b5e",
+    "n_params": 13969152,
+    "device": "cuda",
+    "repeats": 5,
+    "train_steps": 5,
+    "prompt_len": 32,
+    "new_tokens": 480,
+    "generate_batch_size": 32,
+    "train": {
+      "tokens_per_sec": 87481.88767447688,
+      "peak_memory_mb": 4750.291015625,
+      "runs": [
+        {
+          "tokens_per_sec": 87481.88767447688,
+          "peak_memory_mb": 4750.291015625,
+          "temperature_c": 58.7
+        },
+        {
+          "tokens_per_sec": 88686.27433656789,
+          "peak_memory_mb": 4750.291015625,
+          "temperature_c": 70.3
+        },
+        {
+          "tokens_per_sec": 87440.0747827823,
+          "peak_memory_mb": 4750.291015625,
+          "temperature_c": 70.9
+        },
+        {
+          "tokens_per_sec": 87794.15432343745,
+          "peak_memory_mb": 4750.291015625,
+          "temperature_c": 71.6
+        },
+        {
+          "tokens_per_sec": 85286.31085909925,
+          "peak_memory_mb": 4750.291015625,
+          "temperature_c": 73.3
+        }
+      ]
+    },
+    "generate_no_cache": {
+      "tokens_per_sec": 1156.5807346027987,
+      "peak_memory_mb": 662.30029296875,
+      "runs": [
+        {
+          "tokens_per_sec": 1131.3204629577565,
+          "peak_memory_mb": 662.30029296875,
+          "temperature_c": 75.0
+        },
+        {
+          "tokens_per_sec": 1163.9383580246115,
+          "peak_memory_mb": 662.30029296875,
+          "temperature_c": 78.9
+        },
+        {
+          "tokens_per_sec": 1163.3291241843804,
+          "peak_memory_mb": 662.30029296875,
+          "temperature_c": 82.1
+        },
+        {
+          "tokens_per_sec": 1156.5807346027987,
+          "peak_memory_mb": 662.30029296875,
+          "temperature_c": 84.2
+        },
+        {
+          "tokens_per_sec": 1116.430872073926,
+          "peak_memory_mb": 662.30029296875,
+          "temperature_c": 85.5
+        }
+      ]
+    },
+    "generate_cache": {
+      "tokens_per_sec": 7866.120453026725,
+      "peak_memory_mb": 267.0078125,
+      "runs": [
+        {
+          "tokens_per_sec": 4210.672166870996,
+          "peak_memory_mb": 267.0078125,
+          "temperature_c": 86.3
+        },
+        {
+          "tokens_per_sec": 6508.503439829022,
+          "peak_memory_mb": 267.0078125,
+          "temperature_c": 80.5
+        },
+        {
+          "tokens_per_sec": 8616.363077976694,
+          "peak_memory_mb": 267.0078125,
+          "temperature_c": 79.5
+        },
+        {
+          "tokens_per_sec": 8991.786622861586,
+          "peak_memory_mb": 267.0078125,
+          "temperature_c": 80.3
+        },
+        {
+          "tokens_per_sec": 7866.120453026725,
+          "peak_memory_mb": 267.0078125,
+          "temperature_c": 80.5
+        }
+      ]
+    },
+    "cache_bytes_full_window": 4718592,
+    "cache_dtype": {
+      "k": "torch.bfloat16",
+      "v": "torch.bfloat16"
+    },
+    "temperature_c": {
+      "start": 56.7,
+      "end": 79.8
+    },
+    "cooldown_seconds": 60
+  },
+  "a4_gqa2": {
+    "config": {
+      "data_dir": "data/tinystories",
+      "out_dir": "runs/m3/a4_gqa2/seed1337",
+      "n_layers": 6,
+      "n_heads": 6,
+      "d_model": 384,
+      "block_size": 512,
+      "batch_size": 32,
+      "learning_rate": 0.0006,
+      "weight_decay": 0.01,
+      "max_iters": 3052,
+      "grad_accum_steps": 2,
+      "grad_clip": 1.0,
+      "lr_schedule": "cosine",
+      "warmup_iters": 92,
+      "min_lr": 6e-05,
+      "norm": "layernorm",
+      "norm_position": "pre",
+      "mlp": "gelu",
+      "pos_encoding": "learned",
+      "rope_theta": 10000.0,
+      "n_kv_heads": 2,
+      "ckpt_interval": 1000,
+      "resume": false,
+      "eval_interval": 250,
+      "eval_iters": 20,
+      "seed": 1337,
+      "device": "auto"
+    },
+    "git_commit": "4e6bb179f182d9c65d4ba7e828c84810117f7b5e",
+    "n_params": 12789504,
+    "device": "cuda",
+    "repeats": 5,
+    "train_steps": 5,
+    "prompt_len": 32,
+    "new_tokens": 480,
+    "generate_batch_size": 32,
+    "train": {
+      "tokens_per_sec": 87028.96886606446,
+      "peak_memory_mb": 4731.916015625,
+      "runs": [
+        {
+          "tokens_per_sec": 87387.25543946671,
+          "peak_memory_mb": 4731.916015625,
+          "temperature_c": 58.9
+        },
+        {
+          "tokens_per_sec": 87028.96886606446,
+          "peak_memory_mb": 4731.916015625,
+          "temperature_c": 72.0
+        },
+        {
+          "tokens_per_sec": 86731.21432958433,
+          "peak_memory_mb": 4731.916015625,
+          "temperature_c": 72.5
+        },
+        {
+          "tokens_per_sec": 87342.06936984613,
+          "peak_memory_mb": 4731.916015625,
+          "temperature_c": 73.8
+        },
+        {
+          "tokens_per_sec": 86231.3016456592,
+          "peak_memory_mb": 4731.916015625,
+          "temperature_c": 73.8
+        }
+      ]
+    },
+    "generate_no_cache": {
+      "tokens_per_sec": 1196.83148420508,
+      "peak_memory_mb": 657.77685546875,
+      "runs": [
+        {
+          "tokens_per_sec": 1196.83148420508,
+          "peak_memory_mb": 657.77685546875,
+          "temperature_c": 76.0
+        },
+        {
+          "tokens_per_sec": 1200.458945020842,
+          "peak_memory_mb": 657.77685546875,
+          "temperature_c": 80.4
+        },
+        {
+          "tokens_per_sec": 1197.2129837637647,
+          "peak_memory_mb": 657.77685546875,
+          "temperature_c": 83.2
+        },
+        {
+          "tokens_per_sec": 1187.9040600895771,
+          "peak_memory_mb": 657.77685546875,
+          "temperature_c": 85.3
+        },
+        {
+          "tokens_per_sec": 1177.7578333451484,
+          "peak_memory_mb": 657.77685546875,
+          "temperature_c": 85.0
+        }
+      ]
+    },
+    "generate_cache": {
+      "tokens_per_sec": 8348.189509960603,
+      "peak_memory_mb": 166.92724609375,
+      "runs": [
+        {
+          "tokens_per_sec": 8338.062379046529,
+          "peak_memory_mb": 166.92724609375,
+          "temperature_c": 86.3
+        },
+        {
+          "tokens_per_sec": 8160.905166796348,
+          "peak_memory_mb": 166.92724609375,
+          "temperature_c": 81.1
+        },
+        {
+          "tokens_per_sec": 8359.71618397825,
+          "peak_memory_mb": 166.92724609375,
+          "temperature_c": 80.7
+        },
+        {
+          "tokens_per_sec": 8348.189509960603,
+          "peak_memory_mb": 166.92724609375,
+          "temperature_c": 80.7
+        },
+        {
+          "tokens_per_sec": 8423.48538403374,
+          "peak_memory_mb": 166.92724609375,
+          "temperature_c": 80.0
+        }
+      ]
+    },
+    "cache_bytes_full_window": 1572864,
+    "cache_dtype": {
+      "k": "torch.bfloat16",
+      "v": "torch.bfloat16"
+    },
+    "temperature_c": {
+      "start": 58.9,
+      "end": 80.2
+    },
+    "cooldown_seconds": 60
+  }
+}

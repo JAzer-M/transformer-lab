@@ -1,0 +1,107 @@
+{
+  "source_commit": "4e6bb179f182d9c65d4ba7e828c84810117f7b5e",
+  "benchmark_commands": 4,
+  "variant_results": 7,
+  "gpu_measurements": 90,
+  "cpu_measurements": 9,
+  "total_measurements": 99,
+  "benchmark_returncodes": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "elapsed_seconds_including_cooldown": 879.062194,
+  "pytest": "367 passed in 20.85s",
+  "all_configs_and_source_commits_match": true,
+  "all_cache_sizes_and_dtypes_match": true,
+  "all_medians_verified_from_raw_runs": true,
+  "raw_archive_sha256": {
+    "b1.json": "b5daafa8e04ab99021e41d4fb89eea52804af6fbc94a0c096a6b5bda401e30eb",
+    "b1.md": "2899580676ac6c479c7af25ae3da66e432f9d937da70eb1deb5c629bc035b0f1",
+    "b1_console.txt": "05976238a9e680c5a4c50f668c62a529b83f15cba283d360e0c6424126c308fe",
+    "b32.json": "e3fd005f231b2e6f4ba23f6f8504eb5de30369274fddcae14ab53fa674d077ee",
+    "b32.md": "c4b3e372fbeebba9d92525fb200a2be5fff77cfd003e5ed323a13629c62acec9",
+    "b32_console.txt": "e0ec3f69ad2f56bb26d29f1eb920319070ff639e3daf0c58cf3c692efe56c837",
+    "b8.json": "d69cb1dd69da7a2b3f798d03e8490e5320f3f941c10e2ebc781a5a959bf08ca9",
+    "b8.md": "92ac6ec779eb5e35296e9a57fd8a8c34f04a5cb3e9f993b9834eee94367fbfa3",
+    "b8_console.txt": "0694e19240424804a49b59d46b0e46f3de849d6bee1bb8195f891c068f7703be",
+    "cpu_b1.json": "f9fa281970bb532b5e2f606eae6f073b53a692b9a53956bd566007eaa8c4b067",
+    "cpu_b1.md": "e62b2a6a4a092bc310748394daf7ffc86a495a0ee118ab6011b24f0fc6477507",
+    "cpu_b1_console.txt": "d5e18a6c19e820f6491c1f48812dd3b91afc474355e79e674bdd14e94befc2d4",
+    "execution_status.json": "4b73cbd51b3fd18d32068117370654396fcc8a46b0269302582c4ee7f807afe5",
+    "gpu_self_check.txt": "d103bf1f3f0887601e5729a71353ac20f1c1fcd520098aaa2aaf29f72d7d49e5",
+    "launcher_setup_failures.json": "fc3ce4fb1132948e38e092d4ce8bc2b9eb5406f93ff93b1c915f072a30cd8b40",
+    "preflight.json": "34c5feef6e124b3e0f2a4023ee85b49ecb2b066db12496502d6d97231d84f0cd",
+    "pytest.txt": "8363921ab57e47154b42b350b947303b899ca4b15a080237c68ad1210cfc44f5",
+    "tracked_before.json": "0bc977e64a32fb49f50f55712124b09efef2a8c3656aa8feca25671bfdb6a8e4"
+  },
+  "temperatures": {
+    "b1/a0_control": {
+      "start": 51.5,
+      "end": 64.4,
+      "minimum": 53.5,
+      "maximum": 68.7,
+      "missing": 0
+    },
+    "b1/a4_gqa2": {
+      "start": 54.1,
+      "end": 65.3,
+      "minimum": 54.1,
+      "maximum": 71.6,
+      "missing": 0
+    },
+    "b8/a0_control": {
+      "start": 54.5,
+      "end": 70.0,
+      "minimum": 57.1,
+      "maximum": 78.8,
+      "missing": 0
+    },
+    "b8/a4_gqa2": {
+      "start": 56.5,
+      "end": 71.2,
+      "minimum": 56.5,
+      "maximum": 80.4,
+      "missing": 0
+    },
+    "b32/a0_control": {
+      "start": 56.7,
+      "end": 79.8,
+      "minimum": 58.7,
+      "maximum": 86.3,
+      "missing": 0
+    },
+    "b32/a4_gqa2": {
+      "start": 58.9,
+      "end": 80.2,
+      "minimum": 58.9,
+      "maximum": 86.3,
+      "missing": 0
+    },
+    "cpu_b1/a0_control": {
+      "start": 59.2,
+      "end": 60.2,
+      "minimum": 60.1,
+      "maximum": 62.9,
+      "missing": 0
+    }
+  },
+  "temperature_sensor": "GPU nvidia-smi, including CPU item",
+  "protected_tracked_files_during_benchmarks": 360,
+  "allowed_old_document_updates": [
+    "PROGRESS.md",
+    "experiments/results.md"
+  ],
+  "results_rows_appended": 1,
+  "original_bench_and_summary_unchanged": true,
+  "benchmark_reruns": 0,
+  "launcher_setup_errors_before_required_commands": 2,
+  "new_archive_files": 20,
+  "delivery_files": 22,
+  "independent_result_audit": "Interrupted before completion; user requested direct commit; executor verified all 99 measurements and delivery files",
+  "Claude_review": "pending",
+  "commit_and_push": "User explicitly requested \u8bf7\u76f4\u63a5\u63d0\u4ea4 in chat; publish main using the established handoff workflow",
+  "independent_audit_completed": false,
+  "direct_commit_authorized_at": "2026-11-06T22:24:35.304855+08:00"
+}

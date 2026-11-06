@@ -27,3 +27,4 @@
 | 2026-11-06 | M3-a9_modern-s1337 | configs/ablations/a9_modern.yaml（seed=1337） | ca964f766726708765e244e3829365e946fe5f9b | 1337 | val 1.5082（完整验证集 1.5001） | 70359 | 5561 MB | 组合仅作参考，不作单变量归因；未见发散 |
 | 2026-11-06 | M3-a9_modern-s2024 | configs/ablations/a9_modern.yaml（seed=2024） | ca964f766726708765e244e3829365e946fe5f9b | 2024 | val 1.4922（完整验证集 1.5044） | 70504 | 5561 MB | 组合仅作参考，不作单变量归因；未见发散 |
 | 2026-11-06 | M3-bench | scripts/bench_attention.py（9 个配置） | ca964f766726708765e244e3829365e946fe5f9b | 1337 | — | 330 / 223 | 102.62 MB | 详见 experiments/m3_ablations/bench.md |
+| 2026-11-06 | M3-bench-batch | scripts/bench_attention.py（a0_control、a4_gqa2；B=1、8、32；CPU B=1） | 4e6bb179f182d9c65d4ba7e828c84810117f7b5e | 1337 | — | 1156.58 / 7866.12 | 267.01 MiB | 详见 experiments/m3_ablations/bench_batch/ |

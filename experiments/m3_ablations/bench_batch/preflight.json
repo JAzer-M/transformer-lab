@@ -1,0 +1,90 @@
+{
+  "source_commit": "4e6bb179f182d9c65d4ba7e828c84810117f7b5e",
+  "started_at": "2026-11-06T21:53:08.914232+08:00",
+  "state": "passed",
+  "checks": [
+    {
+      "command": [
+        "/home/j/.local/bin/uv",
+        "run",
+        "python",
+        "-c",
+        "import os,torch; print(torch.__version__,torch.version.cuda,torch.cuda.get_device_name(0)); torch.randn(1).cuda(); print('CUDA allocation OK'); print('CPU count',os.cpu_count(),'torch threads',torch.get_num_threads()); assert torch.version.cuda is not None and tuple(map(int,torch.version.cuda.split('.'))) >= (12,8); assert 'RTX 5060' in torch.cuda.get_device_name(0)"
+      ],
+      "returncode": 0,
+      "log": "gpu_self_check.txt"
+    },
+    {
+      "command": [
+        "/home/j/.local/bin/uv",
+        "run",
+        "pytest",
+        "-q"
+      ],
+      "returncode": 0,
+      "log": "pytest.txt"
+    }
+  ],
+  "expected_configs": {
+    "a0_control": {
+      "data_dir": "data/tinystories",
+      "out_dir": "runs/m3/a0_control/seed1337",
+      "n_layers": 6,
+      "n_heads": 6,
+      "d_model": 384,
+      "block_size": 512,
+      "batch_size": 32,
+      "learning_rate": 0.0006,
+      "weight_decay": 0.01,
+      "max_iters": 3052,
+      "grad_accum_steps": 2,
+      "grad_clip": 1.0,
+      "lr_schedule": "cosine",
+      "warmup_iters": 92,
+      "min_lr": 6e-05,
+      "norm": "layernorm",
+      "norm_position": "pre",
+      "mlp": "gelu",
+      "pos_encoding": "learned",
+      "rope_theta": 10000.0,
+      "n_kv_heads": null,
+      "ckpt_interval": 1000,
+      "resume": false,
+      "eval_interval": 250,
+      "eval_iters": 20,
+      "seed": 1337,
+      "device": "auto"
+    },
+    "a4_gqa2": {
+      "data_dir": "data/tinystories",
+      "out_dir": "runs/m3/a4_gqa2/seed1337",
+      "n_layers": 6,
+      "n_heads": 6,
+      "d_model": 384,
+      "block_size": 512,
+      "batch_size": 32,
+      "learning_rate": 0.0006,
+      "weight_decay": 0.01,
+      "max_iters": 3052,
+      "grad_accum_steps": 2,
+      "grad_clip": 1.0,
+      "lr_schedule": "cosine",
+      "warmup_iters": 92,
+      "min_lr": 6e-05,
+      "norm": "layernorm",
+      "norm_position": "pre",
+      "mlp": "gelu",
+      "pos_encoding": "learned",
+      "rope_theta": 10000.0,
+      "n_kv_heads": 2,
+      "ckpt_interval": 1000,
+      "resume": false,
+      "eval_interval": 250,
+      "eval_iters": 20,
+      "seed": 1337,
+      "device": "auto"
+    }
+  },
+  "finished_at": "2026-11-06T21:53:35.021805+08:00",
+  "protected_tracked_files": 360
+}
