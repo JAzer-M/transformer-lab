@@ -4,22 +4,22 @@
 
 ## 当前状态
 
-更新时间：2026-11-06 15:41（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-06 17:24（Asia/Hong_Kong，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M2 已验收并合并。M3：第 1–4 步代码已合并；第 1–4 批结果已回传并经 Claude 核对；第 5 批（A4、组合、短测）等 Codex 执行 |
-| 本轮范围 | 提交 m3-attn，合并到 main 并推送（用户回复“提交合并并推送”）；Codex 第 5 批尚未开始 |
-| 实现方 / 审查方 | m3-attn：用户手写 GQA 与 RoPE 偏移，其余由 Claude 写；提交前由 Claude 的两个只读子 agent 审查（规范、需求），不是 Codex 审查。第 3、4 批：Codex 执行，其只读子 agent 复核，Claude 另行核对 |
-| 分支 / 来源 | main 快进到 m3-attn，两者一同推送，从 main 47a0d26 分出；哈希以 git log 为准 |
-| 配置与预算 | 每次3052步、100,007,936 token，6e-4→6e-5，CLI只覆盖seed/out_dir；mlp及pos_encoding逐次核对 |
-| 本次前置验证 | m3-attn（Mac，提交前）：359 passed，ruff 通过；导出到没有 data、runs、.git 的目录后 359 passed；tiny_smoke、tinystories_smoke 的 metrics.csv 与 main 逐字相同。没有在 GPU 上跑过 |
-| 完整验证与外推 | 每次完整val 5,414,547目标token；外推1024，每半段2,706,944目标token，全部step3052、CUDA/bf16、退出0 |
-| 第 3、4 批结果 | 完整验证集均值：对照 1.5799；SwiGLU 1.5460（-0.0339，更好）；正弦 1.5935（+0.0136，更差）；RoPE 1.5277（-0.0523，更好）。1024 外推后半段均值：正弦 4.9907，RoPE 2.2131。详见 experiments/m3_ablations/BATCH34_REPORT.md 与 SUMMARY.md |
-| 解释边界 | 结论只适用于 1 亿 token 的预算；外推前后差同时包含位置与上下文变化；长训练吞吐不作速度结论（RoPE 那两次的平均 GPU 频率也较低），速度等短测 |
-| 下一步 | 用户让 Codex 在 main 上跑手册第 5 批（`a4_gqa2`、`a4_mqa`、`a9_modern` 各 2 个种子，外加短测）；回传后 Claude 核对；之后第 6 步：汇总表、loss 曲线、生成样例、README 初版，M3 自测统一进行 |
+| 项目阶段 | M2已验收；M3第1–4批已回传并经Claude核对。第5批前置测试隔离问题已修复，359项通过；正式训练与短测尚未开始 |
+| 本轮范围 | tests/test_bench.py仅新增SimpleNamespace导入、局部替换被测脚本的time引用；全部断言、模型实现、训练配置和正式60秒降温保持原文 |
+| 实现方 / 审查方 | 用户已授权Codex修复、验证并提交推送main后继续训练；本修复经Codex只读子agent（m3_batch5_audit）复核，无阻塞；Claude此修复尚未审查 |
+| 分支 / 来源 | codex/fix-benchmark-cooldown-test，基于0d1dc7ce3383a2f87b76cfaeb712b1088a483a8a；推送后以干净main作为正式训练来源 |
+| 原始前置失败 | WSL：1 failed,358 passed in15.84s；唯一失败为降温测试捕获了共享time.sleep中的子进程等待，原始日志保留 |
+| 修复后本次验证 | Ubuntu：uv run pytest -q，359 passed in16.94s；ruff check tests/test_bench.py及format --check均通过；未改任何断言 |
+| 运行环境 | Ubuntu/WSL2、RTX5060 Laptop 8151MiB、PyTorch2.9.1+cu128/CUDA12.8；CUDA分配已通过，桌面可见终端已打开 |
+| 下一步 | 独立复核通过，按已获授权提交推送测试修复；再做干净来源前置检查并严格执行手册第5批6次训练、6次完整验证及9配置短测；本批结果发布另按手册确认 |
 
 ## 当前任务与下一步
+
+- 2026-11-06 17:24：第5批前置测试隔离修复完成，359项通过，独立复核通过；用户已授权提交推送修复后继续训练，正式训练尚未启动。
 
 - 2026-11-06 15:41：m3-attn 已提交、合并到 main 并推送，等 Codex 跑第 5 批。
 - 2026-11-06 15:38：m3-attn 提交前审查已修，359 passed，等用户同意提交。
@@ -1347,6 +1347,16 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 审查状态：Claude 的两个只读子 agent 已审查；Codex 未审查。
 - 学习状态：M3 结束时统一提问，含 `docs/self-test-qa.md` 第 31–33 题。
 - 下一步：用户让 Codex 跑第 5 批。
+
+### 2026-11-06 17:24（UTC+08:00）｜Codex｜第5批前置测试隔离修复
+
+- 范围与授权：用户明确选择“由你修复、验证并推送后继续训练”，只应用已展示的两处tests/test_bench.py补丁；模型、训练循环、配置与全部测试断言原文不变。
+- 来源与问题：Ubuntu /home/j/transformer-lab，codex/fix-benchmark-cooldown-test基于0d1dc7c；原前置uv sync及CUDA通过，pytest1失败358通过，15.84s。降温测试改动共享time.sleep，nvidia-smi子进程的POSIX等待也被捕获；Mac缺少nvidia-smi时未暴露。
+- 改动：from types导入SimpleNamespace；将全局sleep属性替换改为仅替换script.time引用。正式脚本60秒降温和每项3次测量保持原文。
+- 本次验证：完整pytest359 passed in16.94s；ruff check tests/test_bench.py、ruff format --check tests/test_bench.py均退出0。先前内存隔离诊断与原始失败记录分开保留，不当作正式套件通过。原始日志runs/m3_batch5_20261106/03-pytest.txt，修复日志04-fix-pytest.txt，均未覆盖。
+- 运行与保护：尚未启动正式训练、完整验证或9配置短测；数据/词表未改。曾有WSL服务临时错误，只清理agent自己挂起的客户端，正常启动后恢复Running；未重启服务、未终止用户实例。桌面Ubuntu终端已显示本轮检查日志。
+- 审查状态：Codex只读子agent（m3_batch5_audit）已复核实际差异、32个不变的断言AST及359项通过证据，无阻塞；Claude尚未审查本修复。提交推送修复已获用户明确授权；第5批结果未来发布另按手册确认。
+- 下一步：复核后提交并推送修复main，保留失败证据，再从干净提交执行第5批。不得跳过359项前置，不自行调参或重跑已完成批次；M3自测仍留到第6步统一进行。
 
 ## 后续交接模板
 

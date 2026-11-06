@@ -2,6 +2,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import torch
@@ -290,7 +291,7 @@ def test_script_cools_down_before_every_config(
     script = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(script)
     sleeps: list[float] = []
-    monkeypatch.setattr(script.time, "sleep", sleeps.append)
+    monkeypatch.setattr(script, "time", SimpleNamespace(sleep=sleeps.append))
     monkeypatch.setattr(
         sys,
         "argv",
