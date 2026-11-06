@@ -1,0 +1,111 @@
+{
+  "source_commit": "ca964f766726708765e244e3829365e946fe5f9b",
+  "training_runs": 6,
+  "full_evaluations": 6,
+  "benchmark_configurations": 9,
+  "benchmark_repeats_per_kind": 3,
+  "benchmark_measurements": 81,
+  "tokens_per_training": 100007936,
+  "tokens_per_full_evaluation": 5414547,
+  "protected_old_tracked_files": 295,
+  "all_returncodes_zero": true,
+  "source_commits_clean": true,
+  "structure_fields_verified": true,
+  "old_results_prefix_preserved": true,
+  "old_progress_history_preserved": true,
+  "new_results_rows": 7,
+  "summary_matches_canonical_script_with_configs": true,
+  "benchmark_cache_sizes_and_dtypes_match_runbook": true,
+  "independent_result_audit": "Codex m3_batch5_audit: final raw evidence and documents passed; no findings or blockers; Claude review pending",
+  "Claude_review": "pending",
+  "commit_and_push_authorization": "User explicitly requested \u6838\u5bf9\u4e00\u4e0b\u7136\u540e\u4e0a\u4f20 in this chat",
+  "authorization_recorded_at": "2026-11-06T20:48:53.107642+08:00",
+  "raw_runtime_and_archive_files_match": true,
+  "all_six_checkpoints_unchanged_by_evaluation": true,
+  "no_live_training_evaluation_or_benchmark_or_gpu_logger": true,
+  "old_tracked_files_unchanged_except_three_intended_docs": true,
+  "exactly_seven_new_result_rows": true,
+  "gpu_sampling_intervals": {
+    "a4_gqa2/seed1337": {
+      "samples": 240,
+      "median_seconds": 5.002,
+      "max_seconds": 5.014
+    },
+    "a4_gqa2/seed2024": {
+      "samples": 236,
+      "median_seconds": 5.002,
+      "max_seconds": 5.013
+    },
+    "a4_mqa/seed1337": {
+      "samples": 235,
+      "median_seconds": 5.002,
+      "max_seconds": 5.02
+    },
+    "a4_mqa/seed2024": {
+      "samples": 235,
+      "median_seconds": 5.002,
+      "max_seconds": 5.02
+    },
+    "a9_modern/seed1337": {
+      "samples": 286,
+      "median_seconds": 5.002,
+      "max_seconds": 5.014
+    },
+    "a9_modern/seed2024": {
+      "samples": 285,
+      "median_seconds": 5.002,
+      "max_seconds": 5.009
+    }
+  },
+  "benchmark_medians_verified": true,
+  "benchmark_temperature_ranges": {
+    "a0_control": {
+      "minimum": 59.6,
+      "maximum": 77.9,
+      "missing": 0
+    },
+    "a1_sinusoidal": {
+      "minimum": 52.7,
+      "maximum": 76.5,
+      "missing": 0
+    },
+    "a1_rope": {
+      "minimum": 52.3,
+      "maximum": 77.2,
+      "missing": 0
+    },
+    "a2_postln": {
+      "minimum": 52.1,
+      "maximum": 74.8,
+      "missing": 0
+    },
+    "a2_rmsnorm": {
+      "minimum": 51.5,
+      "maximum": 75.8,
+      "missing": 0
+    },
+    "a3_swiglu": {
+      "minimum": 51.7,
+      "maximum": 75.1,
+      "missing": 0
+    },
+    "a4_gqa2": {
+      "minimum": 51.2,
+      "maximum": 73.5,
+      "missing": 0
+    },
+    "a4_mqa": {
+      "minimum": 51.0,
+      "maximum": 74.6,
+      "missing": 0
+    },
+    "a9_modern": {
+      "minimum": 51.1,
+      "maximum": 75.7,
+      "missing": 0
+    }
+  },
+  "new_archive_file_count": 65,
+  "new_archive_bytes": 235491,
+  "independent_audit_recorded_at": "2026-11-06T20:54:30.422936+08:00"
+}

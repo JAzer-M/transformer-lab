@@ -1,0 +1,705 @@
+{
+  "state": "completed",
+  "source_commit": "ca964f766726708765e244e3829365e946fe5f9b",
+  "branch": "main",
+  "started_at": "2026-11-06T17:31:17.168786+08:00",
+  "phase": "finished",
+  "control_evaluations": [],
+  "runs": [
+    {
+      "variant": "a4_gqa2",
+      "seed": 1337,
+      "state": "completed",
+      "started_at": "2026-11-06T17:31:17.181325+08:00",
+      "ended_at": "2026-11-06T17:51:15.897325+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a4_gqa2/seed1337",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.0006,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 6e-05,
+          "norm": "layernorm",
+          "norm_position": "pre",
+          "mlp": "gelu",
+          "pos_encoding": "learned",
+          "rope_theta": 10000.0,
+          "n_kv_heads": 2,
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 1337,
+          "device": "auto"
+        },
+        "git_commit": "ca964f766726708765e244e3829365e946fe5f9b",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 12789504,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1193.2353108510006,
+        "tokens_per_sec": 83812.41745911424,
+        "peak_memory_mb": 4985.533203125,
+        "final_train_loss": 1.5857485294342042,
+        "final_val_loss": 1.6007080852985383,
+        "last_step_loss": 1.600103735923767
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 240,
+          "mean": 84.10583333333334,
+          "max": 88.5,
+          "min": 51.1
+        },
+        "sm_clock_MHz": {
+          "n": 240,
+          "mean": 2740.008333333333,
+          "max": 2797.0,
+          "min": 397.0
+        },
+        "gpu_util_pct": {
+          "n": 240,
+          "mean": 98.40833333333333,
+          "max": 99.0,
+          "min": 1.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 240,
+          "mean": 6306.0,
+          "max": 6368.0,
+          "min": 1109.0
+        },
+        "power_W": {
+          "n": 240,
+          "mean": 93.90983333333334,
+          "max": 103.62,
+          "min": 7.97
+        }
+      },
+      "divergence": null,
+      "stress_exception": false,
+      "full_evaluation": {
+        "variant": "a4_gqa2",
+        "seed": 1337,
+        "returncode": 0,
+        "seconds": 25.351655440000286,
+        "checkpoint_sha256": "f6c80893fa663f2bda7efdf2645e23a3761e0aa39c758b7249d411b1b94df273",
+        "result": {
+          "val_loss": 1.5943418374393037,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a4_gqa2/seed1337/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "ca964f766726708765e244e3829365e946fe5f9b"
+        }
+      }
+    },
+    {
+      "variant": "a4_gqa2",
+      "seed": 2024,
+      "state": "completed",
+      "started_at": "2026-11-06T17:51:41.430762+08:00",
+      "ended_at": "2026-11-06T18:11:18.153726+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a4_gqa2/seed2024",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.0006,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 6e-05,
+          "norm": "layernorm",
+          "norm_position": "pre",
+          "mlp": "gelu",
+          "pos_encoding": "learned",
+          "rope_theta": 10000.0,
+          "n_kv_heads": 2,
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 2024,
+          "device": "auto"
+        },
+        "git_commit": "ca964f766726708765e244e3829365e946fe5f9b",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 12789504,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1171.123127068,
+        "tokens_per_sec": 85394.89460034645,
+        "peak_memory_mb": 4985.533203125,
+        "final_train_loss": 1.5981036901474,
+        "final_val_loss": 1.5750774979591369,
+        "last_step_loss": 1.5932536125183105
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 236,
+          "mean": 86.24194915254238,
+          "max": 88.5,
+          "min": 77.9
+        },
+        "sm_clock_MHz": {
+          "n": 236,
+          "mean": 2635.898305084746,
+          "max": 2760.0,
+          "min": 2332.0
+        },
+        "gpu_util_pct": {
+          "n": 236,
+          "mean": 98.35593220338983,
+          "max": 99.0,
+          "min": 1.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 236,
+          "mean": 6307.843220338983,
+          "max": 6345.0,
+          "min": 1126.0
+        },
+        "power_W": {
+          "n": 236,
+          "mean": 93.06902542372882,
+          "max": 103.8,
+          "min": 71.1
+        }
+      },
+      "divergence": null,
+      "stress_exception": false,
+      "full_evaluation": {
+        "variant": "a4_gqa2",
+        "seed": 2024,
+        "returncode": 0,
+        "seconds": 25.433473879999838,
+        "checkpoint_sha256": "c20e06add7d4f1e011c9004cda0c0247598132f4f00d11deae5b4056da1a1736",
+        "result": {
+          "val_loss": 1.5883019543549088,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a4_gqa2/seed2024/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "ca964f766726708765e244e3829365e946fe5f9b"
+        }
+      }
+    },
+    {
+      "variant": "a4_mqa",
+      "seed": 1337,
+      "state": "completed",
+      "started_at": "2026-11-06T18:11:43.776876+08:00",
+      "ended_at": "2026-11-06T18:31:15.499775+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a4_mqa/seed1337",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.0006,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 6e-05,
+          "norm": "layernorm",
+          "norm_position": "pre",
+          "mlp": "gelu",
+          "pos_encoding": "learned",
+          "rope_theta": 10000.0,
+          "n_kv_heads": 1,
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 1337,
+          "device": "auto"
+        },
+        "git_commit": "ca964f766726708765e244e3829365e946fe5f9b",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 12494592,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1165.838425244,
+        "tokens_per_sec": 85781.98645242731,
+        "peak_memory_mb": 4982.220703125,
+        "final_train_loss": 1.5817885279655457,
+        "final_val_loss": 1.5969393849372864,
+        "last_step_loss": 1.5980225205421448
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 235,
+          "mean": 86.27659574468085,
+          "max": 88.7,
+          "min": 77.8
+        },
+        "sm_clock_MHz": {
+          "n": 235,
+          "mean": 2614.868085106383,
+          "max": 2760.0,
+          "min": 2310.0
+        },
+        "gpu_util_pct": {
+          "n": 235,
+          "mean": 97.95744680851064,
+          "max": 99.0,
+          "min": 2.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 235,
+          "mean": 6801.438297872341,
+          "max": 6843.0,
+          "min": 1127.0
+        },
+        "power_W": {
+          "n": 235,
+          "mean": 91.67148936170213,
+          "max": 99.43,
+          "min": 61.24
+        }
+      },
+      "divergence": null,
+      "stress_exception": false,
+      "full_evaluation": {
+        "variant": "a4_mqa",
+        "seed": 1337,
+        "returncode": 0,
+        "seconds": 25.268552859999545,
+        "checkpoint_sha256": "e6ffc0d62046db8164a39446aec026e7b07a5a4782813b69d41dad269f9da496",
+        "result": {
+          "val_loss": 1.590229739656561,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a4_mqa/seed1337/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "ca964f766726708765e244e3829365e946fe5f9b"
+        }
+      }
+    },
+    {
+      "variant": "a4_mqa",
+      "seed": 2024,
+      "state": "completed",
+      "started_at": "2026-11-06T18:31:41.046818+08:00",
+      "ended_at": "2026-11-06T18:51:15.964455+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a4_mqa/seed2024",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.0006,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 6e-05,
+          "norm": "layernorm",
+          "norm_position": "pre",
+          "mlp": "gelu",
+          "pos_encoding": "learned",
+          "rope_theta": 10000.0,
+          "n_kv_heads": 1,
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 2024,
+          "device": "auto"
+        },
+        "git_commit": "ca964f766726708765e244e3829365e946fe5f9b",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 12494592,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1168.8171508110008,
+        "tokens_per_sec": 85563.37142264556,
+        "peak_memory_mb": 4982.220703125,
+        "final_train_loss": 1.6024000644683838,
+        "final_val_loss": 1.580530595779419,
+        "last_step_loss": 1.5948913097381592
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 235,
+          "mean": 86.35489361702128,
+          "max": 88.6,
+          "min": 75.9
+        },
+        "sm_clock_MHz": {
+          "n": 235,
+          "mean": 2590.0978723404255,
+          "max": 2745.0,
+          "min": 975.0
+        },
+        "gpu_util_pct": {
+          "n": 235,
+          "mean": 98.08936170212766,
+          "max": 99.0,
+          "min": 1.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 235,
+          "mean": 6815.31914893617,
+          "max": 6843.0,
+          "min": 1127.0
+        },
+        "power_W": {
+          "n": 235,
+          "mean": 90.62808510638298,
+          "max": 98.69,
+          "min": 47.91
+        }
+      },
+      "divergence": null,
+      "stress_exception": false,
+      "full_evaluation": {
+        "variant": "a4_mqa",
+        "seed": 2024,
+        "returncode": 0,
+        "seconds": 25.36593259899928,
+        "checkpoint_sha256": "e98f0ea19737764371890d1659079ba74d9305abc1b9b4ad0ba4ac825d7966b9",
+        "result": {
+          "val_loss": 1.5943040286158938,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a4_mqa/seed2024/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "ca964f766726708765e244e3829365e946fe5f9b"
+        }
+      }
+    },
+    {
+      "variant": "a9_modern",
+      "seed": 1337,
+      "state": "completed",
+      "started_at": "2026-11-06T18:51:41.538682+08:00",
+      "ended_at": "2026-11-06T19:15:29.379600+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a9_modern/seed1337",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.0006,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 6e-05,
+          "norm": "rmsnorm",
+          "norm_position": "pre",
+          "mlp": "swiglu",
+          "pos_encoding": "rope",
+          "rope_theta": 10000.0,
+          "n_kv_heads": 2,
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 1337,
+          "device": "auto"
+        },
+        "git_commit": "ca964f766726708765e244e3829365e946fe5f9b",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 12587904,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1421.4000483700001,
+        "tokens_per_sec": 70358.75376160622,
+        "peak_memory_mb": 5560.6435546875,
+        "final_train_loss": 1.4878962159156799,
+        "final_val_loss": 1.5081729173660279,
+        "last_step_loss": 1.4987033605575562
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 286,
+          "mean": 86.33566433566433,
+          "max": 88.8,
+          "min": 78.2
+        },
+        "sm_clock_MHz": {
+          "n": 286,
+          "mean": 2633.6748251748254,
+          "max": 2760.0,
+          "min": 1792.0
+        },
+        "gpu_util_pct": {
+          "n": 286,
+          "mean": 98.26223776223776,
+          "max": 99.0,
+          "min": 2.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 286,
+          "mean": 7365.391608391608,
+          "max": 7405.0,
+          "min": 1127.0
+        },
+        "power_W": {
+          "n": 286,
+          "mean": 92.40416083916084,
+          "max": 102.34,
+          "min": 63.39
+        }
+      },
+      "divergence": null,
+      "stress_exception": false,
+      "full_evaluation": {
+        "variant": "a9_modern",
+        "seed": 1337,
+        "returncode": 0,
+        "seconds": 29.746408725000947,
+        "checkpoint_sha256": "54f68e7f5d8d1e920de94017f2496a07d03ce3295b43138f8e4a4c44ee609116",
+        "result": {
+          "val_loss": 1.5000914863256127,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a9_modern/seed1337/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "ca964f766726708765e244e3829365e946fe5f9b"
+        }
+      }
+    },
+    {
+      "variant": "a9_modern",
+      "seed": 2024,
+      "state": "completed",
+      "started_at": "2026-11-06T19:15:59.306479+08:00",
+      "ended_at": "2026-11-06T19:39:44.126060+08:00",
+      "returncode": 0,
+      "run": {
+        "config": {
+          "data_dir": "data/tinystories",
+          "out_dir": "runs/m3/a9_modern/seed2024",
+          "n_layers": 6,
+          "n_heads": 6,
+          "d_model": 384,
+          "block_size": 512,
+          "batch_size": 32,
+          "learning_rate": 0.0006,
+          "weight_decay": 0.01,
+          "max_iters": 3052,
+          "grad_accum_steps": 2,
+          "grad_clip": 1.0,
+          "lr_schedule": "cosine",
+          "warmup_iters": 92,
+          "min_lr": 6e-05,
+          "norm": "rmsnorm",
+          "norm_position": "pre",
+          "mlp": "swiglu",
+          "pos_encoding": "rope",
+          "rope_theta": 10000.0,
+          "n_kv_heads": 2,
+          "ckpt_interval": 1000,
+          "resume": false,
+          "eval_interval": 250,
+          "eval_iters": 20,
+          "seed": 2024,
+          "device": "auto"
+        },
+        "git_commit": "ca964f766726708765e244e3829365e946fe5f9b",
+        "device": "cuda",
+        "torch_version": "2.9.1+cu128",
+        "n_params": 12587904,
+        "start_step": 0,
+        "train_tokens": 100007936,
+        "train_seconds": 1418.4667926859984,
+        "tokens_per_sec": 70504.24903541499,
+        "peak_memory_mb": 5560.6435546875,
+        "final_train_loss": 1.5133497834205627,
+        "final_val_loss": 1.4921510636806488,
+        "last_step_loss": 1.4991201758384705
+      },
+      "gpu_stats": {
+        "sampling_seconds": 5,
+        "includes_initialization_and_finalization": true,
+        "temperature_C": {
+          "n": 285,
+          "mean": 86.31122807017543,
+          "max": 87.7,
+          "min": 80.1
+        },
+        "sm_clock_MHz": {
+          "n": 285,
+          "mean": 2640.7157894736843,
+          "max": 2760.0,
+          "min": 1987.0
+        },
+        "gpu_util_pct": {
+          "n": 285,
+          "mean": 98.26666666666667,
+          "max": 99.0,
+          "min": 1.0
+        },
+        "whole_gpu_memory_MiB": {
+          "n": 285,
+          "mean": 7346.838596491228,
+          "max": 7404.0,
+          "min": 1108.0
+        },
+        "power_W": {
+          "n": 285,
+          "mean": 92.98024561403508,
+          "max": 100.89,
+          "min": 63.92
+        }
+      },
+      "divergence": null,
+      "stress_exception": false,
+      "full_evaluation": {
+        "variant": "a9_modern",
+        "seed": 2024,
+        "returncode": 0,
+        "seconds": 30.17992528600007,
+        "checkpoint_sha256": "aaf27edc1e3fa900a7ad4d8bff2ff032cf2e69bb75d77853645cedb934b64a05",
+        "result": {
+          "val_loss": 1.504419568629961,
+          "n_tokens": 5414547,
+          "block_size": 512,
+          "ckpt": "runs/m3/a9_modern/seed2024/ckpt.pt",
+          "ckpt_step": 3052,
+          "device": "cuda",
+          "eval_commit": "ca964f766726708765e244e3829365e946fe5f9b"
+        }
+      }
+    }
+  ],
+  "current_variant": null,
+  "current_seed": null,
+  "phase_started_at": "2026-11-06T19:40:14.511365+08:00",
+  "last_eval": null,
+  "command": [
+    "uv",
+    "run",
+    "python",
+    "scripts/bench_attention.py",
+    "--configs",
+    "configs/ablations/a0_control.yaml",
+    "configs/ablations/a1_sinusoidal.yaml",
+    "configs/ablations/a1_rope.yaml",
+    "configs/ablations/a2_postln.yaml",
+    "configs/ablations/a2_rmsnorm.yaml",
+    "configs/ablations/a3_swiglu.yaml",
+    "configs/ablations/a4_gqa2.yaml",
+    "configs/ablations/a4_mqa.yaml",
+    "configs/ablations/a9_modern.yaml",
+    "--out",
+    "experiments/m3_ablations/bench.json"
+  ],
+  "stress_divergence_exception": false,
+  "active_pid": 10850,
+  "gpu_pid": 10473,
+  "last_training_returncode": 0,
+  "last_evaluation_returncode": 0,
+  "benchmark_current": "\u6d4b a9_modern\u2026\u2026",
+  "benchmark_returncode": 0,
+  "benchmark": {
+    "returncode": 0,
+    "seconds": 877.7684748320007,
+    "command": [
+      "uv",
+      "run",
+      "python",
+      "scripts/bench_attention.py",
+      "--configs",
+      "configs/ablations/a0_control.yaml",
+      "configs/ablations/a1_sinusoidal.yaml",
+      "configs/ablations/a1_rope.yaml",
+      "configs/ablations/a2_postln.yaml",
+      "configs/ablations/a2_rmsnorm.yaml",
+      "configs/ablations/a3_swiglu.yaml",
+      "configs/ablations/a4_gqa2.yaml",
+      "configs/ablations/a4_mqa.yaml",
+      "configs/ablations/a9_modern.yaml",
+      "--out",
+      "experiments/m3_ablations/bench.json"
+    ],
+    "configs": [
+      "a0_control",
+      "a1_sinusoidal",
+      "a1_rope",
+      "a2_postln",
+      "a2_rmsnorm",
+      "a3_swiglu",
+      "a4_gqa2",
+      "a4_mqa",
+      "a9_modern"
+    ],
+    "settings": {
+      "cooldown": 60,
+      "repeats": 3,
+      "train_steps": 20,
+      "prompt_len": 32,
+      "new_tokens": 480,
+      "vocab_size": 8192
+    },
+    "source_commit": "ca964f766726708765e244e3829365e946fe5f9b",
+    "json_sha256": "1ca6fa1bfbb61fabc5d24105a4b918af62d550006f9a2feada902670b1cab4db",
+    "md_sha256": "392ba4b0681963919b471a11195ac5fe3681361bca93c26f1a4842beb6672e8e",
+    "cache_checks_passed": true
+  },
+  "all_original_tracked_files_unchanged_through_training_and_evaluation": true,
+  "summary_returncode": 0,
+  "ended_at": "2026-11-06T19:54:53.343307+08:00"
+}

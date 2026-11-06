@@ -1,0 +1,108 @@
+{
+  "time": "2026-11-06T17:30:31.510331+08:00",
+  "source_commit": "ca964f766726708765e244e3829365e946fe5f9b",
+  "branch": "main",
+  "scope": "runbook batch 5 only",
+  "tracked_files": 295,
+  "data_hashes_match_M2": true,
+  "data_info": {
+    "mode": "full",
+    "revision": "f54c09fd23315a6f9c86f9dc80f725de7d8f9c64",
+    "sources": {
+      "train": {
+        "filename": "TinyStoriesV2-GPT4-train.txt",
+        "size": 2227753162,
+        "sha256": "6418d412de72888f52b5142c761ac21a582f7d1166f0bfbdb5f03ccfdec90443"
+      },
+      "valid": {
+        "filename": "TinyStoriesV2-GPT4-valid.txt",
+        "size": 22502601,
+        "sha256": "6874bae9a4c1a4e7edcf0e53b86c17817e9cf881fc75ff2368da457b80c0585d"
+      }
+    },
+    "vocab_size": 8192,
+    "eot_id": 0,
+    "train_tokens": 536174492,
+    "val_tokens": 5414548,
+    "train_stories": 2717495,
+    "val_stories": 27630,
+    "tokenizer_seconds": 44.963793057999965,
+    "encode_seconds": 102.77910430899999,
+    "total_seconds": 149.29187006400002
+  },
+  "jobs": [
+    [
+      "a4_gqa2",
+      1337
+    ],
+    [
+      "a4_gqa2",
+      2024
+    ],
+    [
+      "a4_mqa",
+      1337
+    ],
+    [
+      "a4_mqa",
+      2024
+    ],
+    [
+      "a9_modern",
+      1337
+    ],
+    [
+      "a9_modern",
+      2024
+    ]
+  ],
+  "pytest": "359 passed",
+  "only_CLI_overrides": [
+    "seed",
+    "out_dir"
+  ],
+  "full_evaluation_tokens": 5414547,
+  "benchmark_configs": [
+    "a0_control",
+    "a1_sinusoidal",
+    "a1_rope",
+    "a2_postln",
+    "a2_rmsnorm",
+    "a3_swiglu",
+    "a4_gqa2",
+    "a4_mqa",
+    "a9_modern"
+  ],
+  "benchmark_defaults": {
+    "cooldown": 60,
+    "repeats": 3,
+    "train_steps": 20,
+    "prompt_len": 32,
+    "new_tokens": 480,
+    "vocab_size": 8192
+  },
+  "high_LR_exception_applies": false,
+  "combination_is_reference_only": true,
+  "existing_archives_match_configs": true,
+  "preflight_attempt": 2,
+  "pytest_seconds": 15.06,
+  "environment_logs": [
+    "01-sync.attempt2.txt",
+    "02-gpu.attempt2.txt",
+    "03-pytest.attempt2.txt"
+  ],
+  "test_fix_commit": "ca964f766726708765e244e3829365e946fe5f9b",
+  "original_failure_log": "03-pytest.txt",
+  "fix_validation": {
+    "base_commit": "0d1dc7ce3383a2f87b76cfaeb712b1088a483a8a",
+    "pytest": "359 passed in 16.94s",
+    "ruff_targeted": "passed",
+    "format_targeted": "passed",
+    "exact_two_line_fix": true,
+    "all_assertions_unchanged": true,
+    "formal_training_started": false,
+    "user_authorized_fix_commit_and_push": true,
+    "independent_review": "Codex m3_batch5_audit: no findings or blockers; 32 assert ASTs unchanged",
+    "fix_commit": "ca964f766726708765e244e3829365e946fe5f9b"
+  }
+}

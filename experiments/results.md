@@ -20,3 +20,10 @@
 | 2026-11-05 | M3-a1_sinusoidal-s2024 | configs/ablations/a1_sinusoidal.yaml（seed=2024） | 6629ec8847f6446aa142979bbccd5e4e63a63563 | 2024 | val 1.5799（完整验证集 1.5911） | 79122 | 5004 MB | A1位置编码；pos_encoding=sinusoidal；1024外推已完成；未见发散 |
 | 2026-11-05 | M3-a1_rope-s1337 | configs/ablations/a1_rope.yaml（seed=1337） | 6629ec8847f6446aa142979bbccd5e4e63a63563 | 1337 | val 1.5333（完整验证集 1.5281） | 73108 | 5007 MB | A1位置编码；pos_encoding=rope；1024外推已完成；未见发散 |
 | 2026-11-05 | M3-a1_rope-s2024 | configs/ablations/a1_rope.yaml（seed=2024） | 6629ec8847f6446aa142979bbccd5e4e63a63563 | 2024 | val 1.5132（完整验证集 1.5272） | 73330 | 5007 MB | A1位置编码；pos_encoding=rope；1024外推已完成；未见发散 |
+| 2026-11-06 | M3-a4_gqa2-s1337 | configs/ablations/a4_gqa2.yaml（seed=1337） | ca964f766726708765e244e3829365e946fe5f9b | 1337 | val 1.6007（完整验证集 1.5943） | 83812 | 4986 MB | A4注意力；n_kv_heads=2；未见发散 |
+| 2026-11-06 | M3-a4_gqa2-s2024 | configs/ablations/a4_gqa2.yaml（seed=2024） | ca964f766726708765e244e3829365e946fe5f9b | 2024 | val 1.5751（完整验证集 1.5883） | 85395 | 4986 MB | A4注意力；n_kv_heads=2；未见发散 |
+| 2026-11-06 | M3-a4_mqa-s1337 | configs/ablations/a4_mqa.yaml（seed=1337） | ca964f766726708765e244e3829365e946fe5f9b | 1337 | val 1.5969（完整验证集 1.5902） | 85782 | 4982 MB | A4注意力；n_kv_heads=1；未见发散 |
+| 2026-11-06 | M3-a4_mqa-s2024 | configs/ablations/a4_mqa.yaml（seed=2024） | ca964f766726708765e244e3829365e946fe5f9b | 2024 | val 1.5805（完整验证集 1.5943） | 85563 | 4982 MB | A4注意力；n_kv_heads=1；未见发散 |
+| 2026-11-06 | M3-a9_modern-s1337 | configs/ablations/a9_modern.yaml（seed=1337） | ca964f766726708765e244e3829365e946fe5f9b | 1337 | val 1.5082（完整验证集 1.5001） | 70359 | 5561 MB | 组合仅作参考，不作单变量归因；未见发散 |
+| 2026-11-06 | M3-a9_modern-s2024 | configs/ablations/a9_modern.yaml（seed=2024） | ca964f766726708765e244e3829365e946fe5f9b | 2024 | val 1.4922（完整验证集 1.5044） | 70504 | 5561 MB | 组合仅作参考，不作单变量归因；未见发散 |
+| 2026-11-06 | M3-bench | scripts/bench_attention.py（9 个配置） | ca964f766726708765e244e3829365e946fe5f9b | 1337 | — | 330 / 223 | 102.62 MB | 详见 experiments/m3_ablations/bench.md |

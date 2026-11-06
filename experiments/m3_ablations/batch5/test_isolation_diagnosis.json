@@ -1,0 +1,11 @@
+{
+  "source_commit": "0d1dc7ce3383a2f87b76cfaeb712b1088a483a8a",
+  "scope": "proposed two-line test isolation, executed in memory only",
+  "original_test_assertions": "passed with the proposed local script.time reference substitution",
+  "tracked_source_unchanged": true,
+  "stdlib_time_sleep_restored": true,
+  "subprocess_time_is_stdlib_time": true,
+  "posix_wait_uses_time_sleep": true,
+  "formal_suite_status": "original full suite remains 1 failed, 358 passed; full suite not rerun with a tracked fix",
+  "formal_training_started": false
+}
