@@ -205,3 +205,38 @@ mkdir -p experiments/m3_ablations/<变体>/seed<种子> && cp runs/m3/<变体>/s
 - 收尾同第 2 批：全部完成后统一追加 `results.md`（每次一行）、运行汇总命令更新 `SUMMARY.md`，并在 `PROGRESS.md` 追加署名 Codex 的记录，其中写明每次的外推结果和耗时。汇总命令会把每次结果与配置文件核对，不一致时报错，此时停下汇报，不要去掉 `--configs`。`SUMMARY.md` 应出现“A1 外推”一节；两个 `a1_*` 行的“依据”应为“完整验证集”。
 - 预计耗时：4 次训练各约 22 分钟，共约 1.5 小时，外推评测每次预计 1–2 分钟（以实测为准）。显存峰值估计约 5.0 GB（对照组实测 5.0 GB，RoPE 为反向传播多留的内存很少；是 Mac 上按真实形状算的，不是 GPU 实测），超过 7 GB 时在记录里提醒。
 - 提交与推送前先问用户。完成后告诉用户，由用户回到 Mac 让 Claude Code 核对。
+
+## 第 5 批：A4 注意力与组合（6 次训练 + 速度与显存短测）
+
+本批由 Claude Code 于 2026-11-06 追加，对应分支 `m3-attn`（GQA、`n_kv_heads` 开关、KV cache、三个配置、短测脚本）。
+
+- 前提：用户已把 `m3-attn` 合并到 `main`，或指定了要用的分支。先 `git fetch origin && git switch <用户指定的分支> && git pull --ff-only`，再 `uv sync --locked`。
+- GPU 自检同第 1 批；单元测试 `uv run pytest -q`，预期 **359 passed**（Mac 上提交前实测），全部通过才继续。
+- 数据仍复用 `data/tinystories/`（train 536,174,492、val 5,414,548 个 token）。
+- 按固定流程（记录 GPU、训练、完整验证集打分、复制小文件）依次运行：
+
+| 变体 | 种子 | 首行参数量 | 与对照组的区别 |
+| --- | --- | --- | --- |
+| `a4_gqa2` | 1337、2024 | 12,789,504 | GQA：6 个头共用 2 组 k、v |
+| `a4_mqa` | 1337、2024 | 12,494,592 | MQA：6 个头共用 1 组 k、v |
+| `a9_modern` | 1337、2024 | 12,587,904 | 组合：RoPE + RMSNorm + SwiGLU + GQA-2，只作参考，不算单变量结论 |
+
+- 每次训练结束后多核对一步，打印结果必须和配置一致（`a4_gqa2`、`a9_modern` 是 `2`，`a4_mqa` 是 `1`），否则停下汇报：
+
+```bash
+uv run python -c "import json; print(json.load(open('runs/m3/<变体>/seed<种子>/run.json'))['config']['n_kv_heads'])"
+```
+
+- **短测**：6 次训练和打分全部结束后运行一次。这一步同样要在改动任何已跟踪文件之前做，否则记录的 `git_commit` 会带 `-dirty`。它用随机权重和随机 token，不读存档和数据，每个配置开始前默认空闲 60 秒降温，每项测 3 次取中位数，并记录每次测量的温度。训练吞吐和正式训练一样累积、裁剪、更新，只是 token 随机生成，不含读数据的时间：
+
+```bash
+uv run python scripts/bench_attention.py --configs configs/ablations/a0_control.yaml configs/ablations/a1_sinusoidal.yaml configs/ablations/a1_rope.yaml configs/ablations/a2_postln.yaml configs/ablations/a2_rmsnorm.yaml configs/ablations/a3_swiglu.yaml configs/ablations/a4_gqa2.yaml configs/ablations/a4_mqa.yaml configs/ablations/a9_modern.yaml --out experiments/m3_ablations/bench.json 2>&1 | tee runs/m3_bench_console.txt
+```
+
+  结果写到 `experiments/m3_ablations/bench.json`，旁边有一份 `bench.md` 表格。核对“完整缓存 MiB”一列（手算，bf16）：`a1_rope` 是 6.75，`a4_gqa2` 是 1.50，`a4_mqa` 是 0.75，`a9_modern` 是 2.25，其余都是 4.50；不对就停下汇报。RoPE 的 cos、sin 是 fp32，k 旋转后变成 fp32，所以 `a1_rope`、`a9_modern` 的“缓存类型”一列应为 `torch.float32 / torch.bfloat16`，其余应为 `torch.bfloat16 / torch.bfloat16`（Mac 上用 CPU bf16 autocast 实测过，GPU 上第一次跑）。其他列如实记录，不作判断。
+
+- 通用规则 2 照常适用：出错、OOM、loss NaN 或发散都立即停下汇报。高学习率加测的例外不适用于本批。
+- 收尾同第 2 批：全部完成后统一追加 `results.md`（每次训练一行，短测也追加一行，编号 `M3-bench`：配置文件写 `scripts/bench_attention.py（9 个配置）`，commit 取自 `bench.json`，种子写 1337，val loss 写 `—`，tokens/s 写对照组生成的“无缓存 / 有缓存”，显存峰值写对照组有缓存时的生成峰值，结论写“详见 experiments/m3_ablations/bench.md”）、运行汇总命令更新 `SUMMARY.md`，并在 `PROGRESS.md` 追加署名 Codex 的记录，其中写明短测的命令、设备和温度。
+- 预计耗时：6 次训练各约 23 分钟，共约 2.3 小时；短测约 15–20 分钟（以实测为准）。显存峰值估计：`a4_gqa2`、`a4_mqa` 不超过约 5.0 GB（k、v 变小，对照组实测 5.0 GB）；`a9_modern` 约 5.6 GB（SwiGLU 和 RMSNorm 的实测增量相加）。超过 7000 MiB 时在记录里提醒。
+- 提交与推送前先问用户。完成后告诉用户，由用户回到 Mac 让 Claude Code 核对。
+

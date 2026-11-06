@@ -4,23 +4,30 @@
 
 ## 当前状态
 
-更新时间：2026-11-05 12:13（Asia/Hong_Kong，UTC+08:00）。
+更新时间：2026-11-06 15:41（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M3第3、4批已完成：SwiGLU与两种位置编码双种子，6次训练、6次完整验证及4次1024外推；本批结果交付main，用户已明确授权提交推送；Claude本批审查待进行 |
-| 本轮范围 | 严格按 docs/m3-windows-run.md 第3、4批；不重训对照、A2或其他配置 |
-| 实现方 / 审查方 | 用户手写SwiGLU/RotaryEmbedding，Claude提供main实现与手册，Codex在WSL执行；本批经Codex只读子agent（m3_batch34_audit）复核，无阻塞；Claude本批审查待进行 |
-| 分支 / 来源 | main / 6629ec8847f6446aa142979bbccd5e4e63a63563；各次训练/完整验证/外推来源均干净 |
+| 项目阶段 | M2 已验收并合并。M3：第 1–4 步代码已合并；第 1–4 批结果已回传并经 Claude 核对；第 5 批（A4、组合、短测）等 Codex 执行 |
+| 本轮范围 | 提交 m3-attn，合并到 main 并推送（用户回复“提交合并并推送”）；Codex 第 5 批尚未开始 |
+| 实现方 / 审查方 | m3-attn：用户手写 GQA 与 RoPE 偏移，其余由 Claude 写；提交前由 Claude 的两个只读子 agent 审查（规范、需求），不是 Codex 审查。第 3、4 批：Codex 执行，其只读子 agent 复核，Claude 另行核对 |
+| 分支 / 来源 | main 快进到 m3-attn，两者一同推送，从 main 47a0d26 分出；哈希以 git log 为准 |
 | 配置与预算 | 每次3052步、100,007,936 token，6e-4→6e-5，CLI只覆盖seed/out_dir；mlp及pos_encoding逐次核对 |
-| 本次前置验证 | uv sync --locked、CUDA分配、pytest235 passed in9.07s；数据SHA256匹配M2；226个旧跟踪文件在全部运行结束前未变 |
+| 本次前置验证 | m3-attn（Mac，提交前）：359 passed，ruff 通过；导出到没有 data、runs、.git 的目录后 359 passed；tiny_smoke、tinystories_smoke 的 metrics.csv 与 main 逐字相同。没有在 GPU 上跑过 |
 | 完整验证与外推 | 每次完整val 5,414,547目标token；外推1024，每半段2,706,944目标token，全部step3052、CUDA/bf16、退出0 |
-| 本批结果 | 见 experiments/m3_ablations/BATCH34_REPORT.md 与 SUMMARY.md；results.md只追加6行 |
-| 解释边界 | 外推前后差同时包含位置与上下文变化；长训练吞吐不作速度结论；既定双种子判定不变；提示补种子时另按明确任务执行 |
-| 下一步 | 独立只读复核通过，用户已明确授权提交推送main，随后供Claude拉取；后续m3-attn/GQA等另按Claude已准备任务执行；M3自测阶段末统一进行 |
+| 第 3、4 批结果 | 完整验证集均值：对照 1.5799；SwiGLU 1.5460（-0.0339，更好）；正弦 1.5935（+0.0136，更差）；RoPE 1.5277（-0.0523，更好）。1024 外推后半段均值：正弦 4.9907，RoPE 2.2131。详见 experiments/m3_ablations/BATCH34_REPORT.md 与 SUMMARY.md |
+| 解释边界 | 结论只适用于 1 亿 token 的预算；外推前后差同时包含位置与上下文变化；长训练吞吐不作速度结论（RoPE 那两次的平均 GPU 频率也较低），速度等短测 |
+| 下一步 | 用户让 Codex 在 main 上跑手册第 5 批（`a4_gqa2`、`a4_mqa`、`a9_modern` 各 2 个种子，外加短测）；回传后 Claude 核对；之后第 6 步：汇总表、loss 曲线、生成样例、README 初版，M3 自测统一进行 |
 
 ## 当前任务与下一步
 
+- 2026-11-06 15:41：m3-attn 已提交、合并到 main 并推送，等 Codex 跑第 5 批。
+- 2026-11-06 15:38：m3-attn 提交前审查已修，359 passed，等用户同意提交。
+- 2026-11-06 15:17：用户写完 RoPE 偏移，工作区 345 passed，等提交前审查。
+- 2026-11-06 15:08：KV cache、开关、配置、短测脚本已写，等用户写 RoPE 偏移。
+- 2026-11-06 14:53：用户手写的 GQA 通过测试，等用户同意后开始 KV cache。
+- 2026-11-05 20:10：m3-attn 的 GQA 失败测试已写好，等用户手写 GQA。
+- 2026-11-05 19:50：Claude 核对第 3、4 批通过；m3-attn 已开分支，测试接口等用户确认。
 - 2026-11-05 11:22：第3、4批6次训练、6次完整验证与4次外推已完成，见BATCH34_REPORT；独立只读复核通过，用户已授权提交推送；Claude核对待进行。
 
 - 2026-11-04 19:03：m3-pos 代码写完、提交前自查已修，等用户同意提交。
@@ -61,7 +68,7 @@
 ## Codex 接手入口（M3 消融，2026-11-02）
 
 1. 在 WSL2 Ubuntu 的 `~/transformer-lab` 中工作；按用户指定的分支（`m3-ablate` 或合并后的 `main`）`git fetch origin && git switch <分支> && git pull --ff-only`。先读 `AGENTS.md`、`docs/PLAN.md`「M3 实施计划」、本文件「当前状态」。
-2. 严格按 `docs/m3-windows-run.md` 执行，**只做用户让你做的那一批**（第 1 批、第 2 批及其补充已完成；当前是第 3、4 批：`a3_swiglu`、`a1_sinusoidal`、`a1_rope` 各跑种子 1337、2024，两个 `a1_*` 另做外推评测）。
+2. 严格按 `docs/m3-windows-run.md` 执行，**只做用户让你做的那一批**（第 1–4 批及第 2 批补充已完成；当前是第 5 批：`a4_gqa2`、`a4_mqa`、`a9_modern` 各跑种子 1337、2024，最后再做一次速度与显存短测）。
 3. 每次训练按手册的固定流程：后台记录 GPU、训练、停止记录、完整验证集打分（第 2 批起）、复制小文件到 `experiments/m3_ablations/<变体>/seed<种子>/`；整批完成后再统一追加 `results.md`、运行汇总脚本更新 `SUMMARY.md`，并在本文件追加署名 Codex 的记录；提交与推送前征得用户同意。
 4. 不改超参数、配置与用户手写文件；出错、OOM、loss NaN 或发散时立即停止并记录原文。唯一例外（2026-11-03 用户确认）：三个 `a2_*_lr3e-3` 加测出现 NaN 或发散时不中断，跑完并如实记录；程序报错仍停下。
 
@@ -1221,6 +1228,125 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 交接与保护：results.md仅追加6行，旧实验原始文件与所有历史交接保留；Codex只读子agent（m3_batch34_audit）已独立复核配置、预算、原始归档、存档、完整评分、外推、GPU统计、历史保护与解释，未发现阻塞问题；Claude本批审查待进行。未重跑ruff，不把Mac历史检查算本次验证；数据/权重/runs不入Git。
 - 操作记录：收尾原始核验曾因自动权限审查额度不足而未执行；用户要求继续后，经正常权限审查执行通过，未重跑训练或评分。
 - 下一步：用户已在本聊天选择“提交并推送到 main”，据此发布本批；随后Claude拉取核对。不自行新增补种子、其他训练或性能优化；M3自测阶段末统一进行。
+
+### 2026-11-05 19:50（UTC+08:00）｜Claude Code｜核对第 3、4 批；列出 m3-attn 测试接口
+
+- 范围与用户确认：用户说 Codex 已跑完，要求拉取并进入下一步。只核对结果并列接口，未写代码。
+- 工作区与设备：Mac，main 快进到 47a0d26 后分出 m3-attn；`.idea/` 未跟踪，未提交。
+- 改动：只更新本文件（顶部状态表、任务列表、本条记录）。
+- 本次验证：
+  - `git diff 6629ec8 47a0d26`：src、tests、scripts、configs、依赖、AGENTS、docs 都没动；results.md 只增 6 行、无删除；PROGRESS 只替换状态表；没有权重、数据或 runs 入库。
+  - 脚本逐次核对 6 个 run（0 个问题）：run.json 与 yaml 只差 seed、out_dir；commit 为 6629ec8…；参数量 13,969,152（a3）、13,772,544（a1）；train_tokens 100,007,936；full_val 5,414,547 token、第 3052 步；a1 外推长度 1024、每半段 2,706,944 token；metrics.csv 的 loss 全部是有限数；results.md 每个 run 都有对应行。
+  - 用 `--configs configs/ablations` 重新生成 SUMMARY，与 Codex 提交的逐字相同。
+  - pytest（Mac，m3-attn 起点）：235 passed。
+  - 从 HF main 分支的 modeling_qwen3.py 核实：先旋转，再存缓存，最后 `repeat_kv`，其文档写明等价于 `repeat_interleave(dim=1)`。
+- 未验证与失败：外推差值的原因没有单独实验，“RoPE 后半段变差是因为距离超过 511”只是推测；RoPE 与其他变体的吞吐差异未作结论，等短测。存档在 Windows 上，本次没有重新打分。
+- 决策与原因：A3、A1 按既定规则判定，不补种子（配对方向都与均值一致）。m3-attn 的推荐决定已列给用户，确认后再写入 PLAN。
+- 审查状态：第 3、4 批已由 Codex 只读子 agent 和 Claude 分别核对，无阻塞问题。
+- 学习状态：用户待手写 GQA（确认后还有 RoPE 偏移）；M3 结束时统一提问。
+- 下一步：用户确认测试接口；Claude 写失败的测试，给用户 GQA 代码。
+
+### 2026-11-05 20:10（UTC+08:00）｜Claude Code｜m3-attn 开始：决定、GQA 测试
+
+- 范围与用户确认：用户回复“好的， 那我们接下来开始吧”，确认 20 个测试接口和推荐决定；RoPE 偏移按推荐由用户改。按 matt-pocock-skills:tdd 先写失败的测试。
+- 工作区与设备：Mac，分支 m3-attn，未提交；没有改 `src/`。
+- 改动：`docs/PLAN.md` 增加第 4 步决定；`tests/test_attention.py` 增加接口 1–6 的 6 个测试函数（参数化后 22 项）和参考函数 `gqa_reference`。
+- 本次验证：
+  - 工作区 pytest：22 failed（都是新测试，`n_kv_heads` 参数还不存在）、235 passed；新测试 ruff 通过。
+  - 在 scratchpad 的副本上放入给用户的参考写法（工作区未动）：全部 257 passed，ruff format 与 check 通过。
+  - 在副本上故意改错 11 种，都被测试抓到：`repeat` 代替 `repeat_interleave`、只有 v 顺序错、复制维度错、v 被旋转、k 没旋转、没写 `> 0`、没有整除检查、默认值当成 1 组、`k_proj` 没缩小、`out_proj` 跟着缩小、去掉因果掩码。等价写法（复制后再旋转 k）34 项全过，说明测试没有绑死实现。
+- 未验证与失败：用户的 GQA 还没写；KV cache、开关、配置、短测脚本都还没开始（接口 7–20）。
+- 决策与原因：见 PLAN「第 4 步 `m3-attn` 的决定」。
+- 审查状态：未请求，提交前再做。
+- 学习状态：用户待手写 GQA，并改 RoPE 偏移；M3 结束时统一提问。
+- 下一步：用户写 GQA；Claude 检查，再写 KV cache 与开关的测试和实现。
+
+### 2026-11-06 14:53（UTC+08:00）｜Claude Code｜用户 GQA 通过；回答概念问题
+
+- 范围与用户确认：用户写完 GQA 并提问（GQA 与 MHA 的关系、`n_kv_heads`、`None`、为什么复制、`g`、为什么用 Linear、`view`）。只讲解和检查，agent 没有改 `src/`。
+- 工作区与设备：Mac，分支 m3-attn，未提交。
+- 改动：只更新本文件。`attention.py` 的 GQA 由用户手写。
+- 本次验证：pytest 全部 257 passed，tests/test_attention.py 34 passed；ruff check、format --check 通过。用户代码与验证过的参考写法相比，逻辑相同，只差注释和空行。讲解里的 `view`、`transpose`、复制和参数占比（Linear 76.00%、Embedding 23.93%、LayerNorm 0.07%）都是实际跑出来的。
+- 未验证与失败：`n_kv_heads` 还没从配置接到 Block，训练路径里目前恒为 `n_heads`；默认配置与 main 的 metrics.csv 对比留到提交前。
+- 决策与原因：无新决定。给用户的建议：“拆头”那行注释已不准确（k、v 拆成 g 组），由用户决定是否改；`k = self.rope(k)` 行尾的形状应为 (B, g, T, d)，这行属于 agent 标注部分，接缓存时由 Claude 改。
+- 审查状态：未请求，提交前再做。
+- 学习状态：用户对 `view` 仍需巩固；M3 结束时统一提问。
+- 下一步：用户同意后写 KV cache 与开关的测试和实现。
+
+### 2026-11-06 15:08（UTC+08:00）｜Claude Code｜m3-attn：开关、KV cache、生成开关、配置、短测脚本
+
+- 范围与用户确认：用户回复“开始写缓存”。按 matt-pocock-skills:tdd 分片先写测试，看到失败后再实现。RoPE 偏移按计划留给用户，`layers.py` 的 `RotaryEmbedding` 没有动。
+- 工作区与设备：Mac，分支 m3-attn，未提交。
+- 改动：
+  - `n_kv_heads` 开关：`layers.py` 的 `check_kv_heads`，`block.py`、`gpt.py`、`train/config.py`；`load_config` 增加 `_convert` 以支持 `int | None`。
+  - KV cache：`attention.py` 的 `KVCache` 和 `forward(x, cache=None)`，掩码 `diagonal=T_past + 1`；`block.py`、`gpt.py` 传递缓存；`gpt.py` 的 `new_cache()`、可学习位置和正弦的偏移；`sinusoidal_positions` 增加 `offset`。用户文件里的改动都标注“agent 编写”，文件头的例外说明已更新。
+  - 生成：`generate(..., use_cache=False)`，窗口满后每步重建；`sample.py --cache`。
+  - 配置：`a4_gqa2`、`a4_mqa`、`a9_modern`，由对照组生成。
+  - 短测：`src/tlab/eval/bench.py`、`scripts/bench_attention.py`。
+  - 测试：`test_attention`、`test_layers`、`test_gpt`、`test_generate`、`test_trainer`、`test_ablation_configs`，新增 `test_bench.py`。`test_trainer` 里两个“旧存档”测试的字段列表加了 `n_kv_heads`，这是测试数据，断言没改。
+- 本次验证（下列数字除工作区一项外，都在 scratchpad 的副本上得到，副本放入了将由用户手写的 RoPE 偏移；真实工作区还没有这两行）：
+  - 副本 pytest：345 passed；工作区 ruff check、format --check 通过。
+  - 工作区 pytest：43 failed、302 passed。失败的都走到 RoPE（`self.rope(q, offset=...)` 需要用户写的参数）或 GQA + RoPE 路径，属预期。
+  - 故意改错 20 种，全部被测试抓到（偏移、掩码、缓存顺序、存旋转前的 k、Block 不传缓存、位置不加偏移、假缓存、窗口满不重建、判断差一位、缓存留在模型上、短测字节数和中位数等）。
+  - main（47a0d26）和副本各跑 tiny_smoke、tinystories_smoke（device=cpu）：metrics.csv 逐字相同。
+  - `sample.py` 有无 `--cache`（tinystories_smoke 存档，60 个 token，CPU）：文本逐字相同。
+  - 短测脚本用真实配置在 CPU 上试跑（1 次、1 步、8+24 个 token，只验证能跑通）：完整缓存 fp32 下 9.00 / 3.00 / 1.50 MiB，等于手算值的 2 倍（bf16 是 4.5 / 1.5 / 0.75）。
+- 未验证与失败：真实工作区还缺用户的 RoPE 偏移，上面的副本结果要在用户写完后重跑；未在 GPU 上跑过；未做提交前审查；手册第 5 批未写。
+- 决策与原因：见 PLAN「第 4 步 `m3-attn` 的决定」。实现中新增的小决定：短测在 GPU 上用 bf16 autocast，贪心生成，随机 token，两个配置之间默认空闲 60 秒；开头加新 token 超过 `block_size` 时报错，因为那样测到的不是缓存的速度。
+- 审查状态：未请求，用户写完偏移后再做。
+- 学习状态：用户待写 RoPE 偏移；KV cache 由 agent 写，用户需要能讲清，M3 结束时统一提问。
+- 下一步：用户写偏移；Claude 重跑检查、做提交前审查、写手册第 5 批。
+
+### 2026-11-06 15:17（UTC+08:00）｜Claude Code｜用户 RoPE 偏移通过；讲解偏移
+
+- 范围与用户确认：用户写完 `RotaryEmbedding.forward(x, offset=0)` 并问偏移是什么。只检查和讲解，agent 没有改代码。
+- 工作区与设备：Mac，分支 m3-attn，未提交。
+- 改动：用户改 `layers.py` 的 RoPE 偏移；agent 只更新本文件。
+- 本次验证：真实工作区 pytest 345 passed，ruff check、format --check 通过。讲解用的数字是实际跑出来的：d=2 时新 token（真实位置 4）对旧 token（位置 1）的分数，有偏移 -0.99，无偏移 0.5403；距离都是 3 时（4 和 1、3 和 0、10 和 7、100 和 97）分数都是 -0.99。
+- 未验证与失败：之前的“main 与新代码 metrics.csv 相同”和故意改错是在副本上做的，还没在用户写完后的真实代码上重跑；提交前审查未做；手册第 5 批未写；未在 GPU 上跑过。
+- 决策与原因：无新决定。
+- 审查状态：未请求，下一步做。
+- 学习状态：用户在理解偏移；M3 结束时统一提问。
+- 下一步：提交前审查与三项检查。
+
+### 2026-11-06 15:38（UTC+08:00）｜Claude Code（matt-pocock-skills:code-review，规范、需求两个只读子 agent）｜m3-attn 提交前审查与修复
+
+- 范围与用户确认：用户回复“开始审查”。审查 m3-attn 相对 main（47a0d26）的全部工作区改动。这是 Claude 自查，不是 Codex 审查。
+- 工作区与设备：Mac，分支 m3-attn，未提交。
+- 审查发现（两项分开列）：
+  - Standards：`layers.py` 文件头未列 KV cache；`gpt.py` 改用户代码处标注不全；bench 和测试缺形状注释；手册“短测不追加”与 AGENTS 冲突；手册缓存预期数字错误；若干判断项（重复、参数位置易错、写死精度等）。
+  - Spec：手册和 PLAN 的 RoPE 缓存数字错误（k 旋转后是 fp32）；`n_kv_heads: 2.9`、`true` 被悄悄截断；`n_layers=0` 且 `use_cache` 报 IndexError；第一个配置不降温、温度只记一对；缓存不是显存测量；训练吞吐没有累积和裁剪；接口 12 只和新代码自比。
+- 改动（问题先写成失败的测试，看到 16 项失败后再修）：
+  - `train/config.py`：整数字段拒绝 2.9、true；6.0 仍可接受。
+  - `eval/bench.py`、`scripts/bench_attention.py`：训练步与正式训练相同（累积、裁剪、更新）；每次测量记录温度；每个配置开始前都降温；默认生成 480 个 token 以存满窗口；记录缓存实际类型；复用 `peak_memory_mb`；去掉重复的默认值。
+  - `gpt.py`、`block.py`：结构开关改用参数名传递；补标注。`layers.py` 文件头补 KV cache。`generate.py` 合并重复分支。
+  - `test_trainer.py`：旧存档测试的开关名改为从 GPTConfig 读取，断言没改；补形状注释。
+  - 手册第 5 批与 PLAN：改正缓存预期（`a1_rope` 6.75、`a9_modern` 2.25 MiB），短测在 results.md 追加一行 `M3-bench`，预期 359 passed。
+- 本次验证（都在用户写完后的真实代码上）：
+  - 工作区 pytest 359 passed，ruff 通过。
+  - 导出到没有 data、runs、.git 的目录后 pytest 359 passed。
+  - 故意改错 24 种，全部被抓到（含用户的 GQA、RoPE 偏移，缓存，配置，短测和脚本）；恢复后 222 passed（只跑相关文件）。
+  - main（47a0d26）与新代码跑 tiny_smoke、tinystories_smoke（device=cpu）：metrics.csv 逐字相同。这就是接口 12 的证据，pytest 里没有 main 可比。
+  - `sample.py` 有无 `--cache`（80 个 token，CPU）文本逐字相同。
+  - 现有结果用新代码重新汇总，SUMMARY.md 逐字相同；用对照组数据伪造第 5 批目录试汇总，退出码 0，把 n_kv_heads 改错时 `--configs` 报错（只验证流程，数字没有意义）。
+  - 短测脚本用 a9_modern 和默认的 32 + 480 在 CPU 上跑通（1 次、1 步）。
+- 未验证与失败：没有在 GPU 上跑过；手册里的缓存类型和大小只在 CPU bf16 autocast 下实测过。
+- 决策与原因（不修的）：`n_layers=0` 不支持 `use_cache`，没有注意力也就没有 k、v 可存；短测参数走命令行，与其他评测脚本相同，不是训练超参数；RoPE 的 k 保持 fp32，改了第 4 批结果无法复现；Feature Envy、Primitive Obsession、Divergent Change 三个判断项不改，改了要多一层抽象，这里不值得。
+- 审查状态：已由 Claude 的两个只读子 agent 审查，问题已修或已说明不修；Codex 未审查。
+- 学习状态：KV cache 由 agent 写，用户需要能讲清；M3 结束时统一提问。
+- 下一步：等用户同意提交、合并、推送。
+
+### 2026-11-06 15:41（UTC+08:00）｜Claude Code｜提交 m3-attn，合并到 main 并推送
+
+- 范围与用户确认：用户回复“提交合并并推送”。`.idea/` 不提交。
+- 工作区与设备：Mac；m3-attn 从 main 47a0d26 分出，main 快进到它，两者一同推送。
+- 改动：提交本分支的代码、测试、配置、PLAN、手册第 5 批和本文件；内容见之前三条记录。
+- 本次验证：提交前的检查见上一条记录。本条写于提交之前，所以这里不写提交后的结果和哈希，以 git log 和回复用户的内容为准。
+- 未验证与失败：没有在 GPU 上跑过；第 5 批未开始。
+- 决策与原因：无新决定。
+- 审查状态：Claude 的两个只读子 agent 已审查；Codex 未审查。
+- 学习状态：M3 结束时统一提问，含 `docs/self-test-qa.md` 第 31–33 题。
+- 下一步：用户让 Codex 跑第 5 批。
 
 ## 后续交接模板
 

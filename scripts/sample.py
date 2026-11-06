@@ -26,6 +26,9 @@ def main() -> None:
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--top-k", type=int, default=None)
     parser.add_argument("--seed", type=int, default=1337)
+    parser.add_argument(
+        "--cache", action="store_true", help="用 KV cache 生成：更快，结果不变"
+    )
     parser.add_argument("--device", default="auto")
     args = parser.parse_args()
 
@@ -47,6 +50,7 @@ def main() -> None:
         temperature=args.temperature,
         top_k=args.top_k,
         generator=generator,
+        use_cache=args.cache,
     )  # (1, T + max_new_tokens)
     print(tokenizer.decode(out[0].tolist()))
 

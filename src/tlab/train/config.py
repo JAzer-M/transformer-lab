@@ -2,10 +2,12 @@
 
 from dataclasses import dataclass, fields
 from pathlib import Path
+from types import NoneType, UnionType
+from typing import Any, get_args
 
 import yaml
 
-from tlab.model.layers import check_block_settings, check_pos_encoding
+from tlab.model.layers import check_block_settings, check_kv_heads, check_pos_encoding
 
 
 @dataclass
@@ -35,6 +37,7 @@ class TrainConfig:
     mlp: str = "gelu"  # "gelu"（M1/M2 的 MLP）或 "swiglu"
     pos_encoding: str = "learned"  # "learned"、"sinusoidal" 或 "rope"
     rope_theta: float = 10000.0  # 只在 pos_encoding 为 "rope" 时有用
+    n_kv_heads: int | None = None  # k、v 的组数；None 表示等于 n_heads（MHA）
     # 存档：0 表示只在训练结束时存；resume=True 时从 out_dir/ckpt.pt 接着训练
     ckpt_interval: int = 0
     resume: bool = False
@@ -53,9 +56,27 @@ class TrainConfig:
             )
         check_block_settings(self.norm, self.norm_position, self.mlp)
         check_pos_encoding(self.pos_encoding, self.rope_theta)
+        check_kv_heads(self.n_heads, self.n_kv_heads)
 
 
 LR_SCHEDULES = ("constant", "cosine")
+
+
+def _convert(declared: Any, value: Any) -> Any:
+    """按字段声明的类型转换，例如 YAML 里的 1 → learning_rate 的 1.0。
+
+    int | None 这种可选字段不能直接调用：None 保持 None，其他值按 int 转。
+    整数字段不接受 2.9 和 true：int() 会悄悄变成 2 和 1，等于悄悄换了结构。
+    """
+    if isinstance(declared, UnionType):
+        if value is None:
+            return None
+        declared = next(t for t in get_args(declared) if t is not NoneType)
+    if declared is int and (
+        isinstance(value, bool) or (isinstance(value, float) and not value.is_integer())
+    ):
+        raise ValueError(f"应为整数，收到 {value!r}")
+    return declared(value)
 
 
 def load_config(path: str | Path, overrides: list[str] | None = None) -> TrainConfig:
@@ -73,6 +94,5 @@ def load_config(path: str | Path, overrides: list[str] | None = None) -> TrainCo
     if unknown:
         raise ValueError(f"未知配置项：{sorted(unknown)}")
 
-    # 按字段声明的类型转换，例如 YAML 里的 1 → learning_rate 的 1.0
-    converted = {key: types[key](value) for key, value in values.items()}
+    converted = {key: _convert(types[key], value) for key, value in values.items()}
     return TrainConfig(**converted)

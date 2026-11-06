@@ -360,3 +360,82 @@ def test_only_the_rope_config_rotates_in_attention(pos_encoding: str) -> None:
     # RoPE 没有参数，开错了参数量也看不出来，所以要直接检查：其余两种不能旋转
     model = GPT(small_config(pos_encoding=pos_encoding))
     assert all(block.attn.rope is None for block in model.blocks)
+
+
+@pytest.mark.parametrize("n_kv_heads", [3, 0, -1, 4])
+def test_gpt_config_rejects_n_kv_heads_that_cannot_divide_n_heads(
+    n_kv_heads: int,
+) -> None:
+    # 建配置时就报错，0 层的模型也不会被放过
+    with pytest.raises(ValueError, match="n_kv_heads"):
+        small_config(n_kv_heads=n_kv_heads, n_layers=0)
+
+
+def test_n_kv_heads_config_reaches_every_layer() -> None:
+    from tlab.model.gpt import GPT
+
+    model = GPT(small_config(d_model=24, n_heads=6, n_kv_heads=2))
+
+    # k_proj 的 weight 形状是 (g * d, C)：2 组，每组 4 维
+    for block in model.blocks:
+        assert block.attn.k_proj.weight.shape == (8, 24)
+        assert block.attn.v_proj.weight.shape == (8, 24)
+
+
+@pytest.mark.parametrize("n_kv_heads", [None, 2, 1])
+@pytest.mark.parametrize("pos_encoding", ["learned", "sinusoidal", "rope"])
+@pytest.mark.parametrize("norm_position", ["pre", "post"])
+def test_model_with_cache_matches_one_pass_token_by_token(
+    norm_position: str, pos_encoding: str, n_kv_heads: int | None
+) -> None:
+    from tlab.model.gpt import GPT
+
+    torch.manual_seed(0)
+    model = GPT(
+        small_config(
+            d_model=24,
+            n_heads=6,
+            norm_position=norm_position,
+            pos_encoding=pos_encoding,
+            n_kv_heads=n_kv_heads,
+        )
+    )
+    idx = torch.randint(0, 11, (2, 7))  # (B, T)
+    full = model(idx)  # (B, T, V)
+
+    cache = model.new_cache()
+    # 先送开头 4 个，再一个一个送，每一步的分数都要和一次算完的对应位置相同
+    prompt = model(idx[:, :4], cache=cache)  # (B, 4, V)
+    torch.testing.assert_close(prompt, full[:, :4], rtol=1e-5, atol=1e-5)
+    for t in range(4, 7):
+        step = model(idx[:, t : t + 1], cache=cache)  # (B, 1, V)
+        torch.testing.assert_close(step[:, 0], full[:, t], rtol=1e-5, atol=1e-5)
+
+
+def test_learned_positions_reject_a_cache_longer_than_block_size() -> None:
+    from tlab.model.gpt import GPT
+
+    torch.manual_seed(0)
+    model = GPT(small_config())  # block_size = 8，位置表只有 8 行
+    cache = model.new_cache()
+    model(torch.zeros(1, 8, dtype=torch.long), cache=cache)
+
+    # 新 token 是第 9 个，位置表里没有，要明确报错，而不是查表越界
+    with pytest.raises(AssertionError, match="block_size"):
+        model(torch.zeros(1, 1, dtype=torch.long), cache=cache)
+
+
+@pytest.mark.parametrize("pos_encoding", ["learned", "sinusoidal", "rope"])
+def test_empty_cache_gives_the_same_output_as_no_cache(pos_encoding: str) -> None:
+    from tlab.model.gpt import GPT
+
+    torch.manual_seed(0)
+    model = GPT(small_config(pos_encoding=pos_encoding))
+    idx = torch.randint(0, 11, (2, 5))  # (B, T)
+
+    # 第一次送进去时缓存是空的，计算过程应该和不用缓存完全一样
+    assert torch.equal(model(idx, cache=model.new_cache()), model(idx))
+    # 缓存不是模型的一部分：不进存档，建了也不改变参数名
+    names = set(model.state_dict())
+    model(idx, cache=model.new_cache())
+    assert set(model.state_dict()) == names

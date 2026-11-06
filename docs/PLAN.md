@@ -262,6 +262,18 @@ CPU 训练 10 步依赖 M1 的最小模型与可运行训练路径。相关代�
   - 测试接口 17 个（RoPE 6 个、注意力 3 个、开关 5 个、外推与配置 3 个），实现为 28 个测试函数；提交前自查后又补 7 个：续训时结构开关必须一致（2 个）、结果与配置文件核对（3 个）、外推的奇数长度与数据不足、正弦的奇数维度。
   - 自查后增加的两道检查（RoPE 和正弦参数量相同，只看数字发现不了跑错结构）：`resume=True` 时结构开关与存档不同就报错；`summarize_ablations.py --configs configs/ablations` 把每次结果与变体的配置文件核对。
   - 外推的读法：后半段的上下文也更长，“后半段 − 前半段”同时包含位置超出训练范围和能看的内容变多两个影响，不能全算到其中一个头上。
+- 第 4 步 `m3-attn` 的决定（2026-11-05 用户回复“好的， 那我们接下来开始吧”确认）：
+  - 用户在 `attention.py` 写 GQA：`CausalSelfAttention(d_model, n_heads, rope_theta=None, n_kv_heads=None)`，`None` 表示等于 `n_heads`（即 MHA）；`k_proj`、`v_proj` 是 C → n_kv·d，`q_proj`、`out_proj` 不变。每组复制给相邻的头（`repeat_interleave`，k0 k0 k0 k1 k1 k1），2026-11-05 已核对 HF `modeling_qwen3.py` 的 `repeat_kv` 与此等价，M4 才能对上。
+  - RoPE 偏移由用户改（原分工写 agent 负责，因 `RotaryEmbedding` 是用户手写的类，只改两行，用户同意后改由用户写）：`forward(x, offset=0)`。
+  - KV cache 由 agent 写，标注“agent 编写”：每层一个 `KVCache`，存旋转后、复制前的 k、v，形状 (B, n_kv, T, d)，顺序与 HF 相同（先旋转，再存缓存，最后复制）；`model(idx, cache=None)` 返回值不变，训练路径不受影响；掩码 `diagonal=T_past + 1`。
+  - 生成超过 `block_size`：窗口满后每一步丢掉缓存，用最后 `block_size` 个 token 重建。此时不再提速，但结果与不用缓存相同；让缓存继续变长会破坏一致性，还会用到训练时没见过的距离。`generate(..., use_cache=False)` 默认关，`sample.py` 加 `--cache`。
+  - `n_kv_heads` 开关由 agent 写（`int | None`，默认 `None`）；`load_config` 现在直接用字段类型转换，遇到这种类型要小改。
+  - 配置与手算参数量：`a4_gqa2`（`n_kv_heads: 2`）12,789,504，少 8.44%；`a4_mqa`（`n_kv_heads: 1`）12,494,592，少 10.56%；`a9_modern`（RoPE、RMSNorm、SwiGLU、GQA-2，`rope_theta` 10000，只作参考）12,587,904。
+  - 完整缓存手算（B=1、T=512、bf16，6 层）：层数 × n_kv × T × d × (k 的字节数 + v 的字节数)，MHA 4.5 MiB，GQA-2 1.5 MiB，MQA 0.75 MiB。RoPE 的 cos、sin 是 fp32，bf16 的 k 旋转后被提升成 fp32，v 仍是 bf16（`q @ k` 又回到 bf16），所以 `a1_rope` 是 6.75 MiB，`a9_modern` 是 2.25 MiB（2026-11-06 提交前审查发现，CPU bf16 autocast 实测）。不改这一点：改了会让第 4 批的 RoPE 结果无法复现，节省显存属于性能优化，单独成任务。
+  - 短测脚本 `scripts/bench_attention.py`：训练吞吐（和正式训练一样累积、裁剪、更新，token 随机生成）、生成吞吐（有无缓存，开头 32 + 新生成 480，正好存满窗口）、缓存显存（`generate_cache` 的显存峰值，另记完整缓存的字节数和类型），每项 3 次取中位数，每次测量都记录温度，每个配置开始前空闲 60 秒；用随机权重，不需要存档；跑对照、各单变量变体和 `a9_modern`。
+  - 手册第 5 批：`a4_gqa2`、`a4_mqa`、`a9_modern` 各 2 个种子，共 6 次训练，都带完整验证打分，外加短测；短测在 `results.md` 追加一行 `M3-bench`。
+  - 提交前审查后的决定（2026-11-06）：整数配置字段不再接受 2.9、true（`int()` 会悄悄截断，等于换了结构）；`n_layers=0` 时不支持 `use_cache`（没有注意力，也没有 k、v 可存）；短测参数走命令行不走 YAML，与 `eval_extrapolation.py` 等评测脚本相同，它们不是训练超参数。
+  - 测试接口 20 个（GQA 6 个、RoPE 偏移 1 个、缓存 5 个、生成 4 个、开关配置与脚本 4 个）。
 - 本次不做：A5、A6（可选，MVP 后再定），性能优化（单独成任务）。
 - 第 1 步 `m3-norm` 的决定（2026-11-03 用户回复“按推荐开始吧”确认）：
   - 用户在新建的 `src/tlab/model/layers.py` 手写 `RMSNorm(d_model, eps=1e-6)`：只有名为 `weight` 的 (C,) 参数，初始全 1，没有 bias；eps 加在根号里，默认 1e-6 与 Qwen3 一致，LayerNorm 保持 PyTorch 默认 1e-5。内部暂不转 fp32（训练时残差主干本就是 fp32），M4 再定。

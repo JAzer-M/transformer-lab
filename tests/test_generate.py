@@ -127,3 +127,112 @@ def test_rejects_non_positive_temperature_and_restores_train_mode() -> None:
     generate(model, prompt, 3)
     # 生成期间切到 eval 模式，结束后恢复原来的模式
     assert model.training
+
+
+# ---- KV cache ----
+
+
+def cache_model(
+    pos_encoding: str = "learned", n_kv_heads: int | None = None
+) -> nn.Module:
+    from tlab.model.gpt import GPT, GPTConfig
+
+    torch.manual_seed(0)
+    return GPT(
+        GPTConfig(
+            vocab_size=11,
+            block_size=8,
+            d_model=24,
+            n_layers=2,
+            n_heads=6,
+            pos_encoding=pos_encoding,
+            n_kv_heads=n_kv_heads,
+        )
+    )
+
+
+@pytest.mark.parametrize("n_kv_heads", [None, 2, 1])
+@pytest.mark.parametrize("pos_encoding", ["learned", "sinusoidal", "rope"])
+def test_cache_gives_the_same_text_as_no_cache(
+    pos_encoding: str, n_kv_heads: int | None
+) -> None:
+    from tlab.eval.generate import generate
+
+    model = cache_model(pos_encoding, n_kv_heads)
+    prompt = torch.randint(0, 11, (2, 3))  # (B, T)
+
+    # 贪心：每一步都取分数最高的
+    plain = generate(model, prompt, 5, top_k=1)  # (B, T + 5)
+    cached = generate(model, prompt, 5, top_k=1, use_cache=True)  # (B, T + 5)
+    assert torch.equal(cached, plain)
+
+    # 抽样：同一个种子，抽到的也要一样
+    plain = generate(
+        model, prompt, 5, generator=torch.Generator().manual_seed(1)
+    )  # (B, T + 5)
+    cached = generate(
+        model, prompt, 5, generator=torch.Generator().manual_seed(1), use_cache=True
+    )  # (B, T + 5)
+    assert torch.equal(cached, plain)
+
+
+@pytest.mark.parametrize("prompt_len", [3, 10])
+@pytest.mark.parametrize("pos_encoding", ["learned", "sinusoidal", "rope"])
+def test_cache_gives_the_same_text_past_block_size(
+    pos_encoding: str, prompt_len: int
+) -> None:
+    from tlab.eval.generate import generate
+
+    model = cache_model(pos_encoding, 2)  # block_size = 8
+    prompt = torch.randint(0, 11, (2, prompt_len))  # (B, T)
+
+    plain = generate(model, prompt, 12, top_k=1)  # (B, T + 12)
+    cached = generate(model, prompt, 12, top_k=1, use_cache=True)  # (B, T + 12)
+
+    assert torch.equal(cached, plain)
+
+
+def lengths_sent_to_the_model(model: nn.Module) -> list[int]:
+    """记录每一步送进模型的 token 数，用来确认缓存真的用上了。"""
+    lengths: list[int] = []
+    model.register_forward_pre_hook(lambda _, args: lengths.append(args[0].size(1)))
+    return lengths
+
+
+def test_cache_sends_only_the_new_token_after_the_prompt() -> None:
+    from tlab.eval.generate import generate
+
+    model = cache_model()
+    lengths = lengths_sent_to_the_model(model)
+
+    generate(model, torch.zeros(1, 3, dtype=torch.long), 5, top_k=1, use_cache=True)
+
+    # 不检查这个的话，什么都不缓存的假实现也能让“结果相同”通过
+    assert lengths == [3, 1, 1, 1, 1]
+
+
+def test_cache_rebuilds_from_the_window_once_it_is_full() -> None:
+    from tlab.eval.generate import generate
+
+    model = cache_model()  # block_size = 8
+    lengths = lengths_sent_to_the_model(model)
+
+    generate(model, torch.zeros(1, 3, dtype=torch.long), 8, top_k=1, use_cache=True)
+
+    # 前 6 步把缓存从 3 个填到 8 个；之后每一步都要丢掉缓存，用最后 8 个重建
+    assert lengths == [3, 1, 1, 1, 1, 1, 8, 8]
+
+
+def test_cache_starts_fresh_each_call_and_restores_train_mode() -> None:
+    from tlab.eval.generate import generate
+
+    model = cache_model("rope")
+    model.train()
+    prompt = torch.randint(0, 11, (2, 3))  # (B, T)
+
+    first = generate(model, prompt, 4, top_k=1, use_cache=True)  # (B, T + 4)
+    second = generate(model, prompt, 4, top_k=1, use_cache=True)  # (B, T + 4)
+
+    # 连续生成两次互不影响：缓存不留在模型里
+    assert torch.equal(first, second)
+    assert model.training

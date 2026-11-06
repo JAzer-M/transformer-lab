@@ -272,3 +272,30 @@ def test_sinusoidal_positions_need_an_even_dimension() -> None:
     # sin、cos 成对出现；奇数维时要给出看得懂的报错，不是形状对不上
     with pytest.raises(AssertionError, match="偶数"):
         sinusoidal_positions(3, 5, torch.device("cpu"))
+
+
+def test_rope_offset_continues_the_positions_of_the_full_sequence() -> None:
+    from tlab.model.layers import RotaryEmbedding
+
+    torch.manual_seed(0)
+    rope = RotaryEmbedding(8)
+    x = torch.randn(2, 3, 7, 8)  # (B, h, T, d)
+
+    full = rope(x)  # (B, h, T, d)
+
+    # 只转后面 4 个 token，从第 3 个位置数起，结果必须和一次转完的后 4 个相同
+    tail = rope(x[:, :, 3:], offset=3)  # (B, h, 4, d)
+    torch.testing.assert_close(tail, full[:, :, 3:])
+    # 不传 offset 就是从 0 数起，和以前一样
+    assert torch.equal(rope(x, offset=0), full)
+
+
+def test_sinusoidal_positions_offset_continues_the_full_sequence() -> None:
+    from tlab.model.layers import sinusoidal_positions
+
+    device = torch.device("cpu")
+    full = sinusoidal_positions(7, 8, device)  # (T, C)
+
+    tail = sinusoidal_positions(4, 8, device, offset=3)  # (4, C)
+
+    torch.testing.assert_close(tail, full[3:])

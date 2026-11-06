@@ -242,6 +242,15 @@ def test_run_builds_the_configured_norm_and_checkpoint_rebuilds_it(
     assert isinstance(model.ln_f, RMSNorm)
 
 
+def model_switches() -> list[str]:
+    from dataclasses import MISSING, fields
+
+    from tlab.model.gpt import GPTConfig
+
+    # GPTConfig 里有默认值的字段是 M3 起加的结构开关，M1、M2 的旧存档里都没有
+    return [f.name for f in fields(GPTConfig) if f.default is not MISSING]
+
+
 def test_every_model_switch_is_a_train_config_field() -> None:
     from dataclasses import MISSING, fields
 
@@ -296,7 +305,7 @@ def test_checkpoint_saved_before_the_switches_still_loads(tmp_path: Path) -> Non
     path = run(tiny_config(tmp_path, max_iters=2)) / "ckpt.pt"
     # 做成 M1、M2 存档的样子：配置里没有后来加的开关
     ckpt = torch.load(path, weights_only=False)
-    for key in ("norm", "norm_position", "mlp", "pos_encoding", "rope_theta"):
+    for key in model_switches():
         del ckpt["config"][key]
     torch.save(ckpt, path)
 
@@ -377,7 +386,7 @@ def test_resume_of_an_old_checkpoint_counts_missing_switches_as_default(
     write_tiny_dataset(tmp_path / "data")
     path = run(tiny_config(tmp_path, max_iters=2)) / "ckpt.pt"
     ckpt = torch.load(path, weights_only=False)
-    for key in ("norm", "norm_position", "mlp", "pos_encoding", "rope_theta"):
+    for key in model_switches():
         del ckpt["config"][key]
     torch.save(ckpt, path)
 
@@ -385,3 +394,82 @@ def test_resume_of_an_old_checkpoint_counts_missing_switches_as_default(
     with pytest.raises(ValueError, match="pos_encoding"):
         run(tiny_config(tmp_path, max_iters=3, pos_encoding="rope", resume=True))
     run(tiny_config(tmp_path, max_iters=3, resume=True))
+
+
+def test_load_config_reads_n_kv_heads_and_rejects_bad_values(tmp_path: Path) -> None:
+    from tlab.train.config import load_config
+
+    path = write_yaml(tmp_path / "c.yaml", "n_heads: 6\nn_kv_heads: 2\n")
+
+    config = load_config(path)
+    assert config.n_kv_heads == 2 and isinstance(config.n_kv_heads, int)
+
+    # 命令行可以改成别的组数，也可以用 null 改回 MHA
+    assert load_config(path, ["n_kv_heads=3"]).n_kv_heads == 3
+    assert load_config(path, ["n_kv_heads=null"]).n_kv_heads is None
+    # 不写就是 None，即 MHA
+    assert (
+        load_config(write_yaml(tmp_path / "d.yaml", "n_heads: 6\n")).n_kv_heads is None
+    )
+    # 6 个头分不成 4 组
+    with pytest.raises(ValueError, match="n_kv_heads"):
+        load_config(path, ["n_kv_heads=4"])
+
+
+def test_old_saved_config_rebuilds_with_mha() -> None:
+    from tlab.train.utils import gpt_config_from
+
+    old = {"block_size": 8, "d_model": 16, "n_layers": 1, "n_heads": 2, "seed": 0}
+    assert gpt_config_from(old, vocab_size=11).n_kv_heads is None
+    new = dict(old, n_kv_heads=1)
+    assert gpt_config_from(new, vocab_size=11).n_kv_heads == 1
+
+
+def test_run_with_n_kv_heads_saves_a_checkpoint_that_rebuilds(tmp_path: Path) -> None:
+    from tlab.train.run import run
+    from tlab.train.utils import load_model
+
+    write_tiny_dataset(tmp_path / "data")
+    path = run(tiny_config(tmp_path, max_iters=2, n_kv_heads=1)) / "ckpt.pt"
+
+    model, _ = load_model(path, torch.device("cpu"))
+
+    assert model.blocks[0].attn.n_kv_heads == 1
+
+
+def test_resume_refuses_a_different_n_kv_heads(tmp_path: Path) -> None:
+    from tlab.train.run import run
+
+    write_tiny_dataset(tmp_path / "data")
+    run(tiny_config(tmp_path, max_iters=2, n_kv_heads=1))
+
+    with pytest.raises(ValueError, match="n_kv_heads"):
+        run(tiny_config(tmp_path, max_iters=3, resume=True))
+
+
+@pytest.mark.parametrize(
+    "override", ["n_kv_heads=2.9", "n_kv_heads=true", "max_iters=2.9", "n_heads=true"]
+)
+def test_load_config_rejects_values_that_are_not_whole_numbers(
+    tmp_path: Path, override: str
+) -> None:
+    from tlab.train.config import load_config
+
+    path = write_yaml(tmp_path / "c.yaml", "n_heads: 6\n")
+
+    # 以前 int(2.9) 会悄悄变成 2，int(True) 会变成 1，等于悄悄换了结构
+    with pytest.raises(ValueError, match="整数"):
+        load_config(path, [override])
+
+
+def test_load_config_still_accepts_whole_numbers_written_as_floats(
+    tmp_path: Path,
+) -> None:
+    from tlab.train.config import load_config
+
+    path = write_yaml(tmp_path / "c.yaml", "n_heads: 6.0\nn_kv_heads: 2.0\n")
+
+    config = load_config(path)
+
+    assert config.n_heads == 6 and isinstance(config.n_heads, int)
+    assert config.n_kv_heads == 2 and isinstance(config.n_kv_heads, int)

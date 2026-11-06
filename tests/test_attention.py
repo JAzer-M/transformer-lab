@@ -198,3 +198,193 @@ def test_attention_can_tell_the_order_of_earlier_tokens_only_with_rope() -> None
     # 开了 RoPE，同样的 token 换了位置，最后一个位置的输出就会变
     rope = CausalSelfAttention(8, 2, rope_theta=10000.0)
     assert not torch.allclose(rope(swapped)[:, -1], rope(x)[:, -1])
+
+
+# ---- GQA：n_kv_heads 是 k、v 的组数，注释里写作 g ----
+
+
+def gqa_reference(
+    attn: CausalSelfAttention,
+    x: torch.Tensor,
+    h: int,
+    g: int,
+    order: list[int],
+    rope: torch.nn.Module | None = None,
+) -> torch.Tensor:
+    """参考答案：用同样的投影层拆头，按 order 把每组分给各个头，再交给 SDPA（只在测试里用）。"""
+    B, T, C = x.shape
+    d = C // h
+    q = attn.q_proj(x).view(B, T, h, d).transpose(1, 2)  # (B, h, T, d)
+    k = attn.k_proj(x).view(B, T, g, d).transpose(1, 2)  # (B, g, T, d)
+    v = attn.v_proj(x).view(B, T, g, d).transpose(1, 2)  # (B, g, T, d)
+    if rope is not None:
+        q = rope(q)  # (B, h, T, d)
+        k = rope(k)  # (B, g, T, d)
+    z = F.scaled_dot_product_attention(
+        q, k[:, order], v[:, order], is_causal=True
+    )  # (B, h, T, d)
+    return attn.out_proj(z.transpose(1, 2).contiguous().view(B, T, C))  # (B, T, C)
+
+
+# 第 i 个头用第几组：同组的头排在一起，和 HF 的 repeat_kv 相同
+HEAD_ORDERS = [
+    (1, [0, 0, 0, 0, 0, 0]),
+    (2, [0, 0, 0, 1, 1, 1]),
+    (3, [0, 0, 1, 1, 2, 2]),
+]
+
+
+def test_n_kv_heads_equal_to_n_heads_is_the_same_as_default_mha() -> None:
+    torch.manual_seed(0)
+    default = CausalSelfAttention(24, 6)
+    explicit = CausalSelfAttention(24, 6, n_kv_heads=6)
+
+    # 严格载入：参数名或形状对不上会报错，M1–M3 的旧存档靠这一点才载得进来
+    explicit.load_state_dict(default.state_dict())
+
+    x = torch.randn(2, 5, 24)  # (B, T, C)
+    assert torch.equal(explicit(x), default(x))
+
+
+@pytest.mark.parametrize(
+    ("n_kv_heads", "g", "expected_params"),
+    [
+        (None, 6, 589_824),
+        (6, 6, 589_824),
+        (3, 3, 442_368),
+        (2, 2, 393_216),
+        (1, 1, 344_064),
+    ],
+)
+def test_only_k_and_v_projections_shrink(
+    n_kv_heads: int | None, g: int, expected_params: int
+) -> None:
+    # 手算（C = 384，d = 64）：q、out 各 C² = 147,456；k、v 各 C × g × d
+    attn = CausalSelfAttention(384, 6, n_kv_heads=n_kv_heads)
+
+    # nn.Linear 的 weight 形状是 (输出维度, 输入维度)
+    assert attn.q_proj.weight.shape == (384, 384)
+    assert attn.k_proj.weight.shape == (g * 64, 384)
+    assert attn.v_proj.weight.shape == (g * 64, 384)
+    assert attn.out_proj.weight.shape == (384, 384)
+    assert sum(p.numel() for p in attn.parameters()) == expected_params
+
+
+@pytest.mark.parametrize(("g", "order"), HEAD_ORDERS)
+def test_gqa_matches_scaled_dot_product_attention(g: int, order: list[int]) -> None:
+    torch.manual_seed(0)
+    attn = CausalSelfAttention(24, 6, n_kv_heads=g)
+    x = torch.randn(2, 5, 24)  # (B, T, C)
+
+    y = attn(x)  # (B, T, C)
+
+    assert y.shape == (2, 5, 24)
+    y_ref = gqa_reference(attn, x, 6, g, order)  # (B, T, C)
+    torch.testing.assert_close(y, y_ref, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.parametrize("rope_theta", [None, 10000.0])
+@pytest.mark.parametrize("g", [1, 2, 3])
+def test_gqa_future_tokens_do_not_affect_earlier_outputs(
+    g: int, rope_theta: float | None
+) -> None:
+    torch.manual_seed(0)
+    attn = CausalSelfAttention(24, 6, rope_theta=rope_theta, n_kv_heads=g)
+    x = torch.randn(2, 5, 24)  # (B, T, C)
+
+    # 只改最后一个 token（下标 4），前四个 token 保持不变
+    x_changed = x.clone()  # (B, T, C)
+    x_changed[:, 4, :] = torch.randn(2, 24)  # (B, C)
+
+    y = attn(x)  # (B, T, C)
+    y_changed = attn(x_changed)  # (B, T, C)
+
+    torch.testing.assert_close(y_changed[:, :4, :], y[:, :4, :])
+    # 被改的位置输出应当变化，保证这次改动确实传进了模型
+    assert not torch.allclose(y_changed[:, 4, :], y[:, 4, :])
+
+
+@pytest.mark.parametrize("n_kv_heads", [4, 0, -1, 12])
+def test_rejects_n_kv_heads_that_cannot_divide_n_heads(n_kv_heads: int) -> None:
+    # 4：6 个头分不成 4 个等大的组；0、-1：组数没有意义；12：组数比头数还多
+    with pytest.raises(AssertionError):
+        CausalSelfAttention(24, 6, n_kv_heads=n_kv_heads)
+
+
+@pytest.mark.parametrize(("g", "order"), HEAD_ORDERS)
+def test_gqa_with_rope_rotates_q_and_k_but_not_v(g: int, order: list[int]) -> None:
+    from tlab.model.layers import RotaryEmbedding
+
+    torch.manual_seed(0)
+    attn = CausalSelfAttention(24, 6, rope_theta=10000.0, n_kv_heads=g)
+    x = torch.randn(2, 5, 24)  # (B, T, C)
+
+    y_ref = gqa_reference(attn, x, 6, g, order, RotaryEmbedding(4))  # (B, T, C)
+
+    torch.testing.assert_close(attn(x), y_ref, rtol=1e-5, atol=1e-5)
+
+
+# ---- KV cache：测试默认用 C=24、h=6、d=4 ----
+
+
+def test_kv_cache_appends_new_tokens_after_the_old_ones() -> None:
+    from tlab.model.attention import KVCache
+
+    torch.manual_seed(0)
+    cache = KVCache()
+    assert cache.length == 0
+
+    k1, v1 = torch.randn(2, 3, 4, 8), torch.randn(2, 3, 4, 8)  # (B, g, T, d)
+    cache.update(k1, v1)
+    assert cache.length == 4
+
+    k2, v2 = torch.randn(2, 3, 1, 8), torch.randn(2, 3, 1, 8)  # (B, g, 1, d)
+    k, v = cache.update(k2, v2)  # (B, g, 5, d)
+
+    assert cache.length == 5
+    assert k.shape == v.shape == (2, 3, 5, 8)
+    # 旧的在前，新的接在后面
+    assert torch.equal(k[:, :, :4], k1) and torch.equal(k[:, :, 4:], k2)
+    assert torch.equal(v[:, :, :4], v1) and torch.equal(v[:, :, 4:], v2)
+
+
+@pytest.mark.parametrize("g", [6, 2, 1])
+def test_attention_stores_rotated_k_and_plain_v_before_copying(g: int) -> None:
+    from tlab.model.attention import KVCache
+    from tlab.model.layers import RotaryEmbedding
+
+    torch.manual_seed(0)
+    attn = CausalSelfAttention(24, 6, rope_theta=10000.0, n_kv_heads=g)
+    x = torch.randn(2, 5, 24)  # (B, T, C)
+    cache = KVCache()
+
+    attn(x, cache=cache)
+
+    # 存的是复制前的 g 组，这正是 GQA 能省缓存的原因
+    assert cache.k.shape == cache.v.shape == (2, g, 5, 4)
+    # k 存旋转后的，以后不用再转；v 本来就不旋转
+    k_plain = attn.k_proj(x).view(2, 5, g, 4).transpose(1, 2)  # (B, g, T, d)
+    v_plain = attn.v_proj(x).view(2, 5, g, 4).transpose(1, 2)  # (B, g, T, d)
+    torch.testing.assert_close(cache.k, RotaryEmbedding(4)(k_plain))
+    torch.testing.assert_close(cache.v, v_plain)
+
+
+@pytest.mark.parametrize("chunks", [(6,), (3, 1, 2), (1, 1, 1, 1, 1, 1)])
+@pytest.mark.parametrize("rope_theta", [None, 10000.0])
+@pytest.mark.parametrize("g", [6, 2, 1])
+def test_attention_in_chunks_matches_one_pass(
+    g: int, rope_theta: float | None, chunks: tuple[int, ...]
+) -> None:
+    from tlab.model.attention import KVCache
+
+    torch.manual_seed(0)
+    attn = CausalSelfAttention(24, 6, rope_theta=rope_theta, n_kv_heads=g)
+    x = torch.randn(2, 6, 24)  # (B, T, C)
+    full = attn(x)  # (B, T, C)
+
+    cache = KVCache()
+    # 每段 (B, 这一段的长度, C)
+    parts = [attn(part, cache=cache) for part in x.split(chunks, dim=1)]
+
+    # 同一段里的 token 也不能偷看段内后面的 token，掩码写错这里会不一致
+    torch.testing.assert_close(torch.cat(parts, dim=1), full, rtol=1e-5, atol=1e-5)

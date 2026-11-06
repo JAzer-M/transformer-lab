@@ -1,5 +1,5 @@
 # USER-WRITTEN: agent 只提建议， 不改实现
-# 例外：标注“agent 编写”的 norm、mlp、pos_encoding 开关代码，经用户 2026-11-03、11-04 同意由 agent 加入
+# 例外：标注“agent 编写”的 norm、mlp、pos_encoding、n_kv_heads 开关与 KV cache 代码，经用户 2026-11-03、11-04、11-05 同意由 agent 加入
 """现代 Transformer 组件：RMSNorm（M3 第 1 步）；之后的 SwiGLU、RoPE 也写在这里"""
 
 import torch
@@ -55,10 +55,10 @@ class RotaryEmbedding(nn.Module):
         # 登记成buffer： 跟着模型换设备， 但不是参数， 也不存进存档
         self.register_buffer("inv_freq", inv_freq, persistent=False)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # 位置编号 0, 1, ..., T - 1; x 的倒数第二维是 T
+    def forward(self, x: torch.Tensor, offset: int = 0) -> torch.Tensor:
+        # 位置编号 offset, ... offset + T - 1; x 的倒数第二维是 T
         T = x.size(-2)
-        pos = torch.arange(T, device=x.device).float()  # (T,)
+        pos = torch.arange(offset, offset + T, device=x.device).float()  # (T,)
         # 每个位置，每一对分量要转的角度 = 位置 * 转速
         angles = pos[:, None] * self.inv_freq  # (T, d/2)
         # 前半段和后半对配对, 所以两段用同样的角度
@@ -102,10 +102,24 @@ def check_pos_encoding(pos_encoding: str, rope_theta: float) -> None:
         )
 
 
-def sinusoidal_positions(T: int, d_model: int, device: torch.device) -> torch.Tensor:
-    """原论文的正弦位置编码：不用训练，序列多长都能算。"""
+# agent 编写（n_kv_heads 开关）
+def check_kv_heads(n_heads: int, n_kv_heads: int | None) -> None:
+    """组数不能整除头数时报错；训练配置和 GPTConfig 创建时调用，None 表示等于头数。"""
+    if n_kv_heads is None:
+        return
+    if n_kv_heads <= 0 or n_heads % n_kv_heads != 0:
+        raise ValueError(
+            f"n_kv_heads 必须是正数且能整除 n_heads={n_heads}，收到 {n_kv_heads!r}"
+        )
+
+
+def sinusoidal_positions(
+    T: int, d_model: int, device: torch.device, offset: int = 0
+) -> torch.Tensor:
+    """原论文的正弦位置编码：不用训练，序列多长都能算；位置从 offset 数起（KV cache 用）。"""
+    # agent 编写（KV cache）：offset 参数
     assert d_model % 2 == 0, "正弦位置编码的 sin、cos 成对出现，d_model 必须是偶数"
-    pos = torch.arange(T, device=device).float()[:, None]  # (T, 1)
+    pos = torch.arange(offset, offset + T, device=device).float()[:, None]  # (T, 1)
     # 分母 10000^(2i/C)，i 是第几对
     div = 10000.0 ** (
         torch.arange(0, d_model, 2, device=device).float() / d_model

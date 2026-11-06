@@ -1,15 +1,18 @@
 # USER-WRITTEN: agent 只提建议， 不改实现
-# 例外：标注“agent 编写”的 norm、mlp、pos_encoding 开关代码，经用户 2026-11-03、11-04 同意由 agent 加入
+# 例外：标注“agent 编写”的 norm、mlp、pos_encoding、n_kv_heads 开关与 KV cache 代码，经用户 2026-11-03、11-04、11-05 同意由 agent 加入
 from dataclasses import dataclass
 
 import torch
 from torch import nn
 
+# agent 编写（KV cache）
+from tlab.model.attention import KVCache
 from tlab.model.block import Block
 
 # agent 编写（各开关）：检查开关取值、按配置名建最终归一化层、正弦位置编码
 from tlab.model.layers import (
     check_block_settings,
+    check_kv_heads,
     check_pos_encoding,
     make_norm,
     sinusoidal_positions,
@@ -30,11 +33,13 @@ class GPTConfig:
     mlp: str = "gelu"  # 前馈子层："gelu"（M1/M2 的 MLP）或 "swiglu"
     pos_encoding: str = "learned"  # 位置编码："learned"、"sinusoidal" 或 "rope"
     rope_theta: float = 10000.0  # RoPE 转速公式里的底数，只在 "rope" 时有用
+    n_kv_heads: int | None = None  # k、v 的组数；None 表示等于 n_heads（MHA）
 
     def __post_init__(self) -> None:
         # agent 编写（各开关）：建配置时就检查取值，0 层时也不会被悄悄放过
         check_block_settings(self.norm, self.norm_position, self.mlp)
         check_pos_encoding(self.pos_encoding, self.rope_theta)
+        check_kv_heads(self.n_heads, self.n_kv_heads)
 
 
 class GPT(nn.Module):
@@ -57,11 +62,15 @@ class GPT(nn.Module):
                 Block(
                     config.d_model,
                     config.n_heads,
-                    config.norm,
-                    config.norm_position,
-                    config.mlp,
-                    # agent 编写（pos_encoding 开关）：只有 rope 才在注意力里旋转
-                    config.rope_theta if config.pos_encoding == "rope" else None,
+                    # agent 编写（各开关）：开关多了容易传错位置，都写参数名
+                    norm=config.norm,
+                    norm_position=config.norm_position,
+                    mlp=config.mlp,
+                    # 只有 rope 才在注意力里旋转
+                    rope_theta=(
+                        config.rope_theta if config.pos_encoding == "rope" else None
+                    ),
+                    n_kv_heads=config.n_kv_heads,
                 )
                 for _ in range(config.n_layers)
             ]
@@ -85,27 +94,44 @@ class GPT(nn.Module):
         if isinstance(module, (nn.Linear, nn.Embedding)):
             nn.init.normal_(module.weight, mean=0, std=0.02)
 
-    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+    # agent 编写（KV cache）
+    def new_cache(self) -> list[KVCache]:
+        """生成前建一份空缓存，每层一个。"""
+        return [KVCache() for _ in self.blocks]
+
+    # agent 编写（KV cache）：cache 只在生成时传，这时 idx 只有新 token；不传时和以前一样
+    def forward(
+        self, idx: torch.Tensor, cache: list[KVCache] | None = None
+    ) -> torch.Tensor:
         B, T = idx.shape
+        # agent 编写（KV cache）：缓存里已有的 token 数，新 token 的位置从这里数起
+        T_past = cache[0].length if cache else 0
         # agent 编写（pos_encoding 开关）：正弦和 RoPE 没有位置表，也就没有长度上限
         if self.pos_encoding == "sinusoidal":
             # 原论文做法：token 向量乘 √C，否则初始标准差 0.02 的 token 向量
             # 会被均方根约 0.7 的位置向量盖住
-            pe = sinusoidal_positions(T, self.d_model, idx.device)  # (T, C)
+            pe = sinusoidal_positions(T, self.d_model, idx.device, T_past)  # (T, C)
             x = self.tok_emb(idx) * self.d_model**0.5 + pe  # (B, T, C)
         elif self.pos_encoding == "rope":
             # 位置信息在每层注意力里给，入口只有 token 向量
             x = self.tok_emb(idx)  # (B, T, C)
         else:
+            # agent 编写（KV cache）：下面的长度检查和位置编号都算上缓存里的 token；
+            # 不用缓存时 T_past = 0，和以前相同
+            T_all = T_past + T
             # 检查序列长度：位置表只有 block_size 行
-            assert T <= self.block_size, f"序列长度{T}超过 block_size {self.block_size}"
-            # 位置编号 0, 1, ..., T - 1, 和 idx 放在同一个设备上
-            pos = torch.arange(T, device=idx.device)  # (T,)
+            assert T_all <= self.block_size, (
+                f"序列长度{T_all}超过 block_size {self.block_size}"
+            )
+            # 位置编号 T_past, ..., T_all - 1（不用缓存时是 0, ..., T - 1），和 idx 放在同一个设备上
+            pos = torch.arange(T_past, T_all, device=idx.device)  # (T,)
             # token 向量加上位置向量，(T, C)会广播到每条序列
             x = self.tok_emb(idx) + self.pos_emb(pos)  # (B, T, C)
         # 逐层通过 block， 每层的输出是下一层的输入
-        for block in self.blocks:
-            x = block(x)  # (B, T, C)
+        # agent 编写（KV cache）：每层用自己的缓存；不用缓存时每层都传 None
+        caches = cache if cache is not None else [None] * len(self.blocks)
+        for block, layer_cache in zip(self.blocks, caches, strict=True):
+            x = block(x, layer_cache)  # (B, T, C)
         # 最终归一化， 再映射成词表里每个字的分数
         x = self.ln_f(x)  # (B, T, C)
         logits = self.lm_head(x)  # (B, T, V)
