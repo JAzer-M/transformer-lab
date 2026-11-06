@@ -4,12 +4,18 @@
     uv run python scripts/summarize_ablations.py experiments/m3_ablations \
         --configs configs/ablations --out experiments/m3_ablations/SUMMARY.md
 目录结构：<root>/<变体>/seed<种子>/{run.json, metrics.csv}
+<root> 下有 bench.json、bench_batch/ 时，表的最后再加上短测的结果。
 """
 
 import argparse
 from pathlib import Path
 
-from tlab.eval.ablation import load_variants, render_summary
+from tlab.eval.ablation import (
+    load_bench,
+    load_cache_speed,
+    load_variants,
+    render_summary,
+)
 
 
 def main() -> None:
@@ -21,7 +27,11 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    text = render_summary(load_variants(args.root, config_dir=args.configs))
+    text = render_summary(
+        load_variants(args.root, config_dir=args.configs),
+        load_bench(args.root),
+        load_cache_speed(args.root),
+    )
     print(text)
     if args.out is not None:
         args.out.write_text(text, encoding="utf-8")

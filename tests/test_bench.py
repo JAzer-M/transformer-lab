@@ -477,3 +477,43 @@ def test_table_counts_results_without_the_field_as_batch_size_one() -> None:
     del result["generate_batch_size"]
 
     assert table_column(render_table({"old": result}), "生成 batch") == ["1"]
+
+
+def test_script_creates_the_output_directory(tmp_path: Path) -> None:
+    config = tmp_path / "tiny.yaml"
+    config.write_text(
+        "n_layers: 1\nn_heads: 2\nd_model: 8\nblock_size: 8\nbatch_size: 2\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "not" / "yet" / "bench.json"
+
+    # 目录不存在时，测完第一个配置才报错就白等了
+    done = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "bench_attention.py"),
+            "--configs",
+            str(config),
+            "--out",
+            str(out),
+            "--device",
+            "cpu",
+            "--vocab-size",
+            "11",
+            "--repeats",
+            "1",
+            "--train-steps",
+            "1",
+            "--prompt-len",
+            "2",
+            "--new-tokens",
+            "2",
+            "--cooldown",
+            "0",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert done.returncode == 0, done.stderr
+    assert out.exists()

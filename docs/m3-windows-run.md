@@ -270,3 +270,31 @@ git add experiments/ PROGRESS.md && git commit -m "record M3 batch 5 supplement 
 - 预计耗时：15–20 分钟（估算，以实测为准）。
 - 提交与推送前先问用户。完成后告诉用户，由用户回到 Mac 让 Claude Code 核对。
 
+## 第 6 步：生成样例（不训练，可由用户直接在 WSL 运行）
+
+本节由 Claude Code 于 2026-11-06 追加，对应分支 `m3-report`。前提是 `m3-report` 已合并到 `main`，否则脚本不存在。存档只在 WSL 的 `runs/m3/` 下，所以样例要在这边生成。用每个变体种子 1337 的最终存档，共 12 个变体，每个生成 3 段（参数与 M2 的样例相同：开头 `Once upon a time`，300 个新 token，temperature 0.8，top-k 50，生成种子 1、2、3），使用 KV 缓存。
+
+依次运行：
+
+```bash
+cd ~/transformer-lab && git fetch origin && git switch main && git pull --ff-only && uv sync --locked
+```
+
+```bash
+uv run pytest -q
+```
+
+预期 **397 passed**（Mac 上提交前实测），全部通过才继续。
+
+```bash
+uv run python scripts/sample_ablations.py --out experiments/m3_ablations/samples.md 2>&1 | tee runs/m3_samples.txt
+```
+
+应打印 12 行 `<变体>：第 3052 步的存档`。缺存档或步数不是 3052 时脚本会报错并指出是哪个变体，这时不要重新训练，把报错告诉 Claude Code。
+
+```bash
+git add experiments/m3_ablations/samples.md && git commit -m "add M3 generation samples" && git push
+```
+
+这一步不追加 `results.md`（不是实验）。`PROGRESS.md` 不用在这边改，由 Claude Code 核对时记录。完成后回到 Mac 让 Claude Code 核对。预计几分钟（估算）。
+

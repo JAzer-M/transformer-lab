@@ -48,6 +48,8 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    # 先建好目录：不建的话要测完第一个配置才报错
+    args.out.parent.mkdir(parents=True, exist_ok=True)
     device = get_device() if args.device == "auto" else torch.device(args.device)
     results = {}
     for path in args.configs:

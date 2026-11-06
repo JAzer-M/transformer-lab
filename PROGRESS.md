@@ -4,24 +4,27 @@
 
 ## 当前状态
 
-更新时间：2026-11-06 22:24（Asia/Hong_Kong，UTC+08:00）。
+更新时间：2026-11-06 23:11（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M3第5批补充已完成；此前A1–A4与组合训练结果已由Claude核对；第6步未开始 |
-| 本轮范围 | 只有短测：GPU a0_control/a4_gqa2的B=1、8、32；CPU a0_control的B=1；4条命令、7个配置结果、99次测量 |
-| 实现方 / 审查方 | Claude提供脚本/手册，Codex执行；执行者已完成99次测量及文件核对；独立只读复核因会话中断未完成，用户已明确要求直接提交；Claude本批审查待进行 |
-| 来源 | main / 4e6bb179f182d9c65d4ba7e828c84810117f7b5e，7个结果来源均干净；360个跟踪文件在全部短测结束前未变 |
+| 项目阶段 | M3：结果都已回传并经 Claude 核对；m3-report（曲线、汇总表、样例脚本、README 初版）已合并；样例未生成，M3 统一复习未做，MVP 关口未勾选 |
+| 本轮范围 | 提交 m3-report，合并到 main 并推送（用户回复“提交合并并推送”）；样例尚未生成 |
+| 实现方 / 审查方 | m3-report 全部由 Claude 写；提交前由 Claude 的两个只读子 agent 审查（规范、需求），不是 Codex 审查 |
+| 来源 | main 快进到 m3-report，两者一同推送，从 main a46978e 分出；哈希以 git log 为准 |
 | 前置 | uv sync --locked、CUDA分配通过；367 passed in20.85s；RTX5060 Laptop、PyTorch2.9.1+cu128/CUDA12.8 |
 | 执行 | GPU每项5次/train-steps5；CPU每项3次/train-steps1；prompt32+新增480，每配置60秒降温；4条命令退出0，总耗时879.062s |
 | 缓存 | GPU对照4.50MiB/GQA-2 1.50MiB，k/v均bf16；CPU对照9.00MiB，k/v均fp32；完整缓存按B=1核对 |
 | 归档 | bench_batch/REPORT.md及原始JSON/MD/日志；results只追加1行，原bench.json/md与SUMMARY保持原文 |
-| 结果记录 | B=32对照生成无缓存1156.58/有缓存7866.12tokens/s，有缓存生成峰值267.01MiB；其余实数见报告 |
+| 结果记录 | a0_control 提速倍数：RTX 5060 上 B=1、8、32 为 1.00、1.85、6.80；同机 CPU B=1 为 7.42。B=32 有缓存生成峰值 267.01 MiB，无缓存 662.30 MiB。详见 bench_batch/REPORT.md |
 | 温度 | GPU90次测量起始温度53.5–86.3°C；CPU项温度字段为GPU温度，CPU温度未测 |
-| 下一步 | 按用户明确要求提交并发布main供Claude核对；第6步另按安排执行 |
+| 下一步 | 用户在 WSL 跑手册“第 6 步”生成样例并推送；Claude 核对后把样例写进 README 再提交；之后 M3 统一复习，由用户确认是否勾选 MVP 关口；GQA-2 和 MQA 是否补第 3 个种子由用户决定，目前按“没有结论”记录 |
 
 ## 当前任务与下一步
 
+- 2026-11-06 23:11：m3-report 已提交、合并到 main 并推送，等用户在 WSL 生成样例。
+- 2026-11-06 23:06：m3-report 写完并审查修复，397 passed，等用户同意提交。
+- 2026-11-06 22:29：Claude 核对第 5 批补充通过，等用户确认开始第 6 步。
 - 2026-11-06 22:24：用户明确要求“请直接提交，因为没有额度了”。按本次授权直接提交并按既定流程发布main；独立复核中断未完成，执行者已完成99次测量及文件核对；Claude本批审查待进行。
 
 - 2026-11-06 22:10：第5批补充4条短测/99次测量完成，原始结果已归档，独立结果复核及用户提交推送确认待进行。
@@ -1450,6 +1453,70 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - results只追加M3-bench-batch一行（B=32对照1156.58/7866.12tokens/s，缓存生成峰值267.01MiB）；SUMMARY及原bench.json/md保持原文。所有实数与证据见bench_batch/REPORT.md。
 - 执行者已完成99次测量及文件核对；独立只读复核因会话中断未完成，用户已明确要求直接提交；Claude本批审查待进行。用户随后已明确要求直接提交（见当前任务新增授权记录）；第6步未开始。
 
+
+### 2026-11-06 22:29（UTC+08:00）｜Claude Code｜核对第 5 批补充；A7 结论
+
+- 范围与用户确认：用户说 Codex 已跑完，额度将尽，有些不完美的地方，要求拉取检查。只核对和分析，没有改代码。
+- 工作区与设备：Mac，main 快进到 a46978e；本文件的这次改动未提交。
+- 改动：只更新本文件。核对脚本放在 runs/m3-attn-review/check_supp.py（不进 git）。
+- 本次验证：
+  - `git diff 4e6bb17 a46978e`：src、tests、scripts、configs、依赖、AGENTS、docs 都没动；results.md 只增 1 行、无删除；bench.json、bench.md、SUMMARY.md 没变；没有权重、数据或 runs 入库。
+  - 脚本核对 99 次测量（0 个问题）：commit 为 4e6bb17…且不带 -dirty；B、次数、步数、32 + 480、60 秒降温、设备、配置内容、缓存大小和类型、中位数都对；4 个 .md 由 json 重新渲染逐字相同；results.md 这一行与原始数字一致。
+  - Mac 上 pytest 367 passed。
+- Codex 记录的不完美之处，逐项看过：独立只读复核因额度中断没有完成（由本次核对代替，但这不算 Codex 复核）；两次启动器错误都发生在任何测试和短测开始之前；控制台输出放在 bench_batch/ 而不是手册写的 runs/，参数相同；CPU 项的温度是 GPU 温度，CPU 温度未测。都不影响结果。
+- A7 结论（对照结构，随机权重，32 + 480；RTX 5060 每项 5 次、bf16，CPU 每项 3 次、fp32）：
+  - 提速倍数：RTX 5060 B=1、8、32 为 1.00、1.85、6.80，GQA-2 为 0.91、1.81、6.98；CPU B=1 为 7.42。第 5 批对照的 0.68 确实是噪声，这次同一项是 1.00。
+  - 每步耗时（对照）：无缓存 3.11、6.34、27.67 ms，有缓存 3.12、3.43、4.07 ms；CPU 无缓存 25.79、有缓存 3.48 ms。
+  - 事先写下的三个预测都成立：B 越大倍数越高，CPU 在 B=1 就明显提速，B=32 时显存差别能直接看到。所以“B=1 时 RTX 5060 的时间主要花在固定开销上”得到支持；这个固定开销由什么构成，只有操作数拟合间接支持，没有直接测量。
+  - 显存峰值：B=32 无缓存 662.30、有缓存 267.01 MiB；GQA-2 有缓存 166.93 MiB。MHA 与 GQA-2 的有缓存峰值差 100.1 MiB，手算 96.0（缓存）+ 4.5（参数）= 100.5。
+  - 噪声：对照 B=32 有缓存五次是 4211–8992 tokens/s，GQA-2 是 8161–8423；最保守地取最慢除以最快，对照也有 3.62 倍。
+- 未验证与失败：只测了这一个 6 层小模型，换模型不能直接套用。
+- 决策与原因：A7 如实写成“计算量够大时才明显提速”，不写单一的提速倍数。
+- 审查状态：见上。
+- 学习状态：M3 结束时统一提问。
+- 下一步：用户确认后写第 6 步的计划。
+
+### 2026-11-06 23:06（UTC+08:00）｜Claude Code（matt-pocock-skills:tdd、code-review，规范、需求两个只读子 agent）｜m3-report：曲线、汇总、样例脚本、README
+
+- 范围与用户确认：用户回复“开始第 6 步”，确认计划时回复“按推荐开始”。全部由 agent 写，用户不写代码；这是 Claude 自查，不是 Codex 审查。
+- 工作区与设备：Mac，分支 m3-report，从 main a46978e 分出，未提交。本分支也带着之前未提交的“核对第 5 批补充”记录。
+- 改动：
+  - 依赖：`dev` 组加 matplotlib，`uv.lock` 随之变化。
+  - 曲线：`src/tlab/eval/plots.py`、`scripts/plot_ablations.py`，`experiments/m3_ablations/figures/` 6 张 PNG（共约 800 KB）。
+  - 汇总：`ablation.py` 加 `load_bench`、`load_cache_speed` 和两节输出，`SUMMARY.md` 重新生成，原有内容逐字不变。
+  - 样例：`src/tlab/eval/samples.py`、`scripts/sample_ablations.py`，手册“第 6 步”。
+  - 短测脚本：`--out` 的目录不存在时自己建。
+  - 文档：README 初版，PLAN 记录决定。
+  - 测试：新增 `test_plots.py`、`test_samples.py`、`test_readme.py`，并扩充 `test_ablation_summary.py`、`test_bench.py`。没有改已有断言。
+- 审查发现（两项分开列）：
+  - Standards：ruff 有 2 处 I001（我之前的检查读了缓存，所以显示通过，这是我的疏漏）；PROGRESS 顶部过期；README 没核对外推表；缺形状注释和类型标注；若干判断项。
+  - Spec：README 删了“方向相反补第 3 个种子”的规则，GQA-2 和 MQA 实际属于这种情况；结构图缺位置编码；外推没有复现命令；README 的短测命令在没有 `runs/` 时会在测完第一个配置后才报错；“组合最好”没限定学习率（高学习率的 Pre-LN 1.4652 更低）；Post-LN“3052 步一直停在”不准确，词频基线漏了“词表不同”；接口 9 没读 SUMMARY.md 文件；手册没写前提“m3-report 已合并”；PLAN 的“图上的文字用英文”有歧义。
+  - 上面的都已修。不修的：Shotgun Surgery（plots.py 的三张表重复变体名，是展示用的名字，测试会抓漏）、samples.py 和 sample.py 的重复、bench 结果用字典（与项目现有写法一致）。
+- 本次验证：
+  - pytest 397 passed；`ruff check --no-cache` 和 format --check 通过；`uv lock --check` 通过。
+  - 导出到没有 data、runs、.git 的目录后 396 passed（之后只补了 1 个更严格的测试，在工作区跑过 397 passed）。
+  - 故意改错 30 种：第一轮 28 种抓到 25 种，没抓到的 3 种都是测试太松，收紧后连同新增的 2 种全部抓到。
+  - main 和新代码跑 tiny_smoke、tinystories_smoke（device=cpu）：metrics.csv 逐字相同。`src/tlab/model`、`src/tlab/train`、`generate.py`、`bench.py` 相对 main 没有改动。
+  - 用 main 的 SUMMARY.md 比较，新文件以它开头，后面只多两节。
+  - 真实 BPE 存档（tinystories_smoke，CPU）跑通样例脚本。Mermaid 用 mermaid 11.4.1 在浏览器渲染过，12 个节点，没有报错；结构图最后那次小改动后没有再看（只改了一个节点的文字）。
+  - 看过 a1、a2_lr、a4、a9 四张图。
+- 未验证与失败：样例脚本没有在 GPU 和真实 M3 存档上跑过；这台 Mac 没有 Node，dataviz 的配色校验脚本没有运行，依据是色板文档写明前 3 色通过两两校验；GQA-2 和 MQA 按规则要补第 3 个种子才能比较，这次没有补。
+- 决策与原因：见 PLAN“第 6 步 `m3-report` 的决定”。
+- 审查状态：两个只读子 agent 已审查，问题已修或已说明不修；Codex 未审查。
+- 学习状态：这一步没有手写内容；M3 统一复习在样例之后。
+- 下一步：等用户同意提交、合并、推送。
+
+### 2026-11-06 23:11（UTC+08:00）｜Claude Code｜提交 m3-report，合并到 main 并推送
+
+- 范围与用户确认：用户回复“提交合并并推送”。`.idea/` 不提交。用户没有回答是否给 GQA-2 和 MQA 补第 3 个种子，所以没有补，README 按“没有结论”写。
+- 工作区与设备：Mac；m3-report 从 main a46978e 分出，main 快进到它，两者一同推送。
+- 改动：提交本分支的代码、测试、配置依赖、图、SUMMARY、README、PLAN、手册“第 6 步”和本文件；内容见上一条记录。
+- 本次验证：提交前的检查见上一条记录。本条写于提交之前，所以这里不写提交后的结果和哈希，以 git log 和回复用户的内容为准。
+- 未验证与失败：没有在 GPU 和真实 M3 存档上跑过样例脚本；样例未生成。
+- 决策与原因：无新决定。
+- 审查状态：Claude 的两个只读子 agent 已审查；Codex 未审查。
+- 学习状态：M3 统一复习未做，含 `docs/self-test-qa.md` 第 31–33 题。
+- 下一步：用户在 WSL 生成样例。
 
 ## 后续交接模板
 

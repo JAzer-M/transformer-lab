@@ -586,3 +586,170 @@ def test_summarize_script_can_check_against_config_files(tmp_path: Path) -> None
     )
 
     assert done.returncode != 0 and "pos_encoding" in done.stderr
+
+
+# ---------- 短测 ----------
+
+
+def bench_result(
+    train: list[float],
+    train_peak: float | None = 100.0,
+    no_cache: list[float] = [100.0],
+    cached: list[float] = [300.0],
+    device: str = "cuda",
+    batch_size: int = 1,
+    n_params: int = 1000,
+) -> dict:
+    """一个配置的短测结果，只有汇总用到的字段；中位数按给定的 run 取。"""
+
+    def item(values: list[float], peak: float | None = 50.0) -> dict:
+        return {
+            "tokens_per_sec": sorted(values)[len(values) // 2],
+            "peak_memory_mb": peak,
+            "runs": [{"tokens_per_sec": v} for v in values],
+        }
+
+    return {
+        "n_params": n_params,
+        "device": device,
+        "repeats": len(train),
+        "prompt_len": 32,
+        "new_tokens": 480,
+        "generate_batch_size": batch_size,
+        "train": item(train, train_peak),
+        "generate_no_cache": item(no_cache),
+        "generate_cache": item(cached),
+        "cache_bytes_full_window": 2**20,
+        "cache_dtype": {"k": "torch.bfloat16", "v": "torch.bfloat16"},
+    }
+
+
+def summary_row(text: str, name: str) -> list[str]:
+    """取出表格里第一个单元格是 name 的那一行。"""
+    for line in text.splitlines():
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        if cells[0] == name:
+            return cells
+    raise AssertionError(f"没有 {name} 这一行")
+
+
+def test_summary_without_benchmarks_has_no_benchmark_sections(tmp_path: Path) -> None:
+    from tlab.eval.ablation import load_bench, load_cache_speed, render_summary
+
+    # 没有短测文件时读出来是 None，输出和以前一样
+    assert load_bench(tmp_path) is None
+    assert load_cache_speed(tmp_path) is None
+    text = render_summary({})
+    assert "短测" in text.splitlines()[2]  # 开头说明里原有的那句
+    assert "## 速度与显存短测" not in text
+    assert "## A7" not in text
+
+
+def test_benchmark_sections_only_add_to_the_end_of_the_summary() -> None:
+    from tlab.eval.ablation import render_summary
+
+    bench = {"a0_control": bench_result([100.0])}
+    speed = [("a0_control", bench_result([100.0]))]
+
+    text = render_summary({}, bench, speed)
+
+    assert text.startswith(render_summary({}).rstrip("\n"))
+    assert text.index("## 速度与显存短测") < text.index("## A7")
+
+
+def test_bench_section_compares_with_the_control_by_hand() -> None:
+    from tlab.eval.ablation import render_summary
+
+    bench = {
+        # 对照三次 98、100、102：中位数 100，相差 (102 - 98) / 100 = 4.0%
+        "a0_control": bench_result([98.0, 102.0, 100.0], train_peak=100.0),
+        # 中位数 90：比对照低 10.0%；峰值 110：多 10
+        "a1_rope": bench_result([90.0], train_peak=110.0),
+    }
+
+    text = render_summary({}, bench)
+
+    assert "4.0%" in text
+    control = summary_row(text, "a0_control")
+    assert control[2:6] == ["100", "—", "100", "—"]
+    rope = summary_row(text, "a1_rope")
+    assert rope[2:6] == ["90", "-10.0%", "110", "+10"]
+    # 完整缓存 1 MiB，类型也写出来
+    assert rope[6:8] == ["1.00", "torch.bfloat16 / torch.bfloat16"]
+
+
+def test_bench_section_works_without_gpu_peaks() -> None:
+    from tlab.eval.ablation import render_summary
+
+    bench = {
+        "a0_control": bench_result([100.0], train_peak=None),
+        "a1_rope": bench_result([90.0], train_peak=None),
+    }
+
+    assert summary_row(render_summary({}, bench), "a1_rope")[4:6] == ["—", "—"]
+
+
+def test_cache_speed_section_computes_ratio_and_sorts_by_device_and_batch() -> None:
+    from tlab.eval.ablation import render_summary
+
+    speed = [
+        # 故意打乱顺序：应排成 GPU 在前，同设备按变体和 B 排
+        (
+            "a0_control",
+            bench_result([1.0], device="cpu", no_cache=[40.0], cached=[280.0]),
+        ),
+        ("a4_gqa2", bench_result([1.0], batch_size=1, no_cache=[100.0], cached=[90.0])),
+        (
+            "a0_control",
+            bench_result([1.0], batch_size=32, no_cache=[1000.0], cached=[7000.0]),
+        ),
+        (
+            "a0_control",
+            bench_result(
+                [1.0], batch_size=1, no_cache=[100.0], cached=[50.0, 100.0, 150.0]
+            ),
+        ),
+    ]
+
+    text = render_summary({}, None, speed)
+
+    section = text[text.index("## A7") :].splitlines()
+    rows = [
+        [cell.strip() for cell in line.strip("|").split("|")]
+        for line in section
+        if line.startswith("| cuda") or line.startswith("| cpu")
+    ]
+    assert [row[:3] for row in rows] == [
+        ["cuda", "a0_control", "1"],
+        ["cuda", "a0_control", "32"],
+        ["cuda", "a4_gqa2", "1"],
+        ["cpu", "a0_control", "1"],
+    ]
+    # 倍数 = 有缓存 / 无缓存，后面跟有缓存每次的最慢–最快
+    assert rows[0][3:7] == ["100", "100", "1.00", "50–150"]
+    assert rows[1][5] == "7.00"
+    assert rows[2][5] == "0.90"
+    assert rows[3][5] == "7.00"
+
+
+def test_load_benchmarks_reads_the_files_next_to_the_results(tmp_path: Path) -> None:
+    from tlab.eval.ablation import load_bench, load_cache_speed
+
+    (tmp_path / "bench.json").write_text(
+        json.dumps({"a0_control": bench_result([100.0])}), encoding="utf-8"
+    )
+    batch = tmp_path / "bench_batch"
+    batch.mkdir()
+    # Codex 的执行记录也在这个目录里，不能当成短测结果
+    (batch / "validation.json").write_text("{}", encoding="utf-8")
+    (batch / "bench_notes.json").write_text('{"x": {}}', encoding="utf-8")
+    for name, size in (("b8", 8), ("b1", 1)):
+        (batch / f"{name}.json").write_text(
+            json.dumps({"a0_control": bench_result([1.0], batch_size=size)}),
+            encoding="utf-8",
+        )
+
+    assert list(load_bench(tmp_path)) == ["a0_control"]
+    speed = load_cache_speed(tmp_path)
+    assert sorted(r["generate_batch_size"] for _, r in speed) == [1, 8]
+    assert all(name == "a0_control" for name, _ in speed)

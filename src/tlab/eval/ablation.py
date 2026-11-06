@@ -8,6 +8,7 @@ A1 的变体另有外推评测的 extrapolation.json（scripts/eval_extrapolatio
 import csv
 import json
 import math
+import re
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
@@ -363,7 +364,124 @@ def _extrapolation_lines(variants: dict[str, Variant]) -> list[str]:
     return lines + ["", f"{CONTROL}：可学习位置表只有训练长度那么多行，不支持外推。"]
 
 
-def render_summary(variants: dict[str, Variant]) -> str:
+def load_bench(root: Path) -> dict[str, dict] | None:
+    """读第 5 批的短测 bench.json：变体 → 结果；没有这个文件时返回 None。"""
+    path = root / "bench.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_cache_speed(root: Path) -> list[tuple[str, dict]] | None:
+    """读第 5 批补充 bench_batch/ 下的每个 json：[(变体, 结果)]；没有时返回 None。"""
+    # 这个目录里还有 Codex 的执行记录，短测结果的文件名是 b<B>.json、cpu_b<B>.json
+    rows = [
+        item
+        for path in sorted((root / "bench_batch").glob("*.json"))
+        if re.fullmatch(r"(cpu_)?b\d+", path.stem)
+        for item in json.loads(path.read_text(encoding="utf-8")).items()
+    ]
+    return rows or None
+
+
+def _format_or_dash(value: float | None, fmt: str) -> str:
+    return "—" if value is None else format(value, fmt)
+
+
+def _bench_lines(bench: dict[str, dict]) -> list[str]:
+    control = bench[CONTROL]["train"]
+    runs = [run["tokens_per_sec"] for run in control["runs"]]
+    spread = (max(runs) - min(runs)) / control["tokens_per_sec"]
+    lines = [
+        "",
+        "## 速度与显存短测",
+        "",
+        "用随机权重和随机 token，不读数据，和正式训练相同地累积、裁剪、更新；"
+        "每项取中位数，原始数字见 bench.json。",
+        f"对照组自己 {len(runs)} 次的训练吞吐相差 {spread:.1%}，比这小的差别不算结论。",
+        "",
+        "| 变体 | 参数量 | 训练 tokens/s | 相对对照 | 训练峰值 MiB | 相对对照 "
+        "| 完整缓存 MiB（B=1） | 缓存类型（k / v） |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for name, result in bench.items():
+        speed = result["train"]["tokens_per_sec"]
+        peak = result["train"]["peak_memory_mb"]
+        relative_speed = relative_peak = "—"
+        if name != CONTROL:
+            base = control["tokens_per_sec"]
+            relative_speed = f"{(speed - base) / base:+.1%}"
+            if peak is not None and control["peak_memory_mb"] is not None:
+                relative_peak = f"{peak - control['peak_memory_mb']:+,.0f}"
+        dtype = result["cache_dtype"]
+        lines.append(
+            _md_row(
+                [
+                    name,
+                    f"{result['n_params']:,}",
+                    f"{speed:,.0f}",
+                    relative_speed,
+                    _format_or_dash(peak, ",.0f"),
+                    relative_peak,
+                    f"{result['cache_bytes_full_window'] / 2**20:.2f}",
+                    f"{dtype['k']} / {dtype['v']}",
+                ]
+            )
+        )
+    return lines
+
+
+def _cache_speed_lines(rows: list[tuple[str, dict]]) -> list[str]:
+    first = rows[0][1]
+    lines = [
+        "",
+        "## A7 KV 缓存的生成速度",
+        "",
+        f"随机权重，贪心生成：开头 {first['prompt_len']} 个 token，"
+        f"新生成 {first['new_tokens']} 个。tokens/s 是整个 batch 的总和，"
+        "倍数是有缓存除以无缓存，都取中位数。",
+        "",
+        "| 设备 | 变体 | B | 无缓存 tokens/s | 有缓存 tokens/s | 倍数 "
+        "| 有缓存最慢–最快 | 无缓存峰值 MiB | 有缓存峰值 MiB | 次数 |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    # GPU 在前；同一设备按变体和 B 排
+    ordered = sorted(
+        rows,
+        key=lambda row: (
+            row[1]["device"].startswith("cpu"),
+            row[1]["device"],
+            row[0],
+            row[1]["generate_batch_size"],
+        ),
+    )
+    for name, result in ordered:
+        plain, cached = result["generate_no_cache"], result["generate_cache"]
+        speeds = [run["tokens_per_sec"] for run in cached["runs"]]
+        lines.append(
+            _md_row(
+                [
+                    result["device"],
+                    name,
+                    str(result["generate_batch_size"]),
+                    f"{plain['tokens_per_sec']:,.0f}",
+                    f"{cached['tokens_per_sec']:,.0f}",
+                    f"{cached['tokens_per_sec'] / plain['tokens_per_sec']:.2f}",
+                    f"{min(speeds):,.0f}–{max(speeds):,.0f}",
+                    _format_or_dash(plain["peak_memory_mb"], ",.0f"),
+                    _format_or_dash(cached["peak_memory_mb"], ",.0f"),
+                    str(len(speeds)),
+                ]
+            )
+        )
+    return lines
+
+
+def render_summary(
+    variants: dict[str, Variant],
+    bench: dict[str, dict] | None = None,
+    cache_speed: list[tuple[str, dict]] | None = None,
+) -> str:
     """生成 SUMMARY.md 的内容；还没跑的变体直接跳过，名单外的变体单独列出。"""
     control = variants.get(CONTROL)
     lines = [
@@ -415,4 +533,9 @@ def render_summary(variants: dict[str, Variant]) -> str:
         if extra:
             lines += ["", f"## {title}", "", VARIANT_HEADER]
             lines += [_variant_row("—", v, control) for v in extra]
+    # 短测只加在最后，前面几节不变
+    if bench is not None:
+        lines += _bench_lines(bench)
+    if cache_speed is not None:
+        lines += _cache_speed_lines(cache_speed)
     return "\n".join(lines) + "\n"
