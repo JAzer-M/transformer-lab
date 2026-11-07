@@ -4,7 +4,7 @@
 
 这是学习项目和简历项目，目标是能讲清每一行。模型、注意力、归一化、位置编码、训练循环都不使用 `nn.Transformer`、`nn.MultiheadAttention` 或 `transformers` 的模型类。
 
-**当前进度：** M3（现代组件和消融实验）的结果已经出来，下面的数字都是实际跑出来的。M4（载入 Qwen3-0.6B 权重）和 M5（LoRA 微调）还没有做。
+**当前进度：** M3（现代组件和消融实验）和 M4（载入 Qwen3-0.6B 权重）已经完成，下面的数字都是实际跑出来的。M5（LoRA 微调）还没有做。
 
 ## 模型结构
 
@@ -35,10 +35,13 @@ flowchart TD
 | `norm_position` | `pre`、`post` | `pre` |
 | `mlp` | `gelu`、`swiglu` | `gelu` |
 | `n_kv_heads` | 能整除 `n_heads` 的正整数 | 不写，等于 `n_heads`（MHA） |
+| `head_dim` | 正整数，配 RoPE 时要是偶数 | 不写，等于 `d_model // n_heads` |
+| `qk_norm` | `true`、`false` | `false` |
+| `mlp_hidden_dim` | 正整数，只用于 SwiGLU | 不写，等于 `8 * d_model // 3` |
 
 生成时可以用 KV 缓存：`generate(..., use_cache=True)` 或 `scripts/sample.py --cache`，生成的文字不变。
 
-**亲手写的部分：** 多头注意力和 GQA（`model/attention.py`）、Block（`model/block.py`）、RMSNorm、SwiGLU、RoPE（`model/layers.py`）、主训练循环（`train/trainer.py`）。配置开关、KV 缓存、评测和汇总脚本由 AI 编程助手写，并在手写的文件里逐处标注。规则见 [AGENTS.md](AGENTS.md)。
+**亲手写的部分：** 多头注意力、GQA、`head_dim` 和 QK-Norm（`model/attention.py`）、Block（`model/block.py`）、RMSNorm、SwiGLU、RoPE（`model/layers.py`）、主训练循环（`train/trainer.py`）。配置开关、KV 缓存、权重转换、评测和汇总脚本由 AI 编程助手写，并在手写的文件里逐处标注。规则见 [AGENTS.md](AGENTS.md)。
 
 ## 消融实验
 
@@ -178,6 +181,29 @@ Once upon a time. he, was., the... mom the., and a to and... a of.. you and said
 - 训练吞吐只看短测，长训练的吞吐受温度和频率影响，不作结论。
 - RoPE 和 RMSNorm 确实更慢，RMSNorm 和 SwiGLU 确实更占显存，这里只测了差多少，没有拆开测原因。
 
+## 载入 Qwen3-0.6B
+
+用上面同一套代码载入 [Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B) 的官方权重（596,049,920 个参数），和 `transformers` 的官方实现逐层对比。结构靠配置开关切换，不需要另写模型。
+
+结果（Mac CPU，fp32，`transformers` 5.22.2，eager 注意力，每个提示贪心生成 50 个新 token）：
+
+| 提示 | token 数 | 分数最大误差 | 分数最大值 | 每层最大相对误差 | 贪心生成（有缓存、无缓存） |
+| --- | --- | --- | --- | --- | --- |
+| 英文 | 10 | 4.77e-05 | 22.6 | 9.78e-07 | 相同 |
+| 中文 | 8 | 4.24e-05 | 17.6 | 1.56e-06 | 相同 |
+| 较长的英文 | 34 | 1.73e-04 | 27.1 | 4.05e-06 | 相同 |
+
+验收标准是 fp32 下分数最大误差在 1e-4 量级、贪心生成一致，都满足。记录见 [alignment.json](experiments/m4_qwen3/alignment.json)。
+
+- **误差只来自一处浮点舍入：** 我们写的是 `scores / d**0.5`，官方是 `scores * d**-0.5`，数学上相同。在代码副本里改成官方的写法后，三个提示每一层的误差都是 0.0（[记录](experiments/m4_qwen3/alignment_official_scaling.json)），说明结构和权重映射没有差别。正式代码不改这一行，否则 M1–M3 的结果就不能逐字复现。
+- **这还没有在 GPU 和 bf16 下验证过。** 官方的 RMSNorm 内部会先转成 fp32，我们没有，fp32 下不受影响，bf16 下的差别要到 M5 训练时再看。
+
+自研模型生成的文字（没有用对话模板，只是接着写）：
+
+```text
+Once upon a time, in a small town by the sea, there lived an old fisherman who went out every morning before the sun came up. One day he found a small boat on the beach, and he decided to go out on it. He took the boat to the sea, and soon he found that the boat was full of fish.……
+```
+
 ## 环境与安装
 
 - Python 3.11 或 3.12，用 `uv` 管理依赖和锁文件。
@@ -221,6 +247,14 @@ A1 的外推评测（只支持正弦和 RoPE）：
 ```bash
 uv run python scripts/eval_extrapolation.py --ckpt runs/m3/a1_rope/seed1337/ckpt.pt --out runs/m3/a1_rope/seed1337/extrapolation.json
 ```
+
+载入 Qwen3-0.6B 并和 `transformers` 对比（第一次会下载约 1.5 GB，放在 HuggingFace 默认缓存目录）：
+
+```bash
+uv run python scripts/check_qwen3.py --out experiments/m4_qwen3/alignment.json
+```
+
+环境里设了 SOCKS 代理时，下载会报缺 `socksio`。如果同时有 HTTP 代理，在命令前加 `env -u ALL_PROXY -u all_proxy`。
 
 用仓库里已有的结果重新生成汇总表和曲线图：
 

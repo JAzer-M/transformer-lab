@@ -155,3 +155,40 @@ def test_readme_sample_excerpts_come_from_the_samples_file() -> None:
     for excerpt in excerpts:
         assert excerpt.endswith("……")
         assert excerpt.removesuffix("……") in samples
+
+
+def test_readme_alignment_matches_the_report() -> None:
+    import json
+
+    report = json.loads(
+        (ROOT / "experiments" / "m4_qwen3" / "alignment.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    # 这份记录要来自干净的提交，并且通过了验收，才能写进 README
+    assert report["passed"] is True
+    assert not report["git_commit"].endswith("-dirty")
+    assert report["dtype"] == "torch.float32"
+    assert report["n_params"] == 596_049_920
+
+    rows = readme_rows()
+    for prompt in report["prompts"]:
+        assert prompt["same_with_cache"] and prompt["same_without_cache"]
+        expected = [
+            str(prompt["n_tokens"]),
+            f"{prompt['logits_max_error']:.2e}",
+            f"{prompt['logits_max_abs']:.1f}",
+            f"{max(prompt['layer_relative_errors']):.2e}",
+        ]
+        assert any(all(v in cells(r) for v in expected) for r in rows), expected
+
+
+def test_official_scaling_run_really_has_no_error() -> None:
+    import json
+
+    # README 说改成官方写法后误差是 0，证据在这个文件里
+    path = ROOT / "experiments" / "m4_qwen3" / "alignment_official_scaling.json"
+    report = json.loads(path.read_text(encoding="utf-8"))
+
+    assert report["max_error"] == 0.0
+    assert all(max(p["layer_max_errors"]) == 0.0 for p in report["prompts"])

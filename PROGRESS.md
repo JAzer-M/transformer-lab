@@ -4,24 +4,26 @@
 
 ## 当前状态
 
-更新时间：2026-11-07 14:33（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-07 14:40（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M3 完成，MVP 关口已勾选。M4：m4-arch、m4-convert 已合并；要在干净提交上重跑验收 |
-| 本轮范围 | 提交 m4-convert，合并到 main 并推送（用户回复“提交合并并推送”）；在干净提交上重跑验收 |
+| 项目阶段 | M3 完成，MVP 关口已勾选。M4 验收通过（分数最大误差 1.73e-04，贪心相同），结果和 README 已合并；M4 里程碑未勾选，等用户决定；M5 未开始 |
+| 本轮范围 | 提交 m4-results，合并到 main 并推送（用户回复“提交合并并推送吧”） |
 | 实现方 / 审查方 | m4-convert 全部由 Claude 写；提交前由 Claude 的两个只读子 agent 审查（规范、需求），不是 Codex 审查 |
-| 来源 | main 快进到 m4-convert，两者一同推送，从 main ed88fec 分出；哈希以 git log 为准 |
+| 来源 | main 快进到 m4-results，两者一同推送，从 main 6917765 分出；哈希以 git log 为准；验收跑在 6917765 上 |
 | 前置 | uv sync --locked、CUDA分配通过；367 passed in20.85s；RTX5060 Laptop、PyTorch2.9.1+cu128/CUDA12.8 |
 | 执行 | GPU每项5次/train-steps5；CPU每项3次/train-steps1；prompt32+新增480，每配置60秒降温；4条命令退出0，总耗时879.062s |
 | 缓存 | GPU对照4.50MiB/GQA-2 1.50MiB，k/v均bf16；CPU对照9.00MiB，k/v均fp32；完整缓存按B=1核对 |
 | 归档 | bench_batch/REPORT.md及原始JSON/MD/日志；results只追加1行，原bench.json/md与SUMMARY保持原文 |
 | 结果记录 | a0_control 提速倍数：RTX 5060 上 B=1、8、32 为 1.00、1.85、6.80；同机 CPU B=1 为 7.42。B=32 有缓存生成峰值 267.01 MiB，无缓存 662.30 MiB。详见 bench_batch/REPORT.md |
 | 温度 | GPU90次测量起始温度53.5–86.3°C；CPU项温度字段为GPU温度，CPU温度未测 |
-| 下一步 | 在干净提交上重跑 `scripts/check_qwen3.py`，结果写到 `experiments/m4_qwen3/`，`results.md` 追加一行，README 补 M4，等用户同意后再提交；之后 M5 |
+| 下一步 | 用户决定是否勾选 M4 里程碑；之后写 M5 计划：手写 LoRA，先测基座准确率 |
 
 ## 当前任务与下一步
 
+- 2026-11-07 14:40：m4-results 已提交、合并到 main 并推送。
+- 2026-11-07 14:36：M4 正式验收通过，结果和 README 待提交。
 - 2026-11-07 14:33：m4-convert 已提交、合并到 main 并推送，接着重跑验收。
 - 2026-11-07 14:31：m4-convert 写完并审查修复，试跑通过，等用户同意提交。
 - 2026-11-07 13:59：m4-arch 已提交、合并到 main 并推送。
@@ -1664,6 +1666,30 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 审查状态：Claude 的两个只读子 agent 已审查；Codex 未审查。
 - 学习状态：用户需要能讲清映射和逐层对比。
 - 下一步：重跑验收。
+
+### 2026-11-07 14:36（UTC+08:00）｜Claude Code｜M4 正式验收；写结果和 README
+
+- 范围与用户确认：按之前确认的步骤，在干净的提交上重跑验收，写结果记录和 README，未提交。
+- 工作区与设备：Mac CPU；验收跑在 main 6917765（不带 -dirty）；之后分出 m4-results。
+- 改动：`experiments/m4_qwen3/`（`alignment.json`、`alignment_official_scaling.json`、说明）；`experiments/results.md` 追加一行 M4-align；README 加“载入 Qwen3-0.6B”一节、三个开关和复现命令；`tests/test_readme.py` 加 2 个测试。
+- 本次验证：`alignment.json`：分数最大误差 4.77e-05、4.24e-05、1.73e-04，门槛 1e-3，通过；每层相对误差最大 4.05e-06；贪心生成有缓存、无缓存都和 `transformers` 5.22.2 相同；参数量 596,049,920；模型 `Qwen/Qwen3-0.6B@c1899de2…`。pytest 结果见回复。
+- 未验证与失败：`alignment_official_scaling.json` 是之前在副本上跑的，commit 带 -dirty，文件旁边写明了；没有在 GPU、bf16 下跑过。
+- 决策与原因：M4 里程碑是否勾选由用户决定。
+- 审查状态：这次只有结果和文档，只有 Claude 自查，README 的数字由测试绑定；Codex 未审查 M4。
+- 学习状态：M4 清单的题还没有问。
+- 下一步：等用户同意提交、合并、推送。
+
+### 2026-11-07 14:40（UTC+08:00）｜Claude Code｜提交 m4-results，合并到 main 并推送
+
+- 范围与用户确认：用户回复“提交合并并推送吧”。`.idea/` 不提交。用户没有回答是否勾选 M4 里程碑，所以没有勾。
+- 工作区与设备：Mac；m4-results 从 main 6917765 分出，main 快进到它，两者一同推送。
+- 改动：提交 `experiments/m4_qwen3/`、`results.md` 的一行、README、`tests/test_readme.py` 和本文件；内容见上一条记录。
+- 本次验证：提交前的检查结果见上一条记录。本条写于提交之前，提交后的结果和哈希以 git log 和回复用户的内容为准。
+- 未验证与失败：没有在 GPU、bf16 下跑过；Codex 未审查 M4。
+- 决策与原因：无新决定。
+- 审查状态：只有 Claude 自查。
+- 学习状态：用户在问“自研架构载入模型”是什么意思，已讲解。
+- 下一步：用户决定是否勾选 M4 里程碑；M5 计划。
 
 ## 后续交接模板
 

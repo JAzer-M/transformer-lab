@@ -28,3 +28,4 @@
 | 2026-11-06 | M3-a9_modern-s2024 | configs/ablations/a9_modern.yaml（seed=2024） | ca964f766726708765e244e3829365e946fe5f9b | 2024 | val 1.4922（完整验证集 1.5044） | 70504 | 5561 MB | 组合仅作参考，不作单变量归因；未见发散 |
 | 2026-11-06 | M3-bench | scripts/bench_attention.py（9 个配置） | ca964f766726708765e244e3829365e946fe5f9b | 1337 | — | 330 / 223 | 102.62 MB | 详见 experiments/m3_ablations/bench.md |
 | 2026-11-06 | M3-bench-batch | scripts/bench_attention.py（a0_control、a4_gqa2；B=1、8、32；CPU B=1） | 4e6bb179f182d9c65d4ba7e828c84810117f7b5e | 1337 | — | 1156.58 / 7866.12 | 267.01 MiB | 详见 experiments/m3_ablations/bench_batch/ |
+| 2026-11-07 | M4-align | Qwen/Qwen3-0.6B@c1899de289a04d12100db370d81485cdf75e47ca（scripts/check_qwen3.py） | 6917765b8abf7156a76ed6842f65a0e78f3ce560 | — | 分数最大误差 1.73e-04（fp32，CPU） | — | —（CPU，未测显存） | 自研模型载入官方权重，分数误差在 1e-4 量级，贪心生成和 transformers 相同 |
