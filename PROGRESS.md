@@ -4,24 +4,26 @@
 
 ## 当前状态
 
-更新时间：2026-11-07 15:05（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-07 15:45（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M0–M4 完成，MVP 关口和 M4 里程碑已由用户确认勾选。M5 计划已由用户确认（2026-11-07），第 1 步 `m5-baseline` 的测试接口待确认，尚未写代码 |
-| 本轮范围 | 新对话接手并读全部历史；用户确认 M5 计划；提交 m5-plan（M5 计划、接手入口、读取历史对话的脚本）|
-| 实现方 / 审查方 | Claude 写；只改文档和一个小脚本，未请求审查 |
-| 来源 | m5-plan（从 main b522dea 分出），提交后快进 main 并推送；之后从 main 分出 m5-baseline |
+| 项目阶段 | M0–M4 完成，MVP 关口和 M4 里程碑已由用户确认勾选。M5 计划已由用户确认（2026-11-07）。第 1 步 `m5-baseline` 已合并到 main；基座的正式准确率还没测 |
+| 本轮范围 | `m5-baseline`：GSM8K 评测、`generate` 的 eos 和贪心、数据脚本、F1 配置、`check_qwen3.py` 的 `--repo` 和 `--autocast`、WSL 手册 |
+| 实现方 / 审查方 | Claude 写；Claude 的两个只读子 agent 审查，Codex 未审查 |
+| 来源 | m5-baseline（从 main 76a5aad 分出），提交后快进 main 并推送 |
 | 前置 | uv sync --locked、CUDA分配通过；367 passed in20.85s；RTX5060 Laptop、PyTorch2.9.1+cu128/CUDA12.8 |
 | 执行 | GPU每项5次/train-steps5；CPU每项3次/train-steps1；prompt32+新增480，每配置60秒降温；4条命令退出0，总耗时879.062s |
 | 缓存 | GPU对照4.50MiB/GQA-2 1.50MiB，k/v均bf16；CPU对照9.00MiB，k/v均fp32；完整缓存按B=1核对 |
 | 归档 | bench_batch/REPORT.md及原始JSON/MD/日志；results只追加1行，原bench.json/md与SUMMARY保持原文 |
 | 结果记录 | a0_control 提速倍数：RTX 5060 上 B=1、8、32 为 1.00、1.85、6.80；同机 CPU B=1 为 7.42。B=32 有缓存生成峰值 267.01 MiB，无缓存 662.30 MiB。详见 bench_batch/REPORT.md |
 | 温度 | GPU90次测量起始温度53.5–86.3°C；CPU项温度字段为GPU温度，CPU温度未测 |
-| 下一步 | 用户确认 `m5-baseline` 的测试接口后，先写失败的测试，再实现 |
+| 下一步 | 在干净的提交上重跑 Base 的 fp32 对齐；按 `docs/m5-windows-run.md` 第 1 批在 WSL 上测基座 |
 
 ## 当前任务与下一步
 
+- 2026-11-07 15:55：用户确认保留两处改动并回复“开始下一步”，m5-baseline 提交、合并、推送。
+- 2026-11-07 15:45：m5-baseline 写完并审查修复，570 passed。
 - 2026-11-07 15:05：用户确认 M5 计划，m5-plan 提交、合并、推送；下一步列 `m5-baseline` 的测试接口。
 - 2026-11-07 14:50：M4 里程碑已勾选，M5 计划和新对话的接手入口写好，等用户同意提交。
 - 2026-11-07 14:40：m4-results 已提交、合并到 main 并推送。
@@ -173,7 +175,8 @@ python3 -I scripts/extract_history.py --out <本会话的 scratchpad>/history
 **4. 踩过的坑：**
 
 - `ruff` 检查要带 `--no-cache`，缓存曾经把报错盖住。
-- 长命令开头写 `set -e`，不要用 `grep` 或 `tail` 把报错过滤掉。有一次脚本报错了命令却继续提交，还有一次下载失败被过滤掉了。
+- 长命令不要用 `grep` 或 `tail` 把报错过滤掉。有一次脚本报错了命令却继续提交，还有一次下载失败被过滤掉了。
+- **`set -e` 在这里的 Bash 工具里不起作用（2026-11-07 实测）：** `(set -e; false; echo ...)` 还是会往下走，只有 `zsh -c '...'` 才会停。所以有先后依赖的命令用 `&&` 串起来，重要的结果（比如推送）再单独核对一次。
 - 下载 HuggingFace 文件时要在命令前加 `env -u ALL_PROXY -u all_proxy`：环境里的 SOCKS 代理 `huggingface_hub` 用不了，同一端口的 HTTP 代理可以。不要改系统设置。
 - 下载前要说明文件名、来源和大小，并得到用户同意。
 - 正式实验要在干净的提交上跑，`git_commit` 不能带 `-dirty`。
@@ -1774,6 +1777,18 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 审查状态：只改文档和一个小脚本，未请求审查，只有 Claude 自查。
 - 学习状态：接手入口第 6 点仍然开着。用户在问 LoRA、PEFT、SFT、RLHF 的关系。
 - 下一步：把 `m5-baseline` 的测试接口列给用户确认。
+
+### 2026-11-07 15:45（UTC+08:00）｜Claude Code｜m5-baseline：GSM8K 评测
+
+- 范围与用户确认：用户回复“按推荐开始”，确认 21 项测试接口、`pyarrow` 放 dev、两个 F1 配置，也确认不做 RLHF 实验、只在 M5 复习加一道概念题。计划之外改了两处，都已写进 PLAN，用户看过后回复“可以保留”，又回复“开始下一步”（上一条回复里说明了下一步从代码进入 main 开始），据此提交、合并、推送：答案抽取加了 `answer is` 和两种续写形式；`top_k=1` 改成 argmax。
+- 工作区与设备：Mac，分支 m5-baseline，从 main 76a5aad 分出，未提交。
+- 改动：`src/tlab/eval/gsm8k.py`（提示、抽取、准确率、固定题目、配置、评测流程）；`generate` 加 `eos_token_id`，`top_k=1` 走 argmax；`train/config.py` 提出通用的 `load_dataclass`；`convert/qwen3.py` 加 `MODEL_FILES`；`scripts/prepare_gsm8k.py`、`scripts/eval_gsm8k.py`；`check_qwen3.py` 加 `--repo`、`--autocast`；`configs/finetune/`；`docs/m5-windows-run.md`；`pyarrow`；对应测试。
+- 本次验证：pytest 570 passed，ruff 通过。故意改错约 60 种，没抓到的逐个处理，剩下的是行为等价或只影响报错文字。`tiny_smoke`、`tinystories_smoke` 的 metrics.csv 和 main 逐字相同；抽样和 fp32 贪心的 `generate` 和 main 逐位相同（哈希相同）。8,792 条标准答案的抽取和 `####` 后面的原文全部一致。已下载 GSM8K 和 Base 权重。Base 在 Mac CPU、fp32 下和 `transformers` 对齐：分数最大误差 1.11e-04，贪心有无缓存都相同，commit 带 -dirty，只算试跑。
+- 未验证与失败：没有在 GPU 上跑过，bf16 下的差别和速度都不知道。基座的准确率只有试跑：不给例子 40 题，新规则 22/40，旧规则 5/40；few-shot 5 题 1/5。样本太小，不是结论，也没写进 results.md。这 40 题是看过旧规则的结果后才改规则的，两种提示用同一套规则，原始文本都留着。
+- 决策与原因：截断和 `answer is` 规则：旧规则把答对的题判错，会压低基线，夸大 SFT 的提升。贪心改 argmax：并列时结果随机，评测不可复现。bench 里的 `top_k=1` 也会走 argmax，已归档的速度数字不受影响，重跑可能略有差别。
+- 审查状态：Claude 的两个只读子 agent（规范、需求）审查，结果和处理见回复；Codex 未审查。
+- 学习状态：这一步是工程任务，不出自测题。接手入口第 6 点仍然开着。
+- 下一步：用户同意后提交、合并、推送；在干净的提交上重跑 Base 的 fp32 对齐，写进 `experiments/m5_gsm8k/`；按手册第 1 批在 WSL 上测基座。
 
 ## 后续交接模板
 

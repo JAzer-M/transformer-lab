@@ -13,14 +13,19 @@ def generate(
     top_k: int | None = None,
     generator: torch.Generator | None = None,
     use_cache: bool = False,
+    eos_token_id: int | None = None,
 ) -> torch.Tensor:
     """idx 是开头 (B, T)；返回 (B, T + max_new_tokens)。
 
     temperature < 1 让分布更尖（更保守），> 1 更平（更随机）；
-    top_k 只在分数最高的 k 个 token 里抽样；
-    use_cache 用 KV cache 省掉重复计算，生成的结果不变。
+    top_k 只在分数最高的 k 个 token 里抽样，top_k=1 就是贪心，结果不带随机性；
+    use_cache 用 KV cache 省掉重复计算，生成的结果不变；
+    eos_token_id 表示生成到它就停下，它本身留在结果里，所以新 token 可能不到
+    max_new_tokens 个。只支持一次一条：各条会在不同位置结束，这里先不处理。
     """
     assert temperature > 0, "temperature 必须大于 0"
+    if eos_token_id is not None and idx.size(0) != 1:
+        raise ValueError(f"eos_token_id 只支持一次一条，收到 {idx.size(0)} 条")
     was_training = model.training
     model.eval()
     cache = None
@@ -45,16 +50,23 @@ def generate(
         # 温度：先缩放分数，再做 softmax
         logits = logits / temperature  # (B, V)
 
-        if top_k is not None:
-            # 第 k 大的分数作为门槛，低于它的全部设为 -inf，softmax 后概率为 0
-            k = min(top_k, logits.size(-1))
-            kth = torch.topk(logits, k, dim=-1).values[:, -1:]  # (B, 1)
-            logits = logits.masked_fill(logits < kth, float("-inf"))  # (B, V)
+        if top_k == 1:
+            # 贪心：直接取最大的，并列时取编号最小的，和 transformers 一样。
+            # 不能走下面的抽样：并列的 token 都会留下，再随机选一个。bf16 下分数很粗，真的会并列
+            next_id = torch.argmax(logits, dim=-1, keepdim=True)  # (B, 1)
+        else:
+            if top_k is not None:
+                # 第 k 大的分数作为门槛，低于它的全部设为 -inf，softmax 后概率为 0
+                k = min(top_k, logits.size(-1))
+                kth = torch.topk(logits, k, dim=-1).values[:, -1:]  # (B, 1)
+                logits = logits.masked_fill(logits < kth, float("-inf"))  # (B, V)
 
-        # 分数 → 概率 → 按概率抽一个 token
-        probs = torch.softmax(logits, dim=-1)  # (B, V)
-        next_id = torch.multinomial(probs, 1, generator=generator)  # (B, 1)
+            # 分数 → 概率 → 按概率抽一个 token
+            probs = torch.softmax(logits, dim=-1)  # (B, V)
+            next_id = torch.multinomial(probs, 1, generator=generator)  # (B, 1)
         idx = torch.cat([idx, next_id], dim=1)  # (B, T + 1)
+        if eos_token_id is not None and next_id.item() == eos_token_id:
+            break
 
     model.train(was_training)
     return idx

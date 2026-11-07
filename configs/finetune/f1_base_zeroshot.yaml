@@ -1,0 +1,7 @@
+# F1：基座不给例子，和 SFT 之后的格式相同。题目见 gsm8k_eval_subset.json
+repo: Qwen/Qwen3-0.6B-Base
+prompt_mode: zero_shot
+max_new_tokens: 256
+eos_token_id: 151643 # 基座 generation_config 里的 eos
+data_dir: data/gsm8k
+subset_file: configs/finetune/gsm8k_eval_subset.json

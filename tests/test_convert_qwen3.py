@@ -643,6 +643,66 @@ def test_script_uses_the_tokenizer_when_there_is_one(
     assert all("generated_text" in prompt for prompt in report["prompts"])
 
 
+@pytest.mark.parametrize(
+    ("extra", "expected"),
+    [
+        ([], "Qwen/Qwen3-0.6B"),  # 不传时还是 M4 验收用的模型
+        (["--repo", "Qwen/Qwen3-0.6B-Base"], "Qwen/Qwen3-0.6B-Base"),
+    ],
+)
+def test_script_downloads_the_repo_it_is_given(
+    tmp_path: Path,
+    tiny_hf_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    extra: list[str],
+    expected: str,
+) -> None:
+    script = load_script()
+    asked: list[str] = []
+
+    def fake_download(repo: str, allow_patterns: list[str]) -> str:
+        asked.append(repo)
+        return str(tiny_hf_dir)
+
+    monkeypatch.setattr(script, "snapshot_download", fake_download)
+    out = tmp_path / "alignment.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["check_qwen3.py", "--out", str(out), "--new-tokens", "3", *extra],
+    )
+
+    script.main()
+
+    assert asked == [expected]
+    report = json.loads(out.read_text(encoding="utf-8"))
+    # 结果里记着用的是哪个模型、哪个版本
+    assert report["model"] == f"{expected}@{tiny_hf_dir.name}"
+
+
+def test_bf16_is_reported_but_does_not_decide_the_result(
+    tmp_path: Path, tiny_hf_dir: Path
+) -> None:
+    done, out = run_script(tmp_path, tiny_hf_dir)
+    assert done.returncode == 0, done.stderr
+    fp32 = json.loads(out.read_text(encoding="utf-8"))
+
+    # 门槛设得再小也不算失败：bf16 下本来就有舍入，这次只看差多少
+    done, out = run_script(
+        tmp_path, tiny_hf_dir, "--autocast", "bf16", "--max-error", "1e-12"
+    )
+
+    assert done.returncode == 0, done.stderr
+    bf16 = json.loads(out.read_text(encoding="utf-8"))
+    assert fp32["autocast"] is None
+    assert fp32["passed"] is True
+    assert bf16["autocast"] == "bf16"
+    assert bf16["passed"] is None
+    # 两边真的在 bf16 下算了：只有这样误差才会明显比 fp32 大
+    assert bf16["max_error"] > 10 * fp32["max_error"]
+    assert "不判定" in done.stdout
+
+
 def test_src_does_not_depend_on_transformers() -> None:
     # AGENTS 硬性规则 1：transformers 不得出现在 src/tlab 的实现里
     for path in (ROOT / "src" / "tlab").rglob("*.py"):

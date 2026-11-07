@@ -5,12 +5,15 @@ transformers 只在这个脚本里当对照，src/tlab 不依赖它（AGENTS 硬
 
 用法（第一次会下载约 1.5 GB，放在 HuggingFace 默认缓存目录）：
     uv run python scripts/check_qwen3.py --out experiments/m4_qwen3/alignment.json
+别的模型用 --repo，比如 --repo Qwen/Qwen3-0.6B-Base。
+--autocast bf16 时两边都在 bf16 autocast 下算（GPU 上训练就是这样），只报告差多少，不判定。
 
 环境里设了 SOCKS 代理（ALL_PROXY=socks5://...）时，下载会报缺 socksio。如果同时有 HTTP
 代理，在命令前加 env -u ALL_PROXY -u all_proxy，这条命令就只走 HTTP 代理。
 """
 
 import argparse
+import contextlib
 import json
 import sys
 from collections.abc import Callable
@@ -23,20 +26,13 @@ from huggingface_hub import snapshot_download
 from torch import nn
 from transformers import Qwen3ForCausalLM
 
-from tlab.convert.qwen3 import load_qwen3
+from tlab.convert.qwen3 import MODEL_FILES, load_qwen3
 from tlab.eval.generate import generate
 from tlab.model.gpt import count_parameters
 from tlab.tokenizer.hf_bpe import HFTokenizer
 from tlab.train.utils import git_commit
 
 REPO = "Qwen/Qwen3-0.6B"
-FILES = [
-    "config.json",
-    "generation_config.json",
-    "model.safetensors",
-    "tokenizer.json",
-    "tokenizer_config.json",
-]
 # 长度不同，英文、中文都有；只比较两边的输出，内容本身不重要
 PROMPTS = [
     "Give me a short introduction to large language models.",
@@ -149,7 +145,14 @@ def judge(prompts: list[dict[str, Any]], max_error: float) -> tuple[float, bool]
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--model-dir", type=Path, default=None, help="不给就下载 " + REPO
+        "--model-dir", type=Path, default=None, help="不给就下载 --repo"
+    )
+    parser.add_argument("--repo", default=REPO, help="不给 --model-dir 时下载哪个模型")
+    parser.add_argument(
+        "--autocast",
+        choices=["bf16"],
+        default=None,
+        help="两边都在 autocast 下算，只报告差多少，不判定是否通过",
     )
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--new-tokens", type=int, default=50)
@@ -165,8 +168,12 @@ def main() -> None:
     # 先建好目录：不建的话要等比较完才报错
     args.out.parent.mkdir(parents=True, exist_ok=True)
     # 下载到的目录名就是这份权重在 HF 上的版本号
-    model_dir = args.model_dir or Path(snapshot_download(REPO, allow_patterns=FILES))
-    model_name = str(args.model_dir) if args.model_dir else f"{REPO}@{model_dir.name}"
+    model_dir = args.model_dir or Path(
+        snapshot_download(args.repo, allow_patterns=MODEL_FILES)
+    )
+    model_name = (
+        str(args.model_dir) if args.model_dir else f"{args.repo}@{model_dir.name}"
+    )
     device = torch.device(args.device)
     ours = load_qwen3(model_dir, device)
     theirs = (
@@ -185,8 +192,15 @@ def main() -> None:
     ):
         ids = torch.tensor([token_ids], device=device)  # (1, T)
         result = {"prompt": text, "n_tokens": len(token_ids)}
-        result |= compare_layers(ours, theirs, ids)
-        result |= compare_generation(ours, theirs, ids, args.new_tokens)
+        # autocast 的类型和设备有关，每次新建
+        autocast = (
+            torch.autocast(device.type, dtype=torch.bfloat16)
+            if args.autocast
+            else contextlib.nullcontext()
+        )
+        with autocast:
+            result |= compare_layers(ours, theirs, ids)
+            result |= compare_generation(ours, theirs, ids, args.new_tokens)
         if tokenizer is not None:
             result["generated_text"] = tokenizer.decode(result["tokens"])
         prompts.append(result)
@@ -199,8 +213,11 @@ def main() -> None:
         )
 
     worst, passed = judge(prompts, args.max_error)
+    # 验收标准说的是 fp32；bf16 下本来就有舍入，这次只看差多少
+    verdict: bool | None = None if args.autocast else passed
     report = {
-        "passed": passed,
+        "passed": verdict,
+        "autocast": args.autocast,
         "max_error": worst,
         "max_error_allowed": args.max_error,
         "git_commit": git_commit(),
@@ -215,11 +232,14 @@ def main() -> None:
     args.out.write_text(
         json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
     )
+    if verdict is None:
+        print(f"{args.autocast} 下分数最大误差 {worst:.2e}，只报告，不判定")
+        return
     print(
         f"分数最大误差 {worst:.2e}，门槛 {args.max_error:.0e}，"
-        f"{'通过' if passed else '未通过'}"
+        f"{'通过' if verdict else '未通过'}"
     )
-    if not passed:
+    if not verdict:
         sys.exit(1)
 
 

@@ -3,7 +3,7 @@
 from dataclasses import dataclass, fields
 from pathlib import Path
 from types import NoneType, UnionType
-from typing import Any, get_args
+from typing import Any, TypeVar, get_args
 
 import yaml
 
@@ -71,6 +71,9 @@ class TrainConfig:
 LR_SCHEDULES = ("constant", "cosine")
 
 
+ConfigT = TypeVar("ConfigT")
+
+
 def _convert(declared: Any, value: Any) -> Any:
     """按字段声明的类型转换，例如 YAML 里的 1 → learning_rate 的 1.0。
 
@@ -91,8 +94,10 @@ def _convert(declared: Any, value: Any) -> Any:
     return declared(value)
 
 
-def load_config(path: str | Path, overrides: list[str] | None = None) -> TrainConfig:
-    """读取 YAML；overrides 形如 ["max_iters=5", "device=cpu"]，优先级高于文件。"""
+def load_dataclass(
+    config_class: type[ConfigT], path: str | Path, overrides: list[str] | None = None
+) -> ConfigT:
+    """读取 YAML 填进 config_class；overrides 形如 ["max_iters=5", "device=cpu"]，优先级高于文件。"""
     values = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
     for item in overrides or []:
         key, sep, raw = item.partition("=")
@@ -101,10 +106,15 @@ def load_config(path: str | Path, overrides: list[str] | None = None) -> TrainCo
         values[key] = yaml.safe_load(raw)
 
     # 字段名拼错时直接报错，避免某个超参数被悄悄忽略
-    types = {f.name: f.type for f in fields(TrainConfig)}
+    types = {f.name: f.type for f in fields(config_class)}
     unknown = set(values) - set(types)
     if unknown:
         raise ValueError(f"未知配置项：{sorted(unknown)}")
 
     converted = {key: _convert(types[key], value) for key, value in values.items()}
-    return TrainConfig(**converted)
+    return config_class(**converted)
+
+
+def load_config(path: str | Path, overrides: list[str] | None = None) -> TrainConfig:
+    """读取训练配置。"""
+    return load_dataclass(TrainConfig, path, overrides)

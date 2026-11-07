@@ -236,3 +236,146 @@ def test_cache_starts_fresh_each_call_and_restores_train_mode() -> None:
     # 连续生成两次互不影响：缓存不留在模型里
     assert torch.equal(first, second)
     assert model.training
+
+
+class NextIsLength(nn.Module):
+    """下一个 token 的编号等于当前长度：长度 2 时生成 2，长度 3 时生成 3，以此类推。"""
+
+    block_size = 64
+
+    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+        B, T = idx.shape
+        logits = torch.zeros(B, T, 64)  # (B, T, V)
+        logits[:, -1, T] = 1.0
+        return logits
+
+
+def test_eos_stops_right_after_it_is_generated() -> None:
+    from tlab.eval.generate import generate
+
+    idx = torch.tensor([[9, 9]])  # (1, 2)
+
+    out = generate(NextIsLength(), idx, 6, top_k=1, eos_token_id=4)  # (1, 5)
+
+    # eos 留在结果里，由调用方决定怎么处理
+    assert out.tolist() == [[9, 9, 2, 3, 4]]
+
+
+def test_eos_that_never_comes_gives_the_full_length() -> None:
+    from tlab.eval.generate import generate
+
+    idx = torch.tensor([[9, 9]])  # (1, 2)
+
+    out = generate(NextIsLength(), idx, 3, top_k=1, eos_token_id=50)  # (1, 5)
+
+    assert out.tolist() == [[9, 9, 2, 3, 4]]
+
+
+def test_without_eos_nothing_stops_early() -> None:
+    from tlab.eval.generate import generate
+
+    idx = torch.tensor([[9, 9]])  # (1, 2)
+
+    out = generate(NextIsLength(), idx, 6, top_k=1)  # (1, 8)
+
+    assert out.tolist() == [[9, 9, 2, 3, 4, 5, 6, 7]]
+
+
+def test_eos_none_samples_the_same_tokens_as_not_passing_it() -> None:
+    from tlab.eval.generate import generate
+
+    idx = torch.tensor([[1, 2]])  # (1, 2)
+    default = generate(  # (1, 14)
+        small_model(), idx, 12, generator=torch.Generator().manual_seed(5)
+    )
+    explicit = generate(  # (1, 14)
+        small_model(),
+        idx,
+        12,
+        generator=torch.Generator().manual_seed(5),
+        eos_token_id=None,
+    )
+
+    assert torch.equal(default, explicit)
+    assert default.shape == (1, 14)
+
+
+@pytest.mark.parametrize("use_cache", [False, True])
+def test_eos_stops_at_the_same_token_with_and_without_cache(use_cache: bool) -> None:
+    from tlab.eval.generate import generate
+
+    model = cache_model("rope")
+    idx = torch.tensor([[1, 2, 3]])  # (1, 3)
+    # 随机小模型贪心时总是同一个 token，所以这里用固定种子抽样，生成的 token 才有变化
+    full = generate(model, idx, 6, generator=torch.Generator().manual_seed(5))
+    full = full[0, 3:].tolist()  # (1, 9) → 不停时生成的 6 个 token
+    # 取第 2 种 token 当 eos，才有“停下之前已经生成了别的 token”的情况
+    eos = next(token for token in full if token != full[0])
+    stop = full.index(eos)
+
+    out = generate(
+        model,
+        idx,
+        6,
+        generator=torch.Generator().manual_seed(5),
+        use_cache=use_cache,
+        eos_token_id=eos,
+    )
+
+    assert stop >= 1
+    assert out[0, 3:].tolist() == full[: stop + 1]
+
+
+def test_eos_is_only_for_one_row_at_a_time() -> None:
+    from tlab.eval.generate import generate
+
+    idx = torch.tensor([[1, 2], [3, 4]])  # (2, 2)
+
+    # 各行会在不同位置结束，先不处理
+    with pytest.raises(ValueError, match="eos"):
+        generate(NextIsLength(), idx, 3, top_k=1, eos_token_id=4)
+
+
+def test_stopping_at_eos_restores_train_mode() -> None:
+    from tlab.eval.generate import generate
+
+    model = NextIsLength().train()
+
+    generate(model, torch.tensor([[9, 9]]), 6, top_k=1, eos_token_id=2)
+
+    assert model.training is True
+
+
+class TiedLogits(nn.Module):
+    """3 号和 7 号分数完全相同：bf16 下分数很粗，真实模型也会这样并列。"""
+
+    block_size = 8
+
+    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+        B, T = idx.shape
+        logits = torch.zeros(B, T, 11)  # (B, T, V)
+        logits[:, :, 3] = 5.0
+        logits[:, :, 7] = 5.0
+        return logits
+
+
+def test_greedy_is_deterministic_when_scores_are_tied() -> None:
+    from tlab.eval.generate import generate
+
+    idx = torch.tensor([[1]])  # (1, 1)
+
+    outputs = {
+        tuple(
+            generate(
+                TiedLogits(),
+                idx,
+                4,
+                top_k=1,
+                generator=torch.Generator().manual_seed(seed),
+            )[0].tolist()
+        )
+        for seed in range(20)
+    }
+
+    # 和 torch.argmax、transformers 的贪心一样，并列时取编号最小的
+    assert outputs == {(1, 3, 3, 3, 3)}

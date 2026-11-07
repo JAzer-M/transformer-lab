@@ -14,6 +14,15 @@ from safetensors.torch import load_file
 
 from tlab.model.gpt import GPT, GPTConfig
 
+# 模型目录要下载的文件
+MODEL_FILES = [
+    "config.json",
+    "generation_config.json",
+    "model.safetensors",
+    "tokenizer.json",
+    "tokenizer_config.json",
+]
+
 # 每一层里，HF 的名字 → 我们的名字
 LAYER_NAMES = {
     "input_layernorm.weight": "ln1.weight",

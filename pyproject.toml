@@ -20,6 +20,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "matplotlib>=3.8,<4",
+    "pyarrow>=15,<25",
     "pytest>=8,<10",
     "ruff>=0.9,<1",
     "transformers>=4.51,<6",
