@@ -29,7 +29,7 @@
 
 - [ ] M0 环境与仓库就绪，写好 `AGENTS.md` 和 `CLAUDE.md`（2026-10-27）
 - [x] MVP 关口：A1–A4 结果表可复现（2026-11-15；2026-11-07 由用户确认勾选）
-- [ ] 自研架构载入 Qwen3-0.6B，输出对齐（2026-11-20）
+- [x] 自研架构载入 Qwen3-0.6B，输出对齐（2026-11-20；2026-11-07 由用户确认勾选）
 - [ ] 手写 LoRA + GSM8K SFT 结果出来（2026-11-27）
 - [ ] README、实验报告定稿（2026-11-30）
 
@@ -335,6 +335,53 @@ CPU 训练 10 步依赖 M1 的最小模型与可运行训练路径。相关代�
 4. 先测基座准确率（W4 第一天就测，确认有提升空间），再在自研模型上做 LoRA SFT；用 HF + PEFT 同超参跑对照组。
 
 验收：微调前后准确率对比、可训练参数占比、显存和速度；自研 LoRA 与 PEFT 的 loss 曲线基本重合。
+
+#### M5 实施计划（2026-11-07 用户回复“可以按推荐开始”确认）
+
+已核对（2026-11-07，从 HF 读配置和文件大小，权重还没下载）：`Qwen/Qwen3-0.6B-Base` 结构和 M4 相同（28 层，C=1024，16 头，8 组 k、v，`head_dim` 128，H=3072，`rope_theta` 1,000,000，词表 151,936），`model.safetensors` 1,192,135,096 字节，`generation_config` 是贪心，eos 是 151643。`openai/gsm8k` 的 `main`：训练 7,473 条，测试 1,319 条，答案里有 `<<16-3-4=9>>` 这样的计算标注，最后一行是 `#### 18`。
+
+**分工：** 用户手写 `LoRALinear`（`src/tlab/finetune/lora.py`，文件顶部写 `# USER-WRITTEN`）。其余由 agent 写：评测、数据管线、把 LoRA 装进模型、SFT 训练循环、PEFT 对照、手册。`peft` 和 `transformers` 只能出现在 `scripts/`、`tests/`。
+
+| 步骤 | 分支 | 内容 |
+| --- | --- | --- |
+| 1 | `m5-baseline` | GSM8K 评测和基座准确率 |
+| 2 | `m5-lora` | 用户写 `LoRALinear`；agent 写 `apply_lora` 和只存 LoRA 权重的存档 |
+| 3 | `m5-sft` | SFT 数据管线和训练循环，配置，显存短测 |
+| 4 | `m5-peft` | HF + PEFT 对照脚本（F4） |
+| 5 | — | WSL 上跑 F1、F2、F4；汇总、README、M5 复习 |
+
+**第 1 步 `m5-baseline`（计划要求最先做，确认有提升空间）：**
+
+- `scripts/prepare_gsm8k.py` 下载数据到 `data/gsm8k/`（不进仓库）；评测用的 500 题下标由固定种子选出，写进 `configs/finetune/gsm8k_eval_subset.json` 并提交，以后都用这 500 题。
+- `src/tlab/eval/gsm8k.py`：提示模板、答案抽取、准确率。基座可能答完不停、接着编下一题，所以先在生成文本里第一个 `\nQuestion:` 处截断，再抽取：有 `####` 时取第一个后面的数；没有时取最后一个数；去掉逗号和 `$`。截断是生成完在文本上做的，速度不够再单独优化。
+- `generate` 加 `eos_token_id`，默认 `None`，行为不变；SFT 之后的模型靠 eos 停下。
+- 贪心解码，KV 缓存，最多 256 个新 token，一次一题。模型没有 attention mask，不同长度的题不能直接拼 batch；一次一题最简单，速度先实测。
+- F1 的基座要测两种：few-shot（4 个固定的训练集例子）和不给例子（和 SFT 后的格式相同）。
+- `scripts/check_qwen3.py` 加 `--repo`，先确认 Base 权重也能对齐，并在 GPU 上看 bf16 下和 `transformers` 差多少。这决定 M4 留下的问题：`RMSNorm` 要不要像官方一样在内部转 fp32。改它要用户同意，而且会影响 `a2_rmsnorm`、`a9_modern` 的逐字复现；如果要改，做成默认关闭的开关，M3 才能逐字复现。
+- **在哪跑：** Mac 只跑单元测试、fp32 对齐和几道题的冒烟；500 题的准确率和 bf16 对比放 WSL。
+- 如果基座 few-shot 准确率已经很高，按“风险与降级方案”如实报告，再决定换不换任务。
+
+**第 2 步 `m5-lora`：**
+
+- 用户写 `LoRALinear(base, r, alpha)`：A 形状 (r, in)，kaiming uniform 初始化（和 PEFT 相同）；B 形状 (out, r)，全 0；缩放 alpha/r；基座冻结；`merge()`、`unmerge()`。输出 `base(x) + (alpha/r) · x Aᵀ Bᵀ`。
+- 测试接口：B 全 0 时输出和基座逐位相同；只有 A、B 能训练；只有 A、B 拿到梯度；merge 后输出和未 merge 一致（容差内）；unmerge 后恢复；参数量等于手算值。
+- agent 写 `apply_lora(model, r, alpha, targets)`：默认替换每层的 `q_proj`、`k_proj`、`v_proj`、`out_proj`；词表和其他层冻结；存档只存 A、B。
+- 可训练参数手算（默认目标）：每层 (1024+2048)·r × 2 + (1024+1024)·r × 2 = 10,240·r，28 层 286,720·r。r=4、8、16、32 分别是 1,146,880、2,293,760、4,587,520、9,175,040 个，占 596,049,920 的 0.19%、0.38%、0.77%、1.54%。
+
+**第 3 步 `m5-sft`：**
+
+- 模板 `Question: {q}\nAnswer: {a}<eos>`，去掉 `<<...>>` 标注。提示和 padding 位置的 label 都是 -100（`F.cross_entropy` 默认忽略 -100）。
+- 在右边 padding：因果掩码下，右边的 pad 影响不到前面的 token，所以不需要 attention mask。测试要证明带 pad 和不带 pad 时真实 token 的分数相同。
+- 训练循环写在 `src/tlab/finetune/sft.py`，因为 `trainer.py` 的 `train` 是按随机窗口取数的语言模型训练，形状不同；bf16 autocast、梯度累积、裁剪、cosine、日志和存档的写法照它来。
+- 从训练集留 200 条看 val loss，测试集的 500 题只用于最后的准确率。
+- 建议超参数（要先做短测，再由用户确认）：r=8，alpha=16，学习率 2e-4，weight decay 0，batch 4 × 累积 4，序列最长 512，1 个 epoch。
+- 显存：参数是 fp32 时基座约 2.4 GB；不够再把基座转 bf16（约 1.2 GB），注意不要把 RoPE 的 `inv_freq` 一起转掉；还不够才加 gradient checkpointing。
+
+**第 4 步 `m5-peft`：** `scripts/train_peft.py`，同样的数据顺序和超参数。LoRA 的初始值从自研模型拷过去，否则两边随机数不同，曲线本来就不会重合。验收是 loss 曲线基本重合；“基本重合”的数字门槛在正式跑之前，根据短测结果定下来，并且要先决定 `RMSNorm`，否则 bf16 下的差别会混进来。
+
+**第 5 步，实验（WSL + RTX 5060）：** F1；F2（r=4、8、16、32，各 2 个种子，共 8 次）；F4（r=8，1 个种子）。F3、F5 可选，时间不够先砍。F2 沿用 M3 的判定规则：均值之差大于种子间差距才算有结论。500 题的标准误在准确率 50% 附近约 2.2 个百分点（√(0.5·0.5/500)），报告时一起写。手册写到 `docs/m5-windows-run.md`；Codex 额度不够时由用户直接运行。
+
+**验收：** 微调前后准确率对比、可训练参数占比、显存和速度；自研 LoRA 与 PEFT 的 loss 曲线基本重合；`results.md` 和 README 更新；M5 清单的题统一复习一遍。
 
 ### M6 收尾（W5）
 
