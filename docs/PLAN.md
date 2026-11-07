@@ -322,7 +322,9 @@ CPU 训练 10 步依赖 M1 的最小模型与可运行训练路径。相关代�
 - **依赖：** `safetensors` 放主依赖；`transformers` 只放 `dev`，只用于测试和对照。
 - **真实权重：** 用户同意下载 `model.safetensors`（来自 `huggingface.co/Qwen/Qwen3-0.6B`，1,503,300,328 字节）、`config.json` 和分词器文件，放在 HF 默认缓存目录，不进仓库。对齐检查在 Mac 的 CPU 上跑，结果写到 `experiments/m4_qwen3/`，`results.md` 追加一行。
 - **`RMSNorm` 不改：** HF 在里面先转成 fp32，我们没有。fp32 下对齐不受影响，bf16 下的差别留到 M5 训练时再看。
-- **eps：** `RMSNorm` 的 eps 用默认的 1e-6，和 Qwen3-0.6B 相同；`m4-convert` 读配置时要核对 `rms_norm_eps`，不相同就报错。
+- **配置：** 不单独写 YAML，直接读模型目录的 `config.json`。`rms_norm_eps`、`attention_bias`、`attention_dropout`、`hidden_act`、`tie_word_embeddings`、`use_sliding_window`、`rope_scaling` 这些和我们的结构不符时就报错，否则权重能载入、结果却对不上。
+- **验收门槛：** 只看分数和贪心生成，分数最大误差小于 1e-3（即 1e-4 量级）。隐藏状态的数值可能上千，只报告绝对误差和相对误差，不算失败。
+- **误差的来源（2026-11-07 实测）：** 真实权重上分数最大误差 1.73e-04。在副本里把注意力的 `scores / d**0.5` 改成官方的 `scores * d**-0.5`，三个提示每一层的误差都是 0.0，所以误差只来自这一处的浮点舍入，结构和权重映射没有差别。不改这一行：它是用户手写的代码，改了 M1–M3 的结果就无法逐字复现，而误差已经满足验收。
 - **测试接口 14 个：** 不传 `head_dim` 时和现在逐位相同；形状；和手工算的 SDPA 数值一致；QK-Norm 的位置；开了之后分批算和一次算完一致；开关的读取、校验、旧存档、续训；`mlp_hidden_dim`；0.6B 配置的参数量；权重映射；`config.json`；`lm_head` 不相同时报错；小型随机 Qwen3 逐层对比；贪心生成和 `transformers` 相同，有无缓存都相同；检查脚本。
 
 ### M5 手写 LoRA + SFT（W4 后半–W5 前半）

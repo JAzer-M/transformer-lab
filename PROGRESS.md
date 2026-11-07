@@ -4,24 +4,26 @@
 
 ## 当前状态
 
-更新时间：2026-11-07 13:59（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-07 14:33（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M3 完成，MVP 关口已勾选。M4：m4-arch 已合并；m4-convert 进行中 |
-| 本轮范围 | 提交 m4-arch，合并到 main 并推送（用户回复“提交合并并推送”）；开始 m4-convert |
-| 实现方 / 审查方 | m4-arch：用户手写注意力部分，其余由 Claude 写；提交前由 Claude 的两个只读子 agent 审查（规范、需求），不是 Codex 审查 |
-| 来源 | main 快进到 m4-arch，两者一同推送，从 main e718b6d 分出；哈希以 git log 为准 |
+| 项目阶段 | M3 完成，MVP 关口已勾选。M4：m4-arch、m4-convert 已合并；要在干净提交上重跑验收 |
+| 本轮范围 | 提交 m4-convert，合并到 main 并推送（用户回复“提交合并并推送”）；在干净提交上重跑验收 |
+| 实现方 / 审查方 | m4-convert 全部由 Claude 写；提交前由 Claude 的两个只读子 agent 审查（规范、需求），不是 Codex 审查 |
+| 来源 | main 快进到 m4-convert，两者一同推送，从 main ed88fec 分出；哈希以 git log 为准 |
 | 前置 | uv sync --locked、CUDA分配通过；367 passed in20.85s；RTX5060 Laptop、PyTorch2.9.1+cu128/CUDA12.8 |
 | 执行 | GPU每项5次/train-steps5；CPU每项3次/train-steps1；prompt32+新增480，每配置60秒降温；4条命令退出0，总耗时879.062s |
 | 缓存 | GPU对照4.50MiB/GQA-2 1.50MiB，k/v均bf16；CPU对照9.00MiB，k/v均fp32；完整缓存按B=1核对 |
 | 归档 | bench_batch/REPORT.md及原始JSON/MD/日志；results只追加1行，原bench.json/md与SUMMARY保持原文 |
 | 结果记录 | a0_control 提速倍数：RTX 5060 上 B=1、8、32 为 1.00、1.85、6.80；同机 CPU B=1 为 7.42。B=32 有缓存生成峰值 267.01 MiB，无缓存 662.30 MiB。详见 bench_batch/REPORT.md |
 | 温度 | GPU90次测量起始温度53.5–86.3°C；CPU项温度字段为GPU温度，CPU温度未测 |
-| 下一步 | Claude 写 m4-convert，下载真实权重跑验收，审查后等用户同意合并；M3 清单对应的 7 题由用户之后回顾 |
+| 下一步 | 在干净提交上重跑 `scripts/check_qwen3.py`，结果写到 `experiments/m4_qwen3/`，`results.md` 追加一行，README 补 M4，等用户同意后再提交；之后 M5 |
 
 ## 当前任务与下一步
 
+- 2026-11-07 14:33：m4-convert 已提交、合并到 main 并推送，接着重跑验收。
+- 2026-11-07 14:31：m4-convert 写完并审查修复，试跑通过，等用户同意提交。
 - 2026-11-07 13:59：m4-arch 已提交、合并到 main 并推送。
 - 2026-11-07 13:57：m4-arch 开关写完并审查修复，442 passed，等用户同意提交。
 - 2026-11-07 13:38：用户手写的 `head_dim`、QK-Norm 通过测试（412 passed）。
@@ -1629,6 +1631,39 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 审查状态：Claude 的两个只读子 agent 已审查；Codex 未审查。
 - 学习状态：用户写完 `head_dim` 和 QK-Norm。
 - 下一步：m4-convert。
+
+### 2026-11-07 14:31（UTC+08:00）｜Claude Code（matt-pocock-skills:tdd、code-review，规范、需求两个只读子 agent）｜m4-convert：权重转换和对齐
+
+- 范围与用户确认：用户之前确认了 M4 计划，也同意下载权重。这一步全部由 Claude 写，这是 Claude 自查，不是 Codex 审查。
+- 工作区与设备：Mac CPU，分支 m4-convert，未提交。权重在 HF 默认缓存（`Qwen/Qwen3-0.6B@c1899de2…`），不进仓库。
+- 改动：`src/tlab/convert/qwen3.py`；`scripts/check_qwen3.py`；`tests/test_convert_qwen3.py`；`pyproject.toml`、`uv.lock`（`safetensors`，dev 的 `transformers`）；PLAN。模型、训练、评测代码都没动。
+- 审查发现（两项分开列）：
+  - Standards：缺形状注释；`rope_parameters`、`head_dim` 回退、真实分词器分支没有测试；分词器加载重复；`model` 这个名字其实是字符串；多文件支持用不到。
+  - Spec：门槛把隐藏状态的绝对误差也算进去了（数值上千，容易误报）；`eos_token_id=None` 删掉也没有测试发现；小模型的归一化 weight 全是 1，q_norm 和 k_norm 写反时对齐测试查不出；报告没断言 `max_error`；PLAN 的“配置”和实现不一致。
+  - 都已修。不改的判断项：报告用字典（和项目现有写法一致）、测试里重复建模型。
+- 本次验证：
+  - pytest 全部通过（数字见回复），`ruff check --no-cache`、format --check、`uv lock --check` 通过；导出到没有 data、runs、.git 的目录后全部通过。
+  - 真实权重（Mac CPU，fp32，三个提示，新生成 50 个 token，当时 commit 带 -dirty）：分数最大误差 4.77e-05、4.24e-05、1.73e-04，门槛 1e-3；每层相对误差最大 4.05e-06；贪心生成有缓存、无缓存都和 `transformers` 相同；参数量 596,049,920；最大内存约 5.7 GB。
+  - 在副本里把注意力的 `scores / d**0.5` 改成官方的 `scores * d**-0.5`：三个提示每一层的误差都是 0.0。这是审查方先发现的，我重跑确认了。
+  - 故意改错：第一轮 20 种抓到 19 种，第二轮 22 种抓到 21 种；两次没抓到的都收紧了测试。
+  - main 和新代码跑 tiny_smoke、tinystories_smoke（device=cpu）：metrics.csv 逐字相同。
+- 未验证与失败：第一次下载失败，环境里的 ALL_PROXY 是 SOCKS，`huggingface_hub` 用不了，而且我的输出过滤把报错藏了；改成只在这条命令上去掉 ALL_PROXY，走 HTTP 代理，没有动系统设置。这次试跑 commit 带 -dirty，不算正式验收。没有在 GPU、bf16 下跑过（M5 再看）。
+- 决策与原因：见 PLAN。
+- 审查状态：两个只读子 agent 已审查，问题已修或已说明不修；Codex 未审查。
+- 学习状态：这一步没有手写内容；用户需要能讲清映射和逐层对比。
+- 下一步：等用户同意提交、合并、推送，然后在干净提交上重跑。
+
+### 2026-11-07 14:33（UTC+08:00）｜Claude Code｜提交 m4-convert，合并到 main 并推送
+
+- 范围与用户确认：用户回复“提交合并并推送”。`.idea/` 不提交。
+- 工作区与设备：Mac；m4-convert 从 main ed88fec 分出，main 快进到它，两者一同推送。
+- 改动：提交转换、检查脚本、测试、依赖、PLAN 和本文件；内容见上一条记录。
+- 本次验证：提交前的检查结果见上一条记录。本条写于提交之前，提交后的结果和哈希以 git log 和回复用户的内容为准。
+- 未验证与失败：正式验收还要在干净提交上重跑；没有在 GPU、bf16 下跑过。
+- 决策与原因：无新决定。
+- 审查状态：Claude 的两个只读子 agent 已审查；Codex 未审查。
+- 学习状态：用户需要能讲清映射和逐层对比。
+- 下一步：重跑验收。
 
 ## 后续交接模板
 
