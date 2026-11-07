@@ -473,3 +473,124 @@ def test_load_config_still_accepts_whole_numbers_written_as_floats(
 
     assert config.n_heads == 6 and isinstance(config.n_heads, int)
     assert config.n_kv_heads == 2 and isinstance(config.n_kv_heads, int)
+
+
+def test_load_config_reads_qwen3_switches(tmp_path: Path) -> None:
+    from tlab.train.config import load_config
+
+    path = write_yaml(
+        tmp_path / "c.yaml",
+        "n_heads: 16\nd_model: 1024\nmlp: swiglu\n"
+        "head_dim: 128\nqk_norm: true\nmlp_hidden_dim: 3072\n",
+    )
+
+    config = load_config(path)
+    assert config.head_dim == 128 and isinstance(config.head_dim, int)
+    assert config.qk_norm is True
+    assert config.mlp_hidden_dim == 3072 and isinstance(config.mlp_hidden_dim, int)
+
+    # 命令行可以覆盖，null 改回默认
+    assert load_config(path, ["head_dim=null"]).head_dim is None
+    assert load_config(path, ["qk_norm=false"]).qk_norm is False
+    assert load_config(path, ["mlp_hidden_dim=null"]).mlp_hidden_dim is None
+
+    # 不写时和 M3 相同
+    plain = load_config(write_yaml(tmp_path / "d.yaml", "n_heads: 6\n"))
+    assert plain.head_dim is None
+    assert plain.qk_norm is False
+    assert plain.mlp_hidden_dim is None
+
+
+@pytest.mark.parametrize(
+    "override",
+    ["head_dim=0", "head_dim=2.5", "mlp_hidden_dim=0", "mlp_hidden_dim=true"],
+)
+def test_load_config_rejects_bad_qwen3_switches(tmp_path: Path, override: str) -> None:
+    from tlab.train.config import load_config
+
+    path = write_yaml(tmp_path / "c.yaml", "n_heads: 6\nmlp: swiglu\n")
+
+    with pytest.raises(ValueError):
+        load_config(path, [override])
+
+
+def test_load_config_rejects_mlp_hidden_dim_with_gelu(tmp_path: Path) -> None:
+    from tlab.train.config import load_config
+
+    path = write_yaml(tmp_path / "c.yaml", "n_heads: 6\nmlp_hidden_dim: 96\n")
+
+    with pytest.raises(ValueError, match="mlp_hidden_dim"):
+        load_config(path)
+
+
+QWEN3_SWITCHES = {
+    "n_kv_heads": 1,
+    "head_dim": 32,
+    "qk_norm": True,
+    "norm": "rmsnorm",
+    "mlp": "swiglu",
+    "mlp_hidden_dim": 48,
+    "pos_encoding": "rope",
+}
+
+
+def test_run_with_qwen3_switches_saves_a_checkpoint_that_rebuilds(
+    tmp_path: Path,
+) -> None:
+    from tlab.train.run import run
+    from tlab.train.utils import load_model
+
+    write_tiny_dataset(tmp_path / "data")
+    path = run(tiny_config(tmp_path, max_iters=2, **QWEN3_SWITCHES)) / "ckpt.pt"
+
+    model, _ = load_model(path, torch.device("cpu"))
+
+    attn = model.blocks[0].attn
+    assert attn.q_proj.weight.shape == (64, 32)
+    assert attn.q_norm.weight.shape == (32,)
+    assert model.blocks[0].mlp.gate_proj.weight.shape == (48, 32)
+
+
+@pytest.mark.parametrize(
+    "changed", [{"head_dim": 16}, {"qk_norm": False}, {"mlp_hidden_dim": 64}]
+)
+def test_resume_refuses_different_qwen3_switches(tmp_path: Path, changed: dict) -> None:
+    from tlab.train.run import run
+
+    write_tiny_dataset(tmp_path / "data")
+    run(tiny_config(tmp_path, max_iters=2, **QWEN3_SWITCHES))
+
+    name = next(iter(changed))
+    with pytest.raises(ValueError, match=name):
+        run(
+            tiny_config(
+                tmp_path, max_iters=3, resume=True, **{**QWEN3_SWITCHES, **changed}
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "override",
+    ["qk_norm=flase", "qk_norm=maybe", "qk_norm=2", 'qk_norm="false"', "resume=2"],
+)
+def test_load_config_rejects_values_that_are_not_booleans(
+    tmp_path: Path, override: str
+) -> None:
+    from tlab.train.config import load_config
+
+    path = write_yaml(tmp_path / "c.yaml", "n_heads: 6\n")
+
+    # bool() 只要不是空值都得到 True，拼错的取值会被悄悄当成开启
+    with pytest.raises(ValueError, match="布尔"):
+        load_config(path, [override])
+
+
+def test_load_config_rejects_an_odd_head_dim_with_rope(tmp_path: Path) -> None:
+    from tlab.train.config import load_config
+
+    path = write_yaml(
+        tmp_path / "c.yaml", "n_heads: 6\npos_encoding: rope\nhead_dim: 15\n"
+    )
+
+    with pytest.raises(ValueError, match="head_dim"):
+        load_config(path)

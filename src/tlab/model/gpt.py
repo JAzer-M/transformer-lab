@@ -1,5 +1,5 @@
 # USER-WRITTEN: agent 只提建议， 不改实现
-# 例外：标注“agent 编写”的 norm、mlp、pos_encoding、n_kv_heads 开关与 KV cache 代码，经用户 2026-11-03、11-04、11-05 同意由 agent 加入
+# 例外：标注“agent 编写”的 norm、mlp、pos_encoding、n_kv_heads、head_dim、qk_norm、mlp_hidden_dim 开关与 KV cache 代码，经用户 2026-11-03、11-04、11-05、11-07 同意由 agent 加入
 from dataclasses import dataclass
 
 import torch
@@ -14,6 +14,7 @@ from tlab.model.layers import (
     check_block_settings,
     check_kv_heads,
     check_pos_encoding,
+    check_qwen3_switches,
     make_norm,
     sinusoidal_positions,
 )
@@ -34,12 +35,16 @@ class GPTConfig:
     pos_encoding: str = "learned"  # 位置编码："learned"、"sinusoidal" 或 "rope"
     rope_theta: float = 10000.0  # RoPE 转速公式里的底数，只在 "rope" 时有用
     n_kv_heads: int | None = None  # k、v 的组数；None 表示等于 n_heads（MHA）
+    head_dim: int | None = None  # 每个头的维度；None 表示 d_model // n_heads
+    qk_norm: bool = False  # q、k 拆头后各做一次 RMSNorm（Qwen3 的做法）
+    mlp_hidden_dim: int | None = None  # SwiGLU 的隐藏维度；None 表示 8C//3
 
     def __post_init__(self) -> None:
         # agent 编写（各开关）：建配置时就检查取值，0 层时也不会被悄悄放过
         check_block_settings(self.norm, self.norm_position, self.mlp)
-        check_pos_encoding(self.pos_encoding, self.rope_theta)
+        check_pos_encoding(self.pos_encoding, self.rope_theta, self.head_dim)
         check_kv_heads(self.n_heads, self.n_kv_heads)
+        check_qwen3_switches(self.mlp, self.head_dim, self.qk_norm, self.mlp_hidden_dim)
 
 
 class GPT(nn.Module):
@@ -71,6 +76,9 @@ class GPT(nn.Module):
                         config.rope_theta if config.pos_encoding == "rope" else None
                     ),
                     n_kv_heads=config.n_kv_heads,
+                    head_dim=config.head_dim,
+                    qk_norm=config.qk_norm,
+                    mlp_hidden_dim=config.mlp_hidden_dim,
                 )
                 for _ in range(config.n_layers)
             ]

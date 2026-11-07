@@ -5,7 +5,7 @@ import torch
 from torch import nn
 
 # agent 编写（pos_encoding 开关）：RoPE 的旋转
-from tlab.model.layers import RotaryEmbedding
+from tlab.model.layers import RMSNorm, RotaryEmbedding
 
 
 # agent 编写（KV cache）：生成时每层一个；g 是 k、v 的组数，T_past 是已经存下的 token 数
@@ -37,12 +37,16 @@ class CausalSelfAttention(nn.Module):
         n_heads: int,
         rope_theta: float | None = None,
         n_kv_heads: int | None = None,
+        head_dim: int | None = None,
+        qk_norm: bool = False,
     ) -> None:
         super().__init__()
-        # 检查 d_model 能否被头数整除
-        assert d_model % n_heads == 0, "d_model 必须能被 n_heads 整除"
+        # 每个头的维度 d： 不指定时是 C / h, 这时要检查 d_model 能否被头数整除
+        if head_dim is None:
+            assert d_model % n_heads == 0, "d_model 必须能被 n_heads 整除"
+            head_dim = d_model // n_heads
         self.n_heads = n_heads
-        self._head_dim = d_model // n_heads
+        self._head_dim = head_dim
 
         # k, v 的组数 g： 不指定时每个头一组， 即MHA 多头注意力
         self.n_kv_heads = n_heads if n_kv_heads is None else n_kv_heads
@@ -58,10 +62,17 @@ class CausalSelfAttention(nn.Module):
         # k, v 的总维度： g组， 每组 d 维
         kv_dim = self.n_kv_heads * self._head_dim
 
-        self.q_proj = nn.Linear(d_model, d_model, bias=False)
+        # q 和合头后的总维度： h个头， 每个头 d 维
+        self._q_dim = n_heads * self._head_dim
+
+        self.q_proj = nn.Linear(d_model, self._q_dim, bias=False)
         self.k_proj = nn.Linear(d_model, kv_dim, bias=False)
         self.v_proj = nn.Linear(d_model, kv_dim, bias=False)
-        self.out_proj = nn.Linear(d_model, d_model, bias=False)
+        self.out_proj = nn.Linear(self._q_dim, d_model, bias=False)
+
+        # QK-Norm: q, k 每一个 RMSNorm, 作用在每个头的 d 维上； 不开始没有这两层
+        self.q_norm = RMSNorm(self._head_dim) if qk_norm else None
+        self.k_norm = RMSNorm(self._head_dim) if qk_norm else None
 
         # agent 编写（pos_encoding 开关）：没有参数，也不进存档
         self.rope = (
@@ -70,7 +81,7 @@ class CausalSelfAttention(nn.Module):
 
     # agent 编写（KV cache）：cache 只在生成时传，不传时和以前完全一样
     def forward(self, x: torch.Tensor, cache: KVCache | None = None) -> torch.Tensor:
-        q = self.q_proj(x)  # (B, T, C)
+        q = self.q_proj(x)  # (B, T, h*d)
         k = self.k_proj(x)  # (B, T, g*d)
         v = self.v_proj(x)  # (B, T, g*d)
 
@@ -79,6 +90,11 @@ class CausalSelfAttention(nn.Module):
         q = q.view(B, T, self.n_heads, self._head_dim).transpose(1, 2)  # (B, h, T, d)
         k = k.view(B, T, g, self._head_dim).transpose(1, 2)  # (B, g, T, d)
         v = v.view(B, T, g, self._head_dim).transpose(1, 2)  # (B, g, T, d)
+
+        # QK-Norm: 拆头之后， 旋转之前; v 是被读走的内容， 不归一化
+        if self.q_norm is not None:
+            q = self.q_norm(q)  # (B, h, T, d)
+            k = self.k_norm(k)  # (B, g, T, d)
 
         # agent 编写（KV cache）：缓存里已有的 token 数，新 token 的位置从这里数起
         T_past = 0 if cache is None else cache.length
@@ -117,6 +133,6 @@ class CausalSelfAttention(nn.Module):
         )  # (B, h, T, T_all) 固定其他下标, 只允许列进行变化
         z = attn @ v  # (B, h, T, d)
         # 合头: 把头维换回去， 再把各头的 d 维拼回 C 维
-        z = z.transpose(1, 2).contiguous().view(B, T, C)  # (B, T, C)
+        z = z.transpose(1, 2).contiguous().view(B, T, self._q_dim)  # (B, T, h*d)
         y = self.out_proj(z)  # (B, T, C)
         return y

@@ -388,3 +388,174 @@ def test_attention_in_chunks_matches_one_pass(
 
     # 同一段里的 token 也不能偷看段内后面的 token，掩码写错这里会不一致
     torch.testing.assert_close(torch.cat(parts, dim=1), full, rtol=1e-5, atol=1e-5)
+
+
+# ---- head_dim 和 QK-Norm（M4，Qwen3 的结构）----
+# 下面用 C=32、h=4、g=2、d=16：d 不等于 C/h = 8，和 Qwen3-0.6B 的情况相同
+
+
+def qwen3_reference(
+    attn: CausalSelfAttention,
+    x: torch.Tensor,
+    h: int,
+    g: int,
+    d: int,
+    order: list[int],
+    rope: torch.nn.Module | None = None,
+    qk_norm: bool = False,
+) -> torch.Tensor:
+    """参考答案：手工走一遍 Qwen3 的注意力，最后的注意力计算交给 SDPA（只在测试里用）。"""
+    B, T, C = x.shape
+
+    def rms_norm(y: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
+        # 每个头、每个 token 的 d 个分量除以均方根，再逐分量乘 weight
+        rms = y.pow(2).mean(dim=-1, keepdim=True)  # (B, h 或 g, T, 1)
+        return y * torch.rsqrt(rms + 1e-6) * weight  # 形状和 y 相同
+
+    q = attn.q_proj(x).view(B, T, h, d).transpose(1, 2)  # (B, h, T, d)
+    k = attn.k_proj(x).view(B, T, g, d).transpose(1, 2)  # (B, g, T, d)
+    v = attn.v_proj(x).view(B, T, g, d).transpose(1, 2)  # (B, g, T, d)
+    if qk_norm:
+        q = rms_norm(q, attn.q_norm.weight)  # (B, h, T, d)
+        k = rms_norm(k, attn.k_norm.weight)  # (B, g, T, d)
+    if rope is not None:
+        q = rope(q)  # (B, h, T, d)
+        k = rope(k)  # (B, g, T, d)
+    z = F.scaled_dot_product_attention(
+        q, k[:, order], v[:, order], is_causal=True
+    )  # (B, h, T, d)
+    return attn.out_proj(z.transpose(1, 2).contiguous().view(B, T, h * d))  # (B, T, C)
+
+
+def test_head_dim_equal_to_the_default_is_the_same_as_not_passing_it() -> None:
+    torch.manual_seed(0)
+    default = CausalSelfAttention(24, 6)
+    explicit = CausalSelfAttention(24, 6, head_dim=4)
+
+    # 不开新功能时，参数名和形状都不变：M1–M3 的存档靠这一点才载得进来。
+    # 顺序也不能变：参数按创建顺序取随机数，顺序一变，同一个种子的结果就全变了
+    assert list(default.state_dict()) == [
+        "q_proj.weight",
+        "k_proj.weight",
+        "v_proj.weight",
+        "out_proj.weight",
+    ]
+    explicit.load_state_dict(default.state_dict())
+
+    x = torch.randn(2, 5, 24)  # (B, T, C)
+    assert torch.equal(explicit(x), default(x))
+
+
+@pytest.mark.parametrize(
+    ("C", "h", "g", "d", "expected_params"),
+    [
+        # Qwen3-0.6B：q、out 各 1024 × 2048，k、v 各 1024 × 1024
+        (1024, 16, 8, 128, 6_291_456),
+        # q、out 各 32 × 64，k、v 各 32 × 32
+        (32, 4, 2, 16, 6_144),
+    ],
+)
+def test_head_dim_sets_the_size_of_all_four_projections(
+    C: int, h: int, g: int, d: int, expected_params: int
+) -> None:
+    attn = CausalSelfAttention(C, h, n_kv_heads=g, head_dim=d)
+
+    # nn.Linear 的 weight 形状是 (输出维度, 输入维度)
+    assert attn.q_proj.weight.shape == (h * d, C)
+    assert attn.k_proj.weight.shape == (g * d, C)
+    assert attn.v_proj.weight.shape == (g * d, C)
+    assert attn.out_proj.weight.shape == (C, h * d)
+    assert sum(p.numel() for p in attn.parameters()) == expected_params
+
+
+def test_head_dim_allows_d_model_that_n_heads_cannot_divide() -> None:
+    # 给了 head_dim 就不用 C/h 了；没给时还是要能整除
+    attn = CausalSelfAttention(30, 4, head_dim=8)
+    assert attn(torch.randn(1, 3, 30)).shape == (1, 3, 30)
+    with pytest.raises(AssertionError):
+        CausalSelfAttention(30, 4)
+
+
+def test_head_dim_matches_scaled_dot_product_attention() -> None:
+    torch.manual_seed(0)
+    attn = CausalSelfAttention(32, 4, n_kv_heads=2, head_dim=16)
+    x = torch.randn(2, 5, 32)  # (B, T, C)
+
+    y = attn(x)  # (B, T, C)
+
+    assert y.shape == (2, 5, 32)
+    y_ref = qwen3_reference(attn, x, 4, 2, 16, [0, 0, 1, 1])  # (B, T, C)
+    torch.testing.assert_close(y, y_ref, rtol=1e-5, atol=1e-5)
+
+
+def test_qk_norm_adds_one_rms_norm_for_q_and_one_for_k() -> None:
+    attn = CausalSelfAttention(32, 4, n_kv_heads=2, head_dim=16, qk_norm=True)
+
+    assert attn.q_norm.weight.shape == (16,)
+    assert attn.k_norm.weight.shape == (16,)
+    # eps 和 Qwen3 的 rms_norm_eps 相同
+    assert attn.q_norm.eps == 1e-6
+    assert attn.k_norm.eps == 1e-6
+    # 6144 + 两个归一化各 16 个
+    assert sum(p.numel() for p in attn.parameters()) == 6_176
+
+
+def test_qk_norm_runs_before_the_rotation_and_leaves_v_alone() -> None:
+    from tlab.model.layers import RotaryEmbedding
+
+    torch.manual_seed(0)
+    attn = CausalSelfAttention(
+        32, 4, rope_theta=10000.0, n_kv_heads=2, head_dim=16, qk_norm=True
+    )
+    # weight 全 1 时，先转还是先归一化结果一样（旋转不改变长度），测不出顺序，所以换成随机值
+    torch.nn.init.normal_(attn.q_norm.weight)
+    torch.nn.init.normal_(attn.k_norm.weight)
+    x = torch.randn(2, 5, 32)  # (B, T, C)
+
+    y_ref = qwen3_reference(
+        attn, x, 4, 2, 16, [0, 0, 1, 1], RotaryEmbedding(16), qk_norm=True
+    )  # (B, T, C)
+
+    torch.testing.assert_close(attn(x), y_ref, rtol=1e-5, atol=1e-5)
+
+
+def test_head_dim_and_qk_norm_stay_causal() -> None:
+    torch.manual_seed(0)
+    attn = CausalSelfAttention(
+        32, 4, rope_theta=10000.0, n_kv_heads=2, head_dim=16, qk_norm=True
+    )
+    x = torch.randn(2, 5, 32)  # (B, T, C)
+
+    # 只改最后一个 token（下标 4），前四个 token 保持不变
+    x_changed = x.clone()  # (B, T, C)
+    x_changed[:, 4, :] = torch.randn(2, 32)  # (B, C)
+
+    y = attn(x)  # (B, T, C)
+    y_changed = attn(x_changed)  # (B, T, C)
+
+    torch.testing.assert_close(y_changed[:, :4, :], y[:, :4, :])
+    # 被改的位置输出应当变化，保证这次改动确实传进了模型
+    assert not torch.allclose(y_changed[:, 4, :], y[:, 4, :])
+
+
+@pytest.mark.parametrize("chunks", [(5,), (3, 1, 1), (1, 1, 1, 1, 1)])
+@pytest.mark.parametrize("rope_theta", [None, 10000.0])
+def test_head_dim_and_qk_norm_in_chunks_match_one_pass(
+    rope_theta: float | None, chunks: tuple[int, ...]
+) -> None:
+    from tlab.model.attention import KVCache
+
+    torch.manual_seed(0)
+    attn = CausalSelfAttention(
+        32, 4, rope_theta=rope_theta, n_kv_heads=2, head_dim=16, qk_norm=True
+    )
+    x = torch.randn(2, 5, 32)  # (B, T, C)
+    full = attn(x)  # (B, T, C)
+
+    cache = KVCache()
+    # 每段 (B, 这一段的长度, C)
+    parts = [attn(part, cache=cache) for part in x.split(chunks, dim=1)]
+
+    torch.testing.assert_close(torch.cat(parts, dim=1), full, rtol=1e-5, atol=1e-5)
+    # 缓存里存的是 g 组、每组 d 维
+    assert cache.k.shape == cache.v.shape == (2, 2, 5, 16)

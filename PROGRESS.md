@@ -4,24 +4,28 @@
 
 ## 当前状态
 
-更新时间：2026-11-07 13:11（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-07 13:59（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M3 完成，MVP 关口已由用户确认勾选；M4 计划待用户确认，尚未开始 |
-| 本轮范围 | 勾选 MVP 关口；提交 m3-review，合并到 main 并推送（用户回复“可以提交合并并推送”）；列出 M4 计划 |
-| 实现方 / 审查方 | m3-report 全部由 Claude 写；提交前由 Claude 的两个只读子 agent 审查（规范、需求），不是 Codex 审查 |
-| 来源 | main 快进到 m3-review，两者一同推送，从 main 9f4601d 分出；哈希以 git log 为准 |
+| 项目阶段 | M3 完成，MVP 关口已勾选。M4：m4-arch 已合并；m4-convert 进行中 |
+| 本轮范围 | 提交 m4-arch，合并到 main 并推送（用户回复“提交合并并推送”）；开始 m4-convert |
+| 实现方 / 审查方 | m4-arch：用户手写注意力部分，其余由 Claude 写；提交前由 Claude 的两个只读子 agent 审查（规范、需求），不是 Codex 审查 |
+| 来源 | main 快进到 m4-arch，两者一同推送，从 main e718b6d 分出；哈希以 git log 为准 |
 | 前置 | uv sync --locked、CUDA分配通过；367 passed in20.85s；RTX5060 Laptop、PyTorch2.9.1+cu128/CUDA12.8 |
 | 执行 | GPU每项5次/train-steps5；CPU每项3次/train-steps1；prompt32+新增480，每配置60秒降温；4条命令退出0，总耗时879.062s |
 | 缓存 | GPU对照4.50MiB/GQA-2 1.50MiB，k/v均bf16；CPU对照9.00MiB，k/v均fp32；完整缓存按B=1核对 |
 | 归档 | bench_batch/REPORT.md及原始JSON/MD/日志；results只追加1行，原bench.json/md与SUMMARY保持原文 |
 | 结果记录 | a0_control 提速倍数：RTX 5060 上 B=1、8、32 为 1.00、1.85、6.80；同机 CPU B=1 为 7.42。B=32 有缓存生成峰值 267.01 MiB，无缓存 662.30 MiB。详见 bench_batch/REPORT.md |
 | 温度 | GPU90次测量起始温度53.5–86.3°C；CPU项温度字段为GPU温度，CPU温度未测 |
-| 下一步 | 用户确认 M4 计划后，先写失败的测试；M3 清单对应的 7 题由用户之后回顾；GQA-2 和 MQA 按“没有结论”记录，没有补第 3 个种子 |
+| 下一步 | Claude 写 m4-convert，下载真实权重跑验收，审查后等用户同意合并；M3 清单对应的 7 题由用户之后回顾 |
 
 ## 当前任务与下一步
 
+- 2026-11-07 13:59：m4-arch 已提交、合并到 main 并推送。
+- 2026-11-07 13:57：m4-arch 开关写完并审查修复，442 passed，等用户同意提交。
+- 2026-11-07 13:38：用户手写的 `head_dim`、QK-Norm 通过测试（412 passed）。
+- 2026-11-07 13:21：M4 开始，m4-arch 的失败测试已写好，等用户手写。
 - 2026-11-07 13:11：MVP 关口已勾选，m3-review 已提交、合并到 main 并推送；M4 计划待确认。
 - 2026-11-07 13:04：M3 统一复习第一轮完成，等用户决定是否再答核心题。
 - 2026-11-07 09:38：m3-samples 已提交、合并到 main 并推送；M3 统一复习开始。
@@ -1569,6 +1573,62 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 审查状态：只改文档，只有 Claude 自查；Codex 未审查 M3 的改动。
 - 学习状态：第一轮结果 ✅ 1、🟡 8、⬜ 11，见 `docs/self-test-qa.md`。
 - 下一步：用户确认 M4 计划。
+
+### 2026-11-07 13:21（UTC+08:00）｜Claude Code｜M4 开始：决定、核对 Qwen3、m4-arch 测试
+
+- 范围与用户确认：用户回复“按推荐开始”，确认 M4 计划和分工，也同意下载 1.5 GB 的权重（这一步还没有下载）。按 matt-pocock-skills:tdd 先写失败的测试。
+- 工作区与设备：Mac，分支 m4-arch，从 main e718b6d 分出，未提交。
+- 改动：`docs/PLAN.md` 加“M4 实施计划”；`tests/test_attention.py` 加接口 1–5 的 8 个测试函数（参数化后 14 项）和参考函数 `qwen3_reference`。没有改 `src/`。
+- 本次验证：从 HF 读了 `config.json`、`model.safetensors` 文件头（只取前 400 KB）和 `modeling_qwen3.py`，结构见 PLAN。工作区 pytest 14 failed（都是新测试）、398 passed。副本上放入给用户的参考写法：`test_attention.py` 70 passed，全部测试除 1 项外都通过；那 1 项是 `test_readme` 找不到文档，因为副本没有复制 docs，不是代码问题。故意改错 13 种全部抓到。第一次跑时发现我测试里手算的参数量写错了（写成 3,072，应为 6,144），已改。
+- 未验证与失败：用户的代码还没写；开关和转换都没开始；真实权重没有下载。
+- 决策与原因：见 PLAN“M4 实施计划”。
+- 审查状态：未请求。
+- 学习状态：用户待手写 `head_dim` 和 QK-Norm。
+- 下一步：用户手写。
+
+### 2026-11-07 13:38（UTC+08:00）｜Claude Code｜用户 `head_dim`、QK-Norm 通过；回答是否扩大模型
+
+- 范围与用户确认：用户改好了 `attention.py`，并问小模型效果不好，要不要扩大参数量。agent 没有改 `src/`。
+- 工作区与设备：Mac，分支 m4-arch，未提交。
+- 改动：只更新本文件。
+- 本次验证：pytest 412 passed，`test_attention.py` 70 passed，ruff 通过（--no-cache）。第一次有 3 处要改（缩进、合头维度、重复导入），用户改好后通过。
+- 决策与原因：建议现在不扩大。依据：同样 13,969,152 个参数，M2-1 训练约 3.28 亿 token 时 val 1.3531，M3 对照 1 亿 token 时 val 约 1.58，差距比任何结构改动都大；M3 对照的 train 和 val 几乎相同（1.5788、1.5777），末段 val 还在下降，说明这个预算下模型没有到容量上限。这是这几个数字支持的判断，没有做模型大小的对比实验（A6 没有做）。两者的 val 都是抽样估计。用户没有决定要不要加长训练。
+- 未验证与失败：用户说的“Windows 上的 Qwen 模型”我理解成我们训练的小模型，没有和用户确认。扩大后的耗时是按 6ND 粗算，显存没有测。
+- 审查状态：未请求。
+- 学习状态：用户写完 `head_dim` 和 QK-Norm。
+- 下一步：用户决定。
+
+### 2026-11-07 13:57（UTC+08:00）｜Claude Code（matt-pocock-skills:code-review，规范、需求两个只读子 agent）｜m4-arch：三个开关
+
+- 范围与用户确认：用户回复“接着写开关”。按 tdd 先写失败的测试（14 项）。这是 Claude 自查，不是 Codex 审查。
+- 工作区与设备：Mac，分支 m4-arch，未提交。
+- 改动：`block.py`、`gpt.py`、`train/config.py` 加 `head_dim`、`qk_norm`、`mlp_hidden_dim`；`layers.py` 加 `check_qwen3_switches`，`check_pos_encoding` 查奇数 `head_dim`；`load_config` 的布尔字段不再用 `bool()` 转换。用户文件里的改动都标注“agent 编写”，文件头已更新。`tests/test_gpt.py`、`tests/test_trainer.py`、`tests/test_attention.py` 新增测试；`test_gpt.py` 里 `small_config` 的类型标注放宽。没有改已有断言（本分支新写的测试除外）。
+- 审查发现（两项分开列）：
+  - Standards：PROGRESS 过期；`block.py` 标注范围不准；缺形状注释和类型标注；`check_hidden_dims` 名字不准；两处校验重复、加开关要改多个文件、校验函数放在层文件里（判断项，不改，这一批之后暂时没有新开关）。
+  - Spec：`qk_norm` 没有校验，`qk_norm=flase`、`maybe`、`2`、`"false"` 都会悄悄开启（`bool()` 的结果）；奇数 `head_dim` 配 RoPE 在建配置时放行；接口 1 的测试防不住参数创建顺序变化（顺序变了所有种子的结果都变）。结构本身没发现错。
+  - 都已修，除上面写明不改的。
+- 本次验证：
+  - pytest 442 passed；`ruff check --no-cache`、format --check 通过；导出到没有 data、runs、.git 的目录后 442 passed。
+  - 故意改错 19 种，全部被测试抓到。
+  - main（e718b6d）和新代码跑 tiny_smoke、tinystories_smoke（device=cpu）：metrics.csv 逐字相同；`a4_gqa2`、`a9_modern` 同种子的输出和 main 相同（审查修复之前对比的）；SUMMARY 重新生成逐字相同。
+  - 需求审查的子 agent 手抄了一份官方结构，2 层、CPU、fp32，logits 最大差 4.9e-6，贪心一致。这是它的转写，不是 `transformers`，不能当成对齐结果。
+- 未验证与失败：还没有和真实的 `transformers` 或 Qwen3 权重对比过，这是 `m4-convert` 的事；没有在 GPU 上跑过。
+- 决策与原因：见 PLAN。`rms_norm_eps` 留到转换时核对。
+- 审查状态：两个只读子 agent 已审查，问题已修或已说明不修；Codex 未审查。
+- 学习状态：用户写完 `head_dim` 和 QK-Norm；M3 清单对应的 7 题之后回顾。
+- 下一步：等用户同意提交、合并、推送。
+
+### 2026-11-07 13:59（UTC+08:00）｜Claude Code｜提交 m4-arch，合并到 main 并推送
+
+- 范围与用户确认：用户回复“提交合并并推送”。`.idea/` 不提交。
+- 工作区与设备：Mac；m4-arch 从 main e718b6d 分出，main 快进到它，两者一同推送。
+- 改动：提交用户手写的 `head_dim`、QK-Norm，Claude 写的开关和测试，PLAN，本文件；内容见上一条记录。
+- 本次验证：提交前的检查结果见上一条记录。本条写于提交之前，提交后的结果和哈希以 git log 和回复用户的内容为准。
+- 未验证与失败：还没有和 `transformers` 或真实权重对比过。
+- 决策与原因：无新决定。
+- 审查状态：Claude 的两个只读子 agent 已审查；Codex 未审查。
+- 学习状态：用户写完 `head_dim` 和 QK-Norm。
+- 下一步：m4-convert。
 
 ## 后续交接模板
 

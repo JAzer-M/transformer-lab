@@ -7,7 +7,12 @@ from typing import Any, get_args
 
 import yaml
 
-from tlab.model.layers import check_block_settings, check_kv_heads, check_pos_encoding
+from tlab.model.layers import (
+    check_block_settings,
+    check_kv_heads,
+    check_pos_encoding,
+    check_qwen3_switches,
+)
 
 
 @dataclass
@@ -38,6 +43,9 @@ class TrainConfig:
     pos_encoding: str = "learned"  # "learned"、"sinusoidal" 或 "rope"
     rope_theta: float = 10000.0  # 只在 pos_encoding 为 "rope" 时有用
     n_kv_heads: int | None = None  # k、v 的组数；None 表示等于 n_heads（MHA）
+    head_dim: int | None = None  # 每个头的维度；None 表示 d_model // n_heads
+    qk_norm: bool = False  # q、k 拆头后各做一次 RMSNorm（Qwen3 的做法）
+    mlp_hidden_dim: int | None = None  # SwiGLU 的隐藏维度；None 表示 8C//3
     # 存档：0 表示只在训练结束时存；resume=True 时从 out_dir/ckpt.pt 接着训练
     ckpt_interval: int = 0
     resume: bool = False
@@ -55,8 +63,9 @@ class TrainConfig:
                 f"lr_schedule 应为 {LR_SCHEDULES} 之一，收到 {self.lr_schedule!r}"
             )
         check_block_settings(self.norm, self.norm_position, self.mlp)
-        check_pos_encoding(self.pos_encoding, self.rope_theta)
+        check_pos_encoding(self.pos_encoding, self.rope_theta, self.head_dim)
         check_kv_heads(self.n_heads, self.n_kv_heads)
+        check_qwen3_switches(self.mlp, self.head_dim, self.qk_norm, self.mlp_hidden_dim)
 
 
 LR_SCHEDULES = ("constant", "cosine")
@@ -67,6 +76,7 @@ def _convert(declared: Any, value: Any) -> Any:
 
     int | None 这种可选字段不能直接调用：None 保持 None，其他值按 int 转。
     整数字段不接受 2.9 和 true：int() 会悄悄变成 2 和 1，等于悄悄换了结构。
+    布尔字段只接受 true 和 false：bool() 只要不是空值都得到 True，拼错的取值会被当成开启。
     """
     if isinstance(declared, UnionType):
         if value is None:
@@ -76,6 +86,8 @@ def _convert(declared: Any, value: Any) -> Any:
         isinstance(value, bool) or (isinstance(value, float) and not value.is_integer())
     ):
         raise ValueError(f"应为整数，收到 {value!r}")
+    if declared is bool and not isinstance(value, bool):
+        raise ValueError(f"应为布尔值 true 或 false，收到 {value!r}")
     return declared(value)
 
 

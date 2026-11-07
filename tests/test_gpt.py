@@ -7,7 +7,7 @@ import torch.nn.functional as F
 # 待实现模块在各测试内导入，与 test_block.py 保持一致
 
 
-def small_config(**overrides: int | float | str):
+def small_config(**overrides: int | float | str | bool | None):
     from tlab.model.gpt import GPTConfig
 
     # 测试用的小模型：词表 11、最长 8 个 token、C=16、2 层、2 个头
@@ -439,3 +439,136 @@ def test_empty_cache_gives_the_same_output_as_no_cache(pos_encoding: str) -> Non
     names = set(model.state_dict())
     model(idx, cache=model.new_cache())
     assert set(model.state_dict()) == names
+
+
+# ---- head_dim、qk_norm、mlp_hidden_dim（M4，Qwen3 的结构）----
+
+
+def qwen3_like_config(**overrides: int | float | str | bool | None):
+    # 和 Qwen3 同样的结构，只是小很多：d=16 不等于 C/h=8，SwiGLU 隐藏维度 48 不等于 8C//3=85
+    fields = {
+        "d_model": 32,
+        "n_heads": 4,
+        "n_kv_heads": 2,
+        "head_dim": 16,
+        "qk_norm": True,
+        "norm": "rmsnorm",
+        "mlp": "swiglu",
+        "mlp_hidden_dim": 48,
+        "pos_encoding": "rope",
+        "rope_theta": 1_000_000.0,
+    }
+    fields.update(overrides)
+    return small_config(**fields)
+
+
+def test_qwen3_switches_reach_every_layer() -> None:
+    from tlab.model.gpt import GPT
+
+    model = GPT(qwen3_like_config())
+
+    for block in model.blocks:
+        # nn.Linear 的 weight 形状是 (输出维度, 输入维度)
+        assert block.attn.q_proj.weight.shape == (64, 32)
+        assert block.attn.k_proj.weight.shape == (32, 32)
+        assert block.attn.out_proj.weight.shape == (32, 64)
+        assert block.attn.q_norm.weight.shape == (16,)
+        assert block.attn.k_norm.weight.shape == (16,)
+        assert block.mlp.gate_proj.weight.shape == (48, 32)
+        assert block.mlp.up_proj.weight.shape == (48, 32)
+        assert block.mlp.down_proj.weight.shape == (32, 48)
+
+
+def test_mlp_hidden_dim_defaults_to_eight_thirds_of_d_model() -> None:
+    from tlab.model.gpt import GPT
+
+    model = GPT(small_config(d_model=24, n_heads=2, mlp="swiglu"))
+
+    # 不写时和 M3 相同：8 × 24 // 3 = 64
+    assert model.blocks[0].mlp.gate_proj.weight.shape == (64, 24)
+
+
+def test_default_config_has_no_qk_norm_and_keeps_head_dim() -> None:
+    from tlab.model.gpt import GPT
+
+    block = GPT(small_config()).blocks[0]
+
+    assert block.attn.q_norm is None and block.attn.k_norm is None
+    assert block.attn.q_proj.weight.shape == (16, 16)
+    assert not any("q_norm" in name or "k_norm" in name for name in block.state_dict())
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"head_dim": 0}, "head_dim"),
+        ({"head_dim": -4}, "head_dim"),
+        ({"mlp_hidden_dim": 0}, "mlp_hidden_dim"),
+        # GELU MLP 的隐藏维度固定是 4C，写了也不会生效，所以要报错
+        ({"mlp": "gelu", "mlp_hidden_dim": 48}, "mlp_hidden_dim"),
+        # head_dim 给了就不用 C/h，但 n_kv_heads 还是要能整除 n_heads
+        ({"n_kv_heads": 3}, "n_kv_heads"),
+        # RoPE 的分量两两配对旋转，head_dim 必须是偶数
+        ({"head_dim": 15}, "head_dim"),
+        # 字符串 "false" 用 bool() 转会变成 True，等于悄悄开了 QK-Norm
+        ({"qk_norm": "false"}, "qk_norm"),
+        ({"qk_norm": 2}, "qk_norm"),
+    ],
+)
+def test_gpt_config_rejects_bad_qwen3_switches(overrides: dict, message: str) -> None:
+    # 建配置时就报错，0 层的模型也不会被放过
+    with pytest.raises(ValueError, match=message):
+        qwen3_like_config(n_layers=0, **overrides)
+
+
+def test_odd_head_dim_is_fine_without_rope() -> None:
+    # 只有 RoPE 才要配对旋转
+    qwen3_like_config(head_dim=15, pos_encoding="learned")
+
+
+def test_qwen3_like_model_with_cache_matches_one_pass_and_stays_causal() -> None:
+    from tlab.model.gpt import GPT
+
+    torch.manual_seed(0)
+    model = GPT(qwen3_like_config())
+    idx = torch.randint(0, 11, (2, 7))  # (B, T)
+    full = model(idx)  # (B, T, V)
+
+    cache = model.new_cache()
+    prompt = model(idx[:, :4], cache=cache)  # (B, 4, V)
+    torch.testing.assert_close(prompt, full[:, :4], rtol=1e-5, atol=1e-5)
+    for t in range(4, 7):
+        step = model(idx[:, t : t + 1], cache=cache)  # (B, 1, V)
+        torch.testing.assert_close(step[:, 0], full[:, t], rtol=1e-5, atol=1e-5)
+
+    # 只改最后一个 token，前面位置的分数不变
+    changed = idx.clone()  # (B, T)
+    changed[:, 6] = (idx[:, 6] + 1) % 11  # (B,)
+    torch.testing.assert_close(model(changed)[:, :6], full[:, :6])  # (B, 6, V)
+
+
+def test_qwen3_0_6b_parameter_count_matches_the_hand_calculation() -> None:
+    from tlab.model.gpt import GPT, GPTConfig, count_parameters
+
+    config = GPTConfig(
+        vocab_size=151_936,
+        block_size=40_960,
+        d_model=1024,
+        n_layers=28,
+        n_heads=16,
+        n_kv_heads=8,
+        head_dim=128,
+        qk_norm=True,
+        norm="rmsnorm",
+        mlp="swiglu",
+        mlp_hidden_dim=3072,
+        pos_encoding="rope",
+        rope_theta=1_000_000.0,
+    )
+
+    # meta 设备只记形状、不分配内存，不然要 2.4 GB
+    with torch.device("meta"):
+        model = GPT(config)
+
+    # 手算：每层 15,730,944，28 层 440,466,432，词表 155,582,464，ln_f 1,024
+    assert count_parameters(model) == 596_049_920

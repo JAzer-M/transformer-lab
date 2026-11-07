@@ -312,6 +312,19 @@ CPU 训练 10 步依赖 M1 的最小模型与可运行训练路径。相关代�
 
 验收：fp32 下 logits 与 `transformers` 输出的最大误差在 1e-4 量级；greedy 生成结果一致。卡住超过 3 天就走降级方案。
 
+#### M4 实施计划（2026-11-07 用户回复“按推荐开始”确认）
+
+已核对 HF 上的 `config.json`、`model.safetensors` 文件头和 `modeling_qwen3.py`：28 层，C=1024，16 头，8 组 k、v，`head_dim` 128（不等于 C/h = 64），`intermediate_size` 3072，`rope_theta` 1,000,000，`rms_norm_eps` 1e-6，词表 151,936，`tie_word_embeddings` true，q、k 在拆头之后、旋转之前各做一次 RMSNorm，v 不做。
+
+- **参数量手算：** 每层 15,730,944，28 层 440,466,432，加词表 155,582,464、`ln_f` 1,024，共 596,049,920。文件里存了 751,632,384，因为 `lm_head.weight` 单独存了一份。
+- **分工：** 用户在 `attention.py` 写 `head_dim` 和 QK-Norm；`head_dim`、`qk_norm`、`mlp_hidden_dim` 三个开关和转换、对齐、配置都由 agent 写，改到用户手写文件的地方标注“agent 编写”。所有开关的默认值和 M1–M3 相同。
+- **分支：** `m4-arch`（结构）、`m4-convert`（转换和对齐）。
+- **依赖：** `safetensors` 放主依赖；`transformers` 只放 `dev`，只用于测试和对照。
+- **真实权重：** 用户同意下载 `model.safetensors`（来自 `huggingface.co/Qwen/Qwen3-0.6B`，1,503,300,328 字节）、`config.json` 和分词器文件，放在 HF 默认缓存目录，不进仓库。对齐检查在 Mac 的 CPU 上跑，结果写到 `experiments/m4_qwen3/`，`results.md` 追加一行。
+- **`RMSNorm` 不改：** HF 在里面先转成 fp32，我们没有。fp32 下对齐不受影响，bf16 下的差别留到 M5 训练时再看。
+- **eps：** `RMSNorm` 的 eps 用默认的 1e-6，和 Qwen3-0.6B 相同；`m4-convert` 读配置时要核对 `rms_norm_eps`，不相同就报错。
+- **测试接口 14 个：** 不传 `head_dim` 时和现在逐位相同；形状；和手工算的 SDPA 数值一致；QK-Norm 的位置；开了之后分批算和一次算完一致；开关的读取、校验、旧存档、续训；`mlp_hidden_dim`；0.6B 配置的参数量；权重映射；`config.json`；`lm_head` 不相同时报错；小型随机 Qwen3 逐层对比；贪心生成和 `transformers` 相同，有无缓存都相同；检查脚本。
+
 ### M5 手写 LoRA + SFT（W4 后半–W5 前半）
 
 1. 手写 `LoRALinear`：A 随机初始化、B 零初始化、缩放 alpha/r、merge 与 unmerge。

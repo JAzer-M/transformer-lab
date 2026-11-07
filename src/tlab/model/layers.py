@@ -1,5 +1,5 @@
 # USER-WRITTEN: agent 只提建议， 不改实现
-# 例外：标注“agent 编写”的 norm、mlp、pos_encoding、n_kv_heads 开关与 KV cache 代码，经用户 2026-11-03、11-04、11-05 同意由 agent 加入
+# 例外：标注“agent 编写”的 norm、mlp、pos_encoding、n_kv_heads、head_dim、qk_norm、mlp_hidden_dim 开关与 KV cache 代码，经用户 2026-11-03、11-04、11-05、11-07 同意由 agent 加入
 """现代 Transformer 组件：RMSNorm（M3 第 1 步）；之后的 SwiGLU、RoPE 也写在这里"""
 
 import torch
@@ -91,7 +91,9 @@ def check_block_settings(norm: str, norm_position: str, mlp: str) -> None:
         )
 
 
-def check_pos_encoding(pos_encoding: str, rope_theta: float) -> None:
+def check_pos_encoding(
+    pos_encoding: str, rope_theta: float, head_dim: int | None = None
+) -> None:
     """取值不对时报错；训练配置和 GPTConfig 创建时调用。"""
     # theta 是转速公式的底数，不大于 0 时角度不是有限数
     if rope_theta <= 0:
@@ -100,6 +102,28 @@ def check_pos_encoding(pos_encoding: str, rope_theta: float) -> None:
         raise ValueError(
             f"pos_encoding 应为 {POS_ENCODINGS} 之一，收到 {pos_encoding!r}"
         )
+    # RoPE 的分量两两配对旋转；不指定 head_dim 时，建层时再由 RotaryEmbedding 检查
+    if pos_encoding == "rope" and head_dim is not None and head_dim % 2 != 0:
+        raise ValueError(f"RoPE 要求 head_dim 是偶数，收到 {head_dim!r}")
+
+
+# agent 编写（head_dim、qk_norm、mlp_hidden_dim 开关）
+def check_qwen3_switches(
+    mlp: str, head_dim: int | None, qk_norm: bool, mlp_hidden_dim: int | None
+) -> None:
+    """取值不对时报错；训练配置、GPTConfig、Block 创建时调用。None 表示用默认的算法。"""
+    # 不用真假判断：字符串 "false" 判断起来是真，会悄悄开启 QK-Norm
+    if not isinstance(qk_norm, bool):
+        raise ValueError(f"qk_norm 应为 True 或 False，收到 {qk_norm!r}")
+    if head_dim is not None and head_dim <= 0:
+        raise ValueError(f"head_dim 必须大于 0，收到 {head_dim!r}")
+    if mlp_hidden_dim is None:
+        return
+    if mlp_hidden_dim <= 0:
+        raise ValueError(f"mlp_hidden_dim 必须大于 0，收到 {mlp_hidden_dim!r}")
+    # GELU MLP 的隐藏维度固定是 4C，写了也不会生效
+    if mlp != "swiglu":
+        raise ValueError(f"mlp_hidden_dim 只用于 swiglu，当前 mlp 是 {mlp!r}")
 
 
 # agent 编写（n_kv_heads 开关）
