@@ -146,6 +146,32 @@ RoPE 没有长度上限，比正弦也稳得多，但超出训练长度后同样
 - **GQA 省的缓存能直接看到：** B=32 时，有缓存的对照和 GQA-2 峰值差 100.1 MiB，手算是缓存差 96.0 加参数差 4.5，共 100.5 MiB。
 - **这个小模型上缓存没有增加显存峰值，** 有缓存反而更低。
 
+### 生成样例
+
+用每个变体种子 1337 的最终存档在 RTX 5060 上生成：开头 `Once upon a time`，新生成 300 个 token，temperature 0.8，top-k 50，使用 KV 缓存。下面是节选，一字未改；全部 12 个变体、每个 3 段见 [samples.md](experiments/m3_ablations/samples.md)。
+
+对照（`a0_control`）：
+
+```text
+Once upon a time, in a small town, there was a little boy named Tim. Tim was a happy boy who loved to play outside. One day, it was very cold outside, and Tim could not find his toy car. He felt sad and started to feel sad.……
+```
+
+组合（`a9_modern`）：
+
+```text
+Once upon a time, in a small town, there lived a humble cat named Kitty. Kitty loved to play with her ball and run around the town. One day, she saw a big tree and decided to climb it.
+As Kitty climbed higher and higher, she saw a lot of birds in the sky. "I wish I could fly like them," said Kitty.……
+```
+
+高学习率的 Post-LN（`a2_postln_lr3e-3`，未收敛）：
+
+```text
+Once upon a time. he, was., the... mom the., and a to and... a of.. you and said she friends the, was the a. the. He to She were it. so not the you the had.." and to day in they and to " the and a. wa……
+```
+
+- **收敛的 11 个变体** 都能写出语法基本通顺的儿童故事，但前后逻辑常常对不上。分数相差 0.01–0.05 的变体，从这几段样例看不出高下，比较还是要看上面的结果表。
+- **未收敛的 Post-LN** 只是在堆高频词和标点，这和“模型只学到了 token 频率”的推断相符，但仍然不是对权重的检查。
+
 ### 结论的适用范围
 
 - 所有结论只适用于这个 6 层小模型和 1 亿 token 的预算，每个变体只有 2 个种子；除“高学习率”一节外，学习率都是 6e-4。

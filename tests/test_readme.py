@@ -139,3 +139,19 @@ def test_readme_links_and_figures_exist() -> None:
     assert len(local) > 10
     for target in local:
         assert (ROOT / target).exists(), target
+
+
+def test_readme_sample_excerpts_come_from_the_samples_file() -> None:
+    import re
+
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    samples = (RESULTS / "samples.md").read_text(encoding="utf-8")
+    section = text.split("### 生成样例")[1].split("###")[0]
+
+    excerpts = re.findall(r"```text\n(.*?)\n```", section, re.S)
+
+    assert len(excerpts) == 3
+    # 节选必须一字不差地来自模型的输出，结尾的省略号是 README 加的
+    for excerpt in excerpts:
+        assert excerpt.endswith("……")
+        assert excerpt.removesuffix("……") in samples

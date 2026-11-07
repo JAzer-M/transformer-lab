@@ -4,24 +4,25 @@
 
 ## 当前状态
 
-更新时间：2026-11-06 23:11（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-07 09:34（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M3：结果都已回传并经 Claude 核对；m3-report（曲线、汇总表、样例脚本、README 初版）已合并；样例未生成，M3 统一复习未做，MVP 关口未勾选 |
-| 本轮范围 | 提交 m3-report，合并到 main 并推送（用户回复“提交合并并推送”）；样例尚未生成 |
+| 项目阶段 | M3：结果和样例都已回传并经 Claude 核对；样例节选已写进 README（m3-samples，未提交）；M3 统一复习未做，MVP 关口未勾选 |
+| 本轮范围 | 核对用户在 WSL 生成的样例，把节选写进 README |
 | 实现方 / 审查方 | m3-report 全部由 Claude 写；提交前由 Claude 的两个只读子 agent 审查（规范、需求），不是 Codex 审查 |
-| 来源 | main 快进到 m3-report，两者一同推送，从 main a46978e 分出；哈希以 git log 为准 |
+| 来源 | 当前在 m3-samples（从 main d28f66a 分出），未提交 |
 | 前置 | uv sync --locked、CUDA分配通过；367 passed in20.85s；RTX5060 Laptop、PyTorch2.9.1+cu128/CUDA12.8 |
 | 执行 | GPU每项5次/train-steps5；CPU每项3次/train-steps1；prompt32+新增480，每配置60秒降温；4条命令退出0，总耗时879.062s |
 | 缓存 | GPU对照4.50MiB/GQA-2 1.50MiB，k/v均bf16；CPU对照9.00MiB，k/v均fp32；完整缓存按B=1核对 |
 | 归档 | bench_batch/REPORT.md及原始JSON/MD/日志；results只追加1行，原bench.json/md与SUMMARY保持原文 |
 | 结果记录 | a0_control 提速倍数：RTX 5060 上 B=1、8、32 为 1.00、1.85、6.80；同机 CPU B=1 为 7.42。B=32 有缓存生成峰值 267.01 MiB，无缓存 662.30 MiB。详见 bench_batch/REPORT.md |
 | 温度 | GPU90次测量起始温度53.5–86.3°C；CPU项温度字段为GPU温度，CPU温度未测 |
-| 下一步 | 用户在 WSL 跑手册“第 6 步”生成样例并推送；Claude 核对后把样例写进 README 再提交；之后 M3 统一复习，由用户确认是否勾选 MVP 关口；GQA-2 和 MQA 是否补第 3 个种子由用户决定，目前按“没有结论”记录 |
+| 下一步 | 用户同意后提交、合并到 main 并推送；之后 M3 统一复习，由用户确认是否勾选 MVP 关口；GQA-2 和 MQA 是否补第 3 个种子由用户决定，目前按“没有结论”记录 |
 
 ## 当前任务与下一步
 
+- 2026-11-07 09:34：样例已核对，节选写进 README，等用户同意提交。
 - 2026-11-06 23:11：m3-report 已提交、合并到 main 并推送，等用户在 WSL 生成样例。
 - 2026-11-06 23:06：m3-report 写完并审查修复，397 passed，等用户同意提交。
 - 2026-11-06 22:29：Claude 核对第 5 批补充通过，等用户确认开始第 6 步。
@@ -1517,6 +1518,18 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 审查状态：Claude 的两个只读子 agent 已审查；Codex 未审查。
 - 学习状态：M3 统一复习未做，含 `docs/self-test-qa.md` 第 31–33 题。
 - 下一步：用户在 WSL 生成样例。
+
+### 2026-11-07 09:34（UTC+08:00）｜Claude Code｜核对样例；写进 README
+
+- 范围与用户确认：用户说样例已在 WSL 跑好并推送（d28f66a）。按之前确认的计划把节选写进 README，未提交。
+- 工作区与设备：Mac，分支 m3-samples，从 main d28f66a 分出。
+- 改动：README 加“生成样例”一节；`tests/test_readme.py` 加 1 个测试，节选必须一字不差地来自 samples.md。
+- 本次验证：d28f66a 只增加 `experiments/m3_ablations/samples.md`；开头记录 commit 0bb972a…（不带 -dirty）、设备 cuda；12 个变体都是第 3052 步的存档，每个 3 段，都以开头文字起始。读了每个变体各段的结尾和部分开头：11 个收敛的变体语法基本通顺但逻辑常对不上；`a2_postln_lr3e-3` 是高频词和标点堆在一起。这说明样例脚本在 GPU 和真实存档上跑通了。pytest 和 ruff 结果见回复。
+- 未验证与失败：这是用户在 WSL 运行的，运行时的控制台输出没有回传，只核对了结果文件；样例只用了种子 1337 的存档。
+- 决策与原因：无新决定。
+- 审查状态：改动很小（一节文档和一个测试），只有 Claude 自查。
+- 学习状态：M3 统一复习未做。
+- 下一步：等用户同意提交、合并、推送，然后统一复习。
 
 ## 后续交接模板
 
