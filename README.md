@@ -4,7 +4,7 @@
 
 这是学习项目和简历项目，目标是能讲清每一行。模型、注意力、归一化、位置编码、训练循环都不使用 `nn.Transformer`、`nn.MultiheadAttention` 或 `transformers` 的模型类。
 
-**当前进度：** M3（现代组件和消融实验）和 M4（载入 Qwen3-0.6B 权重）已经完成，下面的数字都是实际跑出来的。M5（LoRA 微调）还没有做。
+**当前进度：** M3（现代组件和消融实验）、M4（载入 Qwen3-0.6B 权重）和 M5（手写 LoRA，在 GSM8K 上做 SFT）已经完成，下面的数字都是实际跑出来的。
 
 ## 模型结构
 
@@ -38,10 +38,11 @@ flowchart TD
 | `head_dim` | 正整数，配 RoPE 时要是偶数 | 不写，等于 `d_model // n_heads` |
 | `qk_norm` | `true`、`false` | `false` |
 | `mlp_hidden_dim` | 正整数，只用于 SwiGLU | 不写，等于 `8 * d_model // 3` |
+| `rmsnorm_fp32` | `true`、`false`（RMSNorm 内部先转 fp32，和 Qwen3 官方相同） | `false`；载入 Qwen3 时自动打开 |
 
 生成时可以用 KV 缓存：`generate(..., use_cache=True)` 或 `scripts/sample.py --cache`，生成的文字不变。
 
-**亲手写的部分：** 多头注意力、GQA、`head_dim` 和 QK-Norm（`model/attention.py`）、Block（`model/block.py`）、RMSNorm、SwiGLU、RoPE（`model/layers.py`）、主训练循环（`train/trainer.py`）。配置开关、KV 缓存、权重转换、评测和汇总脚本由 AI 编程助手写，并在手写的文件里逐处标注。规则见 [AGENTS.md](AGENTS.md)。
+**亲手写的部分：** 多头注意力、GQA、`head_dim` 和 QK-Norm（`model/attention.py`）、Block（`model/block.py`）、RMSNorm、SwiGLU、RoPE（`model/layers.py`）、主训练循环（`train/trainer.py`）、RMSNorm 内部转 fp32 的那几行、`LoRALinear`（`finetune/lora.py`）、SFT 里只让答案算 loss 的 `build_example`（`finetune/sft_labels.py`）。配置开关、KV 缓存、权重转换、评测和汇总脚本由 AI 编程助手写，并在手写的文件里逐处标注。规则见 [AGENTS.md](AGENTS.md)。
 
 ## 消融实验
 
@@ -196,13 +197,65 @@ Once upon a time. he, was., the... mom the., and a to and... a of.. you and said
 验收标准是 fp32 下分数最大误差在 1e-4 量级、贪心生成一致，都满足。记录见 [alignment.json](experiments/m4_qwen3/alignment.json)。
 
 - **误差只来自一处浮点舍入：** 我们写的是 `scores / d**0.5`，官方是 `scores * d**-0.5`，数学上相同。在代码副本里改成官方的写法后，三个提示每一层的误差都是 0.0（[记录](experiments/m4_qwen3/alignment_official_scaling.json)），说明结构和权重映射没有差别。正式代码不改这一行，否则 M1–M3 的结果就不能逐字复现。
-- **这还没有在 GPU 和 bf16 下验证过。** 官方的 RMSNorm 内部会先转成 fp32，我们没有，fp32 下不受影响，bf16 下的差别要到 M5 训练时再看。
+- **GPU 和 bf16 下（M5 补充）：** 官方的 RMSNorm 内部会先转成 fp32。M5 加了同样的开关 `rmsnorm_fp32`（载入 Qwen3 时打开）后，RTX 5060 上 bf16 的分数最大误差从 0.65625 变成 0.0。记录见 [experiments/m5_gsm8k/](experiments/m5_gsm8k/)。
 
 自研模型生成的文字（没有用对话模板，只是接着写）：
 
 ```text
 Once upon a time, in a small town by the sea, there lived an old fisherman who went out every morning before the sun came up. One day he found a small boat on the beach, and he decided to go out on it. He took the boat to the sea, and soon he found that the boat was full of fish.……
 ```
+
+## LoRA 微调（M5）
+
+用手写的 `LoRALinear` 在 GSM8K 上微调 Qwen3-0.6B-Base（用自研架构载入），并和 HF + PEFT 的官方实现对比。完整结果和设置见 [experiments/m5_gsm8k/SUMMARY.md](experiments/m5_gsm8k/SUMMARY.md)。
+
+- **训练：** LoRA 装在每层的 q、k、v、out 投影上，alpha 16，学习率 2e-4，微批 2 × 累积 8，1 个 epoch（7,273 题，454 步），只对答案算 loss，RTX 5060 Laptop 8 GB，bf16。
+- **评测：** 测试集里固定的 500 题，贪心解码；500 题的标准误约 2.2 个百分点。
+
+### 自研 LoRA 和 PEFT：逐位相同（F4）
+
+PEFT 从同一个初始 A、B 出发，用同样的数据、顺序、训练循环和超参数训练：
+
+| 项目 | 自研 LoRA | PEFT |
+| --- | --- | --- |
+| 最后的 val loss | 0.49689202362882706 | 0.49689202362882706 |
+| 显存峰值 | 7,338 MiB | 7,341 MiB |
+| 训练用时 | 8.6 分钟 | 9.1 分钟 |
+
+| 比较 | 数值 |
+| --- | --- |
+| 步数 | 454 |
+| 第 1 步的 train loss 差 | 0.0 |
+| 每步 train loss 差的平均 / 最大 | 0.0 / 0.0 |
+| 最后的 val loss 差 | 0.0 |
+| 参照：自研换种子，最后的 val loss 差 | 0.00039 |
+| 门槛（跑之前定好） | 每步平均 ≤ 0.01，最后 val ≤ 0.01 |
+| 结论 | 达标 |
+
+这说明自研的架构加手写的 LoRA，和官方 Qwen3 加 PEFT 做的是同一套计算，连 bf16 下的舍入都一样。
+
+### 微调前后（F1）
+
+| 模型 | 提示 | 答对 | 准确率 | 在 eos 停下 | 平均新 token |
+| --- | --- | --- | --- | --- | --- |
+| 基座 | few-shot（4 个例子） | 234/500 | 46.8% | 335/500 | 204.0 |
+| 基座 | 不给例子 | 242/500 | 48.4% | 32/500 | 250.7 |
+| LoRA SFT r=8，种子 1337 | 不给例子 | 254/500 | 50.8% | 483/500 | 90.8 |
+| LoRA SFT r=8，种子 2024 | 不给例子 | 238/500 | 47.6% | 484/500 | 94.9 |
+| LoRA SFT，8 次合计 | 不给例子 | 1990/4000 | 49.8% | — | — |
+
+SFT 之后，模型学会了按 `#### 数字` 作答、答完就停下，但准确率只比基座高 1–3 个百分点，没有超过种子之间的差距，按判定规则是差异不显著。原因没有验证；推断之一是基座在预训练时已经见过大量类似的数学数据。
+
+### LoRA 的 rank（F2）
+
+| r | 可训练参数 | 占全部参数 | 种子 1337 | 种子 2024 | 均值 | 种子间差距 | 与 r=8 差 | 结论 | 最后的 val loss（均值） | 显存峰值 | 训练用时 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 4 | 1,146,880 | 0.19% | 48.6% | 49.4% | 49.0% | 0.8 | -0.2 | 差异不显著 | 0.4971 | 7,318 MiB | 9.2 分钟 |
+| 8 | 2,293,760 | 0.38% | 50.8% | 47.6% | 49.2% | 3.2 | — | 对照 | 0.4971 | 7,338 MiB | 8.9 分钟 |
+| 16 | 4,587,520 | 0.77% | 49.4% | 51.6% | 50.5% | 2.2 | +1.3 | 差异不显著 | 0.4969 | 7,379 MiB | 9.2 分钟 |
+| 32 | 9,175,040 | 1.54% | 50.8% | 49.8% | 50.3% | 1.0 | +1.1 | 差异不显著 | 0.4972 | 7,461 MiB | 9.2 分钟 |
+
+r 从 4 到 32，可训练参数从 0.19% 到 1.54%，准确率和 val loss 都分不出高下。
 
 ## 环境与安装
 
@@ -256,6 +309,40 @@ uv run python scripts/check_qwen3.py --out experiments/m4_qwen3/alignment.json
 
 环境里设了 SOCKS 代理时，下载会报缺 `socksio`。如果同时有 HTTP 代理，在命令前加 `env -u ALL_PROXY -u all_proxy`。
 
+M5：准备 GSM8K，评测基座，LoRA 微调后再评测（第一次会下载基座权重，约 1.2 GB）：
+
+```bash
+uv run python scripts/prepare_gsm8k.py
+```
+
+```bash
+uv run python scripts/eval_gsm8k.py --config configs/finetune/f1_base_fewshot.yaml --out runs/m5/f1_base_fewshot.json
+```
+
+```bash
+uv run python scripts/train_sft.py --config configs/finetune/f2_r8.yaml seed=1337 out_dir=runs/m5/f2_r8_seed1337
+```
+
+```bash
+uv run python scripts/eval_gsm8k.py --config configs/finetune/f1_sft_r8.yaml --out runs/m5/f2_r8_seed1337_eval.json
+```
+
+和 PEFT 对比（F4，要先跑完上面那次训练）：
+
+```bash
+uv run python scripts/train_peft.py --config configs/finetune/f4_peft_r8.yaml
+```
+
+```bash
+uv run python scripts/compare_curves.py --ours runs/m5/f2_r8_seed1337 --theirs runs/m5/f4_peft_r8_seed1337 --out runs/m5/f4_compare.json
+```
+
+用仓库里已有的结果重新生成 M5 的汇总表：
+
+```bash
+uv run python scripts/summarize_m5.py --out experiments/m5_gsm8k/SUMMARY.md
+```
+
 用仓库里已有的结果重新生成汇总表和曲线图：
 
 ```bash
@@ -272,7 +359,7 @@ uv run python scripts/plot_ablations.py experiments/m3_ablations --configs confi
 uv run python scripts/bench_attention.py --configs configs/ablations/a0_control.yaml configs/ablations/a4_gqa2.yaml --generate-batch-size 32 --repeats 5 --train-steps 5 --out runs/bench_b32.json
 ```
 
-每次实验的配置、commit、种子和数字都记录在 [experiments/results.md](experiments/results.md) 和 [experiments/m3_ablations/](experiments/m3_ablations/) 里。
+每次实验的配置、commit、种子和数字都记录在 [experiments/results.md](experiments/results.md)、[experiments/m3_ablations/](experiments/m3_ablations/) 和 [experiments/m5_gsm8k/](experiments/m5_gsm8k/) 里。
 
 ## 文档
 
@@ -280,3 +367,4 @@ uv run python scripts/bench_attention.py --configs configs/ablations/a0_control.
 - [docs/PLAN.md](docs/PLAN.md)：计划、里程碑和验收标准。
 - [PROGRESS.md](PROGRESS.md)：当前状态和交接记录。
 - [docs/m3-windows-run.md](docs/m3-windows-run.md)：M3 实验的执行手册。
+- [docs/m5-windows-run.md](docs/m5-windows-run.md)：M5 实验的执行手册。
