@@ -319,3 +319,73 @@ git add experiments/m5_gsm8k experiments/results.md && git commit -m "record M5 
 ```
 
 跑完告诉用户：显存短测的峰值；每次训练的最后 val loss、用时和显存峰值；每次评测的准确率；基座两种提示的准确率。`PROGRESS.md` 不用在这边改，由 Claude Code 核对时记录。
+
+## 第 4 批：F4，自研 LoRA 和 PEFT 对比 loss 曲线
+
+本节由 Claude Code 于 2026-11-08 追加，对应分支 `m5-peft`。前提：`m5-peft` 已合并到 `main`，**第 3 批已经跑完**（要用到 `runs/m5/f2_r8_seed1337/` 和 `runs/m5/f2_r8_seed2024/`，它们只在这台 WSL 上）。约 20 分钟。
+
+PEFT 那边从自研那次训练存下的 `lora_init.pt` 出发，数据、顺序、训练循环和超参数都和 `f2_r8` 种子 1337 那次相同，只有 LoRA 的实现不同。“基本重合”的门槛已经定好（2026-11-08 用户确认）：每一步 train loss 之差的平均 ≤ 0.01，最后的 val loss 之差 ≤ 0.01。
+
+### 1. 同步和检查
+
+```bash
+cd ~/transformer-lab && git fetch origin && git switch main && git pull --ff-only && uv sync --locked
+```
+
+```bash
+uv run pytest -q
+```
+
+预期 **718 passed**（Mac 上提交前实测），全部通过才继续。`uv sync` 会装上 `peft` 0.21.2 和它依赖的几个包。
+
+```bash
+ls runs/m5/f2_r8_seed1337/lora_init.pt runs/m5/f2_r8_seed2024/metrics.csv && mkdir -p experiments/m5_gsm8k/f4 && set -o pipefail
+```
+
+两个文件都在才继续。
+
+### 2. 关口：PEFT 的显存
+
+官方模型的实现和我们的不同，先测一次最长那一步的显存：
+
+```bash
+uv run python scripts/train_peft.py --config configs/finetune/f4_peft_r8.yaml memory_probe=true out_dir=runs/m5/probe_peft_r8 2>&1 | tee runs/m5_probe_peft_r8.txt
+```
+
+显存峰值**低于 7,500 MiB 才继续**，否则停下问用户。
+
+### 3. 正式训练
+
+```bash
+uv run python scripts/train_peft.py --config configs/finetune/f4_peft_r8.yaml 2>&1 | tee runs/m5_f4_peft_r8_seed1337.txt
+```
+
+### 4. 比较曲线
+
+```bash
+uv run python scripts/compare_curves.py --ours runs/m5/f2_r8_seed1337 --theirs runs/m5/f4_peft_r8_seed1337 --reference runs/m5/f2_r8_seed2024 --out experiments/m5_gsm8k/f4/compare.json 2>&1 | tee runs/m5_f4_compare.txt
+```
+
+脚本先核对两次训练的起点和配置是否相同，不同就报错（这时停下问用户）。最后一行是“达标”或“未达标”；未达标时退出码是 1，**这不是出错，结果照样记录**，不要重跑或改门槛。
+
+### 5. 整理结果
+
+```bash
+for run in probe_peft_r8 f4_peft_r8_seed1337; do cp runs/m5/$run/run.json experiments/m5_gsm8k/f4/${run}_run.json && cp runs/m5/$run/metrics.csv experiments/m5_gsm8k/f4/${run}_metrics.csv; done
+```
+
+确认 json 里的 `git_commit` 不带 `-dirty`，`device` 是 `cuda`，`implementation` 是 `peft`。
+
+`experiments/results.md` 追加 1 行，数字从 `f4_peft_r8_seed1337_run.json` 和 `compare.json` 里抄：
+
+```markdown
+| 日期 | F4-peft-r8-s1337 | configs/finetune/f4_peft_r8.yaml | commit | 1337 | val loss final_val_loss；和自研比：每步平均差 mean_abs_train_diff，最后 val 差 final_val_diff（达标/未达标） | tokens_per_second | peak_memory_mb | 待 Claude 核对 |
+```
+
+征得用户同意后提交推送：
+
+```bash
+git add experiments/m5_gsm8k/f4 experiments/results.md && git commit -m "record the M5 F4 comparison between our LoRA and PEFT" && git push
+```
+
+跑完告诉用户：PEFT 显存短测的峰值；正式训练最后的 train、val loss 和用时；`compare.json` 里的第 1 步差、每步平均差和最大差、最后的 val 差、换种子的差距，以及是否达标。

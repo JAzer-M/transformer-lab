@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 import torch
-from conftest import TINY_EOS
+from conftest import TINY_EOS, write_data
 
 from tlab.convert.qwen3 import load_qwen3
 from tlab.finetune.lora import LoRALinear
@@ -20,47 +20,6 @@ from tlab.finetune.lora_model import apply_lora, save_lora
 from tlab.finetune.sft import load_sft_config, run_sft
 
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def write_data(data_dir: Path, n_train: int = 40, n_test: int = 6) -> None:
-    data_dir.mkdir(parents=True, exist_ok=True)
-    for split, count in (("train", n_train), ("test", n_test)):
-        rows = [
-            json.dumps(
-                {"question": f"t{2 + i % 9} ?", "answer": f"t{3 + i % 7} #### 5"}
-            )
-            for i in range(count)
-        ]
-        (data_dir / f"{split}.jsonl").write_text("\n".join(rows) + "\n", "utf-8")
-
-
-@pytest.fixture()
-def sft_config(tmp_path: Path) -> Path:
-    """训练集 40 条：留 4 条验证，36 条训练；每步 2 × 2 = 4 条，共 9 步。"""
-    data_dir = tmp_path / "data"
-    write_data(data_dir)
-    split = tmp_path / "split.json"
-    val = [0, 10, 20, 30]
-    split.write_text(
-        json.dumps(
-            {
-                "seed": 7,
-                "train_total": 40,
-                "val_indices": val,
-                "train_indices": [i for i in range(40) if i not in val],
-            }
-        ),
-        encoding="utf-8",
-    )
-    config = tmp_path / "sft.yaml"
-    config.write_text(
-        f"data_dir: {data_dir}\nsplit_file: {split}\nout_dir: {tmp_path / 'run'}\n"
-        f"r: 4\nalpha: 8\nbatch_size: 2\ngrad_accum_steps: 2\nwarmup_iters: 2\n"
-        f"learning_rate: 1.0e-3\nmin_lr: 1.0e-4\neval_interval: 4\n"
-        f"eos_token_id: {TINY_EOS}\ndevice: cpu\n",
-        encoding="utf-8",
-    )
-    return config
 
 
 def run_train(config: Path, model_dir: Path, *overrides: str):
@@ -236,3 +195,47 @@ def test_config_for_evaluating_the_sft_model() -> None:
     # F1 里“微调后”的数字用 F2 里 r=8、种子 1337 那一次
     assert sft.lora == "runs/m5/f2_r8_seed1337/lora.pt"
     assert replace(sft, lora=None) == base
+
+
+# ---- 从给定的 A、B 开始训练（PEFT 对照用同一个起点）----
+
+
+def make_start_file(tmp_path: Path, tiny_model_dir: Path, r: int = 4) -> Path:
+    """在小模型上装 LoRA，把 A、B 都设成随机值存下来，当作训练的起点。"""
+    model = load_qwen3(tiny_model_dir, torch.device("cpu"))
+    torch.manual_seed(42)
+    apply_lora(model, r=r, alpha=8)
+    with torch.no_grad():
+        for module in model.modules():
+            if isinstance(module, LoRALinear):
+                module.lora_B.normal_(std=0.1)
+    path = tmp_path / f"start_r{r}.pt"
+    save_lora(model, path)
+    return path
+
+
+def test_init_lora_starts_from_the_given_weights(
+    tmp_path: Path, sft_config: Path, tiny_model_dir: Path
+) -> None:
+    start = make_start_file(tmp_path, tiny_model_dir)
+    config = load_sft_config(sft_config, [f"init_lora={start}", "max_steps=1"])
+
+    info = run_sft(config, tiny_model_dir)
+
+    # 训练前存下的 A、B 就是给定的那一份，不是按种子随机出来的
+    given = torch.load(start, weights_only=True)["weights"]
+    used = torch.load(tmp_path / "run" / "lora_init.pt", weights_only=True)["weights"]
+    assert given.keys() == used.keys()
+    assert all(torch.equal(given[k], used[k]) for k in given)
+    assert info["init_lora"]["path"] == str(start)
+    assert len(info["init_lora"]["sha256"]) == 64
+
+
+def test_init_lora_with_other_settings_is_an_error(
+    tmp_path: Path, sft_config: Path, tiny_model_dir: Path
+) -> None:
+    start = make_start_file(tmp_path, tiny_model_dir, r=2)  # 配置里是 r=4
+    config = load_sft_config(sft_config, [f"init_lora={start}"])
+
+    with pytest.raises(ValueError, match="r"):
+        run_sft(config, tiny_model_dir)

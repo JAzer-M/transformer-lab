@@ -2,6 +2,7 @@
 
 import contextlib
 import csv
+import hashlib
 import json
 import os
 import subprocess
@@ -195,6 +196,11 @@ def git_commit() -> str:
     except (OSError, subprocess.CalledProcessError):
         return "unknown"
     return head + ("-dirty" if dirty else "")
+
+
+def file_sha256(path: Path) -> str:
+    """文件内容的哈希：记下用的是哪一份存档，路径相同、内容被覆盖时也分得清。"""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def peak_memory_mb(device: torch.device) -> float | None:

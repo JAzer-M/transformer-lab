@@ -1,5 +1,6 @@
-"""几个测试文件共用的小模型。"""
+"""几个测试文件共用的小模型和小数据。"""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -37,3 +38,44 @@ def tiny_model_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
     tokenizer.pre_tokenizer = Whitespace()
     tokenizer.save(str(path / "tokenizer.json"))
     return path
+
+
+def write_data(data_dir: Path, n_train: int = 40, n_test: int = 6) -> None:
+    data_dir.mkdir(parents=True, exist_ok=True)
+    for split, count in (("train", n_train), ("test", n_test)):
+        rows = [
+            json.dumps(
+                {"question": f"t{2 + i % 9} ?", "answer": f"t{3 + i % 7} #### 5"}
+            )
+            for i in range(count)
+        ]
+        (data_dir / f"{split}.jsonl").write_text("\n".join(rows) + "\n", "utf-8")
+
+
+@pytest.fixture()
+def sft_config(tmp_path: Path) -> Path:
+    """训练集 40 条：留 4 条验证，36 条训练；每步 2 × 2 = 4 条，共 9 步。"""
+    data_dir = tmp_path / "data"
+    write_data(data_dir)
+    split = tmp_path / "split.json"
+    val = [0, 10, 20, 30]
+    split.write_text(
+        json.dumps(
+            {
+                "seed": 7,
+                "train_total": 40,
+                "val_indices": val,
+                "train_indices": [i for i in range(40) if i not in val],
+            }
+        ),
+        encoding="utf-8",
+    )
+    config = tmp_path / "sft.yaml"
+    config.write_text(
+        f"data_dir: {data_dir}\nsplit_file: {split}\nout_dir: {tmp_path / 'run'}\n"
+        f"r: 4\nalpha: 8\nbatch_size: 2\ngrad_accum_steps: 2\nwarmup_iters: 2\n"
+        f"learning_rate: 1.0e-3\nmin_lr: 1.0e-4\neval_interval: 4\n"
+        f"eos_token_id: {TINY_EOS}\ndevice: cpu\n",
+        encoding="utf-8",
+    )
+    return config

@@ -395,6 +395,8 @@ CPU 训练 10 步依赖 M1 的最小模型与可运行训练路径。相关代�
 
 **第 4 步 `m5-peft`：** `scripts/train_peft.py`，同样的数据顺序和超参数。LoRA 的初始值从自研模型拷过去，否则两边随机数不同，曲线本来就不会重合。验收是 loss 曲线基本重合；“基本重合”的数字门槛在正式跑之前，根据短测结果定下来，并且要先决定 `RMSNorm`，否则 bf16 下的差别会混进来。
 
+- **实现（2026-11-08，分支 `m5-peft`，用户回复“按推荐开始”确认）：** `peft` 0.21.2 装进 dev 依赖，只在 `scripts/train_peft.py` 和测试里用。`sft.py` 的训练循环提成通用的 `fit`，自研 LoRA（`train_lora`）和 PEFT 共用；配置加 `init_lora`。`scripts/compare_curves.py` 读两次训练的输出目录，先核对起点（sha256）和配置相同，再算每步差、val 差、第 1 步差（B 还是 0，只差基座）和换种子的差距。门槛跑之前定好：每一步 train loss 之差的平均 ≤ 0.01，最后的 val loss 之差 ≤ 0.01。Mac CPU fp32 上真实 Base 两边各跑 2 步：每步差最大 5.6e-8，val 差 2.8e-7。审查读源码推断 GPU bf16 下两边也几乎逐位相同（logits 都是 bf16，CE、RoPE、softmax 都是 fp32），没有在 GPU 上验证；CPU 的 bf16 不能代替，CPU autocast 不把 softmax 升到 fp32。手册见 `docs/m5-windows-run.md` 第 4 批，要等第 3 批跑完。
+
 **第 5 步，实验（WSL + RTX 5060）：** F1；F2（r=4、8、16、32，各 2 个种子，共 8 次）；F4（r=8，1 个种子）。F3、F5 可选，时间不够先砍。F2 沿用 M3 的判定规则：均值之差大于种子间差距才算有结论。500 题的标准误在准确率 50% 附近约 2.2 个百分点（√(0.5·0.5/500)），报告时一起写。手册写到 `docs/m5-windows-run.md`；Codex 额度不够时由用户直接运行。
 
 **验收：** 微调前后准确率对比、可训练参数占比、显存和速度；自研 LoRA 与 PEFT 的 loss 曲线基本重合；`results.md` 和 README 更新；M5 清单的题统一复习一遍。

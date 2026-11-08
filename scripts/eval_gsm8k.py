@@ -12,7 +12,6 @@
 """
 
 import argparse
-import hashlib
 import json
 from collections.abc import Callable
 from dataclasses import asdict
@@ -35,7 +34,7 @@ from tlab.finetune.lora_model import load_lora, merge_lora
 from tlab.model.gpt import count_parameters
 from tlab.model.layers import RMSNorm
 from tlab.tokenizer.hf_bpe import HFTokenizer
-from tlab.train.utils import git_commit
+from tlab.train.utils import file_sha256, git_commit
 
 
 def prompt_builder(mode: str, shots: list[Example]) -> Callable[[str], str]:
@@ -77,7 +76,7 @@ def main() -> None:
         # 合并后和普通模型一样快；W 是 fp32，合并不会丢精度
         lora_path = Path(config.lora)
         # 记下哈希：同一个路径的存档被重新训练覆盖后，也分得清用的是哪一份
-        sha256 = hashlib.sha256(lora_path.read_bytes()).hexdigest()
+        sha256 = file_sha256(lora_path)
         lora = {"path": config.lora, "sha256": sha256, **load_lora(model, lora_path)}
         merge_lora(model)
     tokenizer = HFTokenizer.load(model_dir / "tokenizer.json")

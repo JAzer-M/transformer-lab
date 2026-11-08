@@ -8,7 +8,7 @@
 import csv
 import json
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
@@ -26,6 +26,7 @@ from tlab.finetune.lora_model import (
     SUPPORTED_TARGETS,
     apply_lora,
     count_trainable,
+    load_lora,
     lora_settings,
     save_lora,
 )
@@ -40,7 +41,12 @@ from tlab.finetune.sft_labels import IGNORE_INDEX
 from tlab.tokenizer.hf_bpe import HFTokenizer
 from tlab.train.config import load_dataclass
 from tlab.train.schedule import get_lr
-from tlab.train.utils import autocast_context, git_commit, peak_memory_mb
+from tlab.train.utils import (
+    autocast_context,
+    file_sha256,
+    git_commit,
+    peak_memory_mb,
+)
 
 BASE_DTYPES = {"float32": torch.float32, "bfloat16": torch.bfloat16}
 METRICS = [
@@ -85,6 +91,8 @@ class SFTConfig:
     base_dtype: str = "float32"  # 显存不够时改成 bfloat16，只转参数
     # 显存短测：只跑一步，用最长的 batch_size × grad_accum_steps 条，显存峰值就是上限
     memory_probe: bool = False
+    # 从这个 LoRA 存档开始训练，不随机初始化 A；F4 让 PEFT 和自研从同一个起点出发
+    init_lora: str | None = None
     seed: int = 1337
     device: str = "auto"
 
@@ -212,9 +220,33 @@ def train_lora(
     device: torch.device,
     extra_info: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """训练已经装好 LoRA 的模型；写出 metrics.csv、run.json、lora_init.pt 和 lora.pt。"""
+    """训练已经装好自研 LoRA 的模型；写出 metrics.csv、run.json、lora_init.pt 和 lora.pt。"""
     # 没装 LoRA、或各层的 r 不同时报错
     settings = lora_settings(model)
+    return fit(
+        model,
+        train_items,
+        val_items,
+        config,
+        device,
+        save_weights=lambda path: save_lora(model, path),
+        extra_info={"lora": settings, **(extra_info or {})},
+    )
+
+
+def fit(
+    model: nn.Module,
+    train_items: Sequence[Item],
+    val_items: Sequence[Item],
+    config: SFTConfig,
+    device: torch.device,
+    save_weights: Callable[[Path], None],
+    extra_info: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """通用的训练循环：只训练 requires_grad 的参数。自研 LoRA 和 PEFT 对照（F4）共用它，
+    两边的差别才只在 LoRA 本身。model(inputs) 要返回 (B, T, V) 的分数；
+    save_weights(path) 负责把要训练的参数存到 path，训练前后各调用一次。
+    """
     out_dir = Path(config.out_dir)
     if (out_dir / "run.json").exists() or (out_dir / "lora.pt").exists():
         # 换种子再跑时忘了改 out_dir，会把上一次的结果覆盖掉
@@ -243,7 +275,7 @@ def train_lora(
     )
 
     # 训练前的 A、B：PEFT 对照（F4）把它们拷过去，两边才从同一个起点出发
-    save_lora(model, out_dir / "lora_init.pt")
+    save_weights(out_dir / "lora_init.pt")
     with open(out_dir / "metrics.csv", "w", newline="") as f:
         csv.writer(f).writerow(METRICS)
     model.train()
@@ -292,12 +324,11 @@ def train_lora(
                 [step + 1, train_loss, logged_val, lr, grad_norm, step_tokens, speed]
             )
 
-    save_lora(model, out_dir / "lora.pt")
+    save_weights(out_dir / "lora.pt")
     info = {
         "config": asdict(config),
         "git_commit": git_commit(),
         "seed": config.seed,
-        "lora": settings,
         "n_trainable": count_trainable(model),
         "n_train": len(train_items),
         "n_val": len(val_items),
@@ -348,21 +379,39 @@ def prepare_items(
     return train_items, val_items, info
 
 
-def run_sft(config: SFTConfig, model_dir: Path | None = None) -> dict[str, Any]:
-    """读数据和划分、载入基座、装 LoRA、训练。model_dir 不给时按 config.repo 下载。"""
+def resolve_device(config: SFTConfig) -> torch.device:
+    """按配置选设备；基座转 bf16 时必须在 GPU 上。"""
     device = get_device() if config.device == "auto" else torch.device(config.device)
     if config.base_dtype != "float32" and device.type != "cuda":
         # 只有 GPU 上有 bf16 autocast；CPU 上 bf16 的基座和 fp32 的 A、B 相乘会报错
         raise ValueError(f"base_dtype={config.base_dtype} 需要 GPU，当前是 {device}")
+    return device
 
-    if model_dir is None:
-        # 只有真要下载时才需要；下载到的目录名就是这份权重在 HF 上的版本号
-        from huggingface_hub import snapshot_download
 
-        model_dir = Path(snapshot_download(config.repo, allow_patterns=MODEL_FILES))
-        model_name = f"{config.repo}@{model_dir.name}"
-    else:
-        model_name = str(model_dir)
+def resolve_model_dir(repo: str, model_dir: Path | None) -> tuple[Path, str]:
+    """返回模型目录和要记在结果里的名字；model_dir 不给时下载 repo。"""
+    if model_dir is not None:
+        return model_dir, str(model_dir)
+    # 只有真要下载时才需要；下载到的目录名就是这份权重在 HF 上的版本号
+    from huggingface_hub import snapshot_download
+
+    path = Path(snapshot_download(repo, allow_patterns=MODEL_FILES))
+    return path, f"{repo}@{path.name}"
+
+
+def check_start(settings: dict[str, Any], config: SFTConfig) -> dict[str, str]:
+    """init_lora 存档的 r、alpha、targets 必须和配置相同；返回要记在结果里的来源。"""
+    expected = {"r": config.r, "alpha": config.alpha, "targets": config.targets}
+    if settings != expected:
+        raise ValueError(f"init_lora 的设置是 {settings}，配置里是 {expected}")
+    assert config.init_lora is not None
+    return {"path": config.init_lora, "sha256": file_sha256(Path(config.init_lora))}
+
+
+def run_sft(config: SFTConfig, model_dir: Path | None = None) -> dict[str, Any]:
+    """读数据和划分、载入基座、装 LoRA、训练。model_dir 不给时按 config.repo 下载。"""
+    device = resolve_device(config)
+    model_dir, model_name = resolve_model_dir(config.repo, model_dir)
     tokenizer = HFTokenizer.load(model_dir / "tokenizer.json")
     train_items, val_items, data_info = prepare_items(config, tokenizer)
 
@@ -373,12 +422,16 @@ def run_sft(config: SFTConfig, model_dir: Path | None = None) -> dict[str, Any]:
         torch.cuda.reset_peak_memory_stats(device)
     # 种子在装 LoRA 之前设：A 的随机初始值由它决定
     torch.manual_seed(config.seed)
-    apply_lora(model, config.r, config.alpha, config.targets)
+    init = None
+    if config.init_lora is None:
+        apply_lora(model, config.r, config.alpha, config.targets)
+    else:
+        init = check_start(load_lora(model, Path(config.init_lora)), config)
     return train_lora(
         model,
         train_items,
         val_items,
         config,
         device,
-        extra_info={"model": model_name, **data_info},
+        extra_info={"model": model_name, "init_lora": init, **data_info},
     )

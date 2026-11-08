@@ -1,0 +1,27 @@
+# F4：PEFT 对照（scripts/train_peft.py）。和 f2_r8.yaml 只差起点和 out_dir：
+# 从自研那次训练（r=8、种子 1337）存下的 A、B 出发
+repo: Qwen/Qwen3-0.6B-Base
+data_dir: data/gsm8k
+split_file: configs/finetune/gsm8k_sft_split.json
+out_dir: runs/m5/f4_peft_r8_seed1337
+init_lora: runs/m5/f2_r8_seed1337/lora_init.pt
+r: 8
+alpha: 16.0
+targets: [q_proj, k_proj, v_proj, out_proj]
+learning_rate: 2.0e-4
+min_lr: 2.0e-5
+warmup_iters: 20
+weight_decay: 0.0
+beta1: 0.9
+beta2: 0.999
+grad_clip: 1.0
+# 2026-11-08：4 × 4 时最长一批要 11 GB（显卡 8 GB），改成 2 × 8，等效 batch 还是 16
+batch_size: 2
+grad_accum_steps: 8
+max_len: 512
+epochs: 1
+eval_interval: 50
+eos_token_id: 151643 # 基座的 <|endoftext|>，也拿来当 pad
+base_dtype: float32
+seed: 1337
+device: auto
