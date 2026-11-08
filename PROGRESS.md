@@ -8,20 +8,22 @@
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M0–M4 完成，MVP 关口和 M4 里程碑已由用户确认勾选。M5 计划已由用户确认（2026-11-07）。第 1 步 `m5-baseline` 已合并；第 1 批（基座 F1）已核对：few-shot 46.8%，不给例子 49.8%。`m5-norm32` 已合并。`m5-lora` 已合并到 main |
-| 本轮范围 | `m5-lora`：用户写 `LoRALinear`；agent 写 `apply_lora`、`save_lora`、`load_lora`、`merge_lora` 和测试 |
+| 项目阶段 | M0–M4 完成，MVP 关口和 M4 里程碑已由用户确认勾选。M5 计划已由用户确认（2026-11-07）。第 1 步 `m5-baseline` 已合并；第 1 批（基座 F1）已核对：few-shot 46.8%，不给例子 49.8%。`m5-norm32` 已合并。`m5-lora` 已合并。`m5-sft` 已合并到 main，690 passed；WSL 手册第 2 批（SFT 短测）已写，等 Codex 跑 |
+| 本轮范围 | `m5-sft`：用户写 `build_example`；agent 写数据管线、训练循环、训练脚本、评测载入 LoRA |
 | 实现方 / 审查方 | Claude 写；Claude 的两个只读子 agent 审查，Codex 未审查 |
-| 来源 | m5-lora（从 main ae5a0cc 分出），用户回复“提交合并并推送”后提交、快进 main 并推送 |
+| 来源 | m5-sft（从 main 5105d22 分出），用户回复“直接提交合并推送写手册吧”后提交、快进 main 并推送 |
 | 前置 | uv sync --locked、CUDA分配通过；367 passed in20.85s；RTX5060 Laptop、PyTorch2.9.1+cu128/CUDA12.8 |
 | 执行 | GPU每项5次/train-steps5；CPU每项3次/train-steps1；prompt32+新增480，每配置60秒降温；4条命令退出0，总耗时879.062s |
 | 缓存 | GPU对照4.50MiB/GQA-2 1.50MiB，k/v均bf16；CPU对照9.00MiB，k/v均fp32；完整缓存按B=1核对 |
 | 归档 | bench_batch/REPORT.md及原始JSON/MD/日志；results只追加1行，原bench.json/md与SUMMARY保持原文 |
 | 结果记录 | a0_control 提速倍数：RTX 5060 上 B=1、8、32 为 1.00、1.85、6.80；同机 CPU B=1 为 7.42。B=32 有缓存生成峰值 267.01 MiB，无缓存 662.30 MiB。详见 bench_batch/REPORT.md |
 | 温度 | GPU90次测量起始温度53.5–86.3°C；CPU项温度字段为GPU温度，CPU温度未测 |
-| 下一步 | 第 3 步 `m5-sft`：先把测试接口列给用户确认 |
+| 下一步 | Codex 按 `docs/m5-windows-run.md` 第 2 批跑短测；回传后 Claude 核对，用户确认超参数，再写第 3 批（正式的 F1、F2） |
 
 ## 当前任务与下一步
 
+- 2026-11-08：用户补好空提示的检查（690 passed），回复“直接提交合并推送写手册吧”；m5-sft 和手册第 2 批提交、合并、推送，等 Codex 跑短测。
+- 2026-11-08：m5-sft 写完并审查修复，689 passed。
 - 2026-11-08：用户回复“提交合并并推送”，m5-lora 提交、合并、推送；下一步 `m5-sft`。
 - 2026-11-08：m5-lora 写完并审查修复，629 passed。
 - 2026-11-08：用户回复“合并提交吧”，m5-norm32 提交、合并、推送；下一步 `m5-lora`。
@@ -1847,6 +1849,30 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 审查状态：Claude 的两个只读子 agent（规范、需求）审查，问题已修或说明了原因，见回复；Codex 未审查。
 - 学习状态：用户问了 LoRA 的概念（base、A 和 B、缩放、merge、`F.linear` 和 `nn.Linear`、`no_grad`、为什么要 `nn.Parameter`），已讲解。M5 清单的题到阶段末统一问。
 - 下一步：用户同意后提交、合并、推送；第 3 步 `m5-sft`。
+
+### 2026-11-08（UTC+08:00）｜Claude Code｜m5-sft：数据管线和训练循环
+
+- 范围与用户确认：用户回复“按推荐开始”，确认 15 项测试接口和 9 个决定（见 PLAN 第 3 步）。用户写好 `build_example`，8 个测试一次通过；用户问了“现在在做什么、eos 是什么”，已用真实题目讲解。
+- 工作区与设备：Mac，分支 m5-sft，从 main 5105d22 分出，未提交。
+- 改动：见 PLAN 第 3 步的“实现”；共用的小模型从 `test_gsm8k_scripts.py` 移到 `tests/conftest.py`，断言没有改。
+- 本次验证：pytest 689 passed（1 个失败的测试留给用户补空提示的检查），ruff 通过。故意改错 35 种，没抓到的 2 种：`cast_base_params` 只在 GPU 上才会走到（基座转 bf16），`merge_lora` 不合并只影响速度、不影响结果。`tiny_smoke`、`tinystories_smoke` 的 metrics.csv 和 main 逐字相同（审查修复前跑的；之后没有改训练代码）。干净副本 678 passed（审查修复前）。真实 Base 在 Mac CPU 上跑了 2 步，流程走通。
+- 未验证与失败：没有在 GPU 上跑过，显存和速度都不知道；超参数没有实测。小模型上 loss 一开始几乎不降：随机小模型的词表权重太小、lm_head 冻结，分数上不去，测试里把词表放大 10 倍后 2.01 → 0.90。
+- 决策与原因：审查后加了 `memory_probe`、`out_dir` 已有结果时报错、`lora_init.pt`、评测记 sha256、更多取值检查、`f1_sft_r8.yaml`；数据准备提成 `prepare_items`，训练计划提成 `training_plan`，给 F4 用。没做的：下载模型目录的几行在两个脚本里重复；`get_lr` 用 `SimpleNamespace` 传参数。
+- 审查状态：Claude 的两个只读子 agent（规范、需求）审查，问题已修或说明了原因；Codex 未审查。
+- 学习状态：M5 清单“SFT 为什么要 mask 掉 prompt 部分的 loss”已经讲过一次，阶段末再统一问。
+- 下一步：用户补空提示的检查；提交、合并、推送；写 WSL 手册第 2 批。
+
+### 2026-11-08（UTC+08:00）｜Claude Code｜提交 m5-sft；WSL 手册第 2 批
+
+- 范围与用户确认：用户补好 `sft_labels.py` 的空提示检查，回复“直接提交合并推送写手册吧，然后我让codex去跑”。
+- 工作区与设备：Mac；m5-sft 从 main 5105d22 分出。
+- 改动：上一条的全部改动；`sft_labels.py` 的空提示检查（用户写）；`docs/m5-windows-run.md` 加第 2 批：开关打开后的 bf16 对齐、两次显存 probe（r=8、r=32）、20 步测速度、20 题测评测速度、整理结果。
+- 本次验证：pytest 690 passed，ruff 通过；提交后的结果和哈希以 git log 和回复用户的内容为准。
+- 未验证与失败：第 2 批还没跑；手册里的命令只在 Mac 上跑过对应的脚本（CPU），没在 WSL 上试过。
+- 决策与原因：第 2 批只做短测，不跑完整训练：超参数要按计划在短测后由用户确认。短测不追加 F1、F2 的结果行，只追加 bf16 对齐那一行。
+- 审查状态：手册只有 Claude 自查。
+- 学习状态：见上一条。
+- 下一步：Codex 跑第 2 批；Claude 从原始文件核对；用户确认超参数；写第 3 批。
 
 ## 后续交接模板
 

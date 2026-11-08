@@ -1,0 +1,8 @@
+# F1：LoRA SFT 之后（r=8），和基座不给例子的评测只差 LoRA 存档
+repo: Qwen/Qwen3-0.6B-Base
+prompt_mode: zero_shot
+max_new_tokens: 256
+eos_token_id: 151643 # 基座 generation_config 里的 eos
+data_dir: data/gsm8k
+subset_file: configs/finetune/gsm8k_eval_subset.json
+lora: runs/m5/sft_r8/lora.pt

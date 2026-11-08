@@ -52,6 +52,7 @@ class Gsm8kEvalConfig:
     data_dir: str = "data/gsm8k"
     subset_file: str = "configs/finetune/gsm8k_eval_subset.json"
     limit: int | None = None  # 冒烟时只评前几题；正式评测不设
+    lora: str | None = None  # LoRA 存档；给了就先载基座，再装上并合并
     device: str = "auto"
 
     def __post_init__(self) -> None:

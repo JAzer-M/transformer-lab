@@ -386,6 +386,11 @@ CPU 训练 10 步依赖 M1 的最小模型与可运行训练路径。相关代�
 - 建议超参数（要先做短测，再由用户确认）：r=8，alpha=16，学习率 2e-4，weight decay 0，batch 4 × 累积 4，序列最长 512，1 个 epoch。
 - 显存：参数是 fp32 时基座约 2.4 GB；不够再把基座转 bf16（约 1.2 GB），注意不要把 RoPE 的 `inv_freq` 一起转掉；还不够才加 gradient checkpointing。
 
+- **实现（2026-11-08，分支 `m5-sft`，用户回复“按推荐开始”确认）：** 用户写 `src/tlab/finetune/sft_labels.py`（遮掉提示的 `build_example`）；agent 写 `sft_data.py`（模板、分词、右边 padding、验证集划分、训练顺序）、`sft.py`（配置、`sft_step`、`train_lora`、`run_sft`）、`scripts/train_sft.py`、`configs/finetune/sft_r8.yaml`、`configs/finetune/gsm8k_sft_split.json`、`configs/finetune/f1_sft_r8.yaml`；`eval_gsm8k.py` 加 `lora` 配置项，载入后合并再评测，结果记下存档的 sha256。
+- **定下来的写法：** loss 按整步的答案 token 数平均（分成几个微批次和一次算完相同）；val loss 同样按 token 加权；`max_len` 512，超了丢掉（实测没有超过的）；验证集 200 条、训练 7,273 条，每 epoch 按种子打乱，一个 epoch 454 步；`out_dir` 里已有结果时报错，换种子要换目录；训练前的 A、B 存成 `lora_init.pt`，给 F4 用；`memory_probe=true` 只跑一步、用最长的 16 条，测显存上限（审查实测最长 445 个 token，在第 186 步，前几步测不到）。超参数起点见上面的建议，另加 warmup 20 步、cosine 到 2e-5、AdamW (0.9, 0.999)、裁剪 1.0、每 50 步看 val loss，短测后再请用户确认。F2 换 r 时 alpha 固定 16。
+- **Mac 上的试跑（CPU，dirty）：** 真实 Base 跑 2 步：7,273 训练、200 验证、0 条丢弃、可训练 2,293,760，第 1 步 train loss 0.923，val 0.866。
+- **给第 4 步：** `prepare_items`、`training_plan`、`collate`、`sft_step` 可以直接用，HF 模型包一层取 `.logits`。不要用 HF 的 `labels=` 或 `DataCollator`：pad 和 eos 是同一个编号，最后那个 eos 的标签会被遮掉（审查指出）。A、B 的初始值从 `lora_init.pt` 拷过去。
+
 **第 4 步 `m5-peft`：** `scripts/train_peft.py`，同样的数据顺序和超参数。LoRA 的初始值从自研模型拷过去，否则两边随机数不同，曲线本来就不会重合。验收是 loss 曲线基本重合；“基本重合”的数字门槛在正式跑之前，根据短测结果定下来，并且要先决定 `RMSNorm`，否则 bf16 下的差别会混进来。
 
 **第 5 步，实验（WSL + RTX 5060）：** F1；F2（r=4、8、16、32，各 2 个种子，共 8 次）；F4（r=8，1 个种子）。F3、F5 可选，时间不够先砍。F2 沿用 M3 的判定规则：均值之差大于种子间差距才算有结论。500 题的标准误在准确率 50% 附近约 2.2 个百分点（√(0.5·0.5/500)），报告时一起写。手册写到 `docs/m5-windows-run.md`；Codex 额度不够时由用户直接运行。

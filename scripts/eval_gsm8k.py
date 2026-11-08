@@ -5,12 +5,14 @@
     uv run python scripts/eval_gsm8k.py --config configs/finetune/f1_base_fewshot.yaml \
         --out runs/m5/f1_base_fewshot.json
 冒烟时在命令后面加覆盖项，比如 limit=5 device=cpu。
+评测微调后的模型：加 lora=runs/m5/sft_r8/lora.pt。
 
 环境里设了 SOCKS 代理（ALL_PROXY=socks5://...）时，下载会报缺 socksio。如果同时有 HTTP
 代理，在命令前加 env -u ALL_PROXY -u all_proxy，这条命令就只走 HTTP 代理。
 """
 
 import argparse
+import hashlib
 import json
 from collections.abc import Callable
 from dataclasses import asdict
@@ -29,6 +31,7 @@ from tlab.eval.gsm8k import (
     load_examples,
     zero_shot_prompt,
 )
+from tlab.finetune.lora_model import load_lora, merge_lora
 from tlab.model.gpt import count_parameters
 from tlab.model.layers import RMSNorm
 from tlab.tokenizer.hf_bpe import HFTokenizer
@@ -69,6 +72,14 @@ def main() -> None:
     )
     device = get_device() if config.device == "auto" else torch.device(config.device)
     model = load_qwen3(model_dir, device)
+    lora = None
+    if config.lora is not None:
+        # 合并后和普通模型一样快；W 是 fp32，合并不会丢精度
+        lora_path = Path(config.lora)
+        # 记下哈希：同一个路径的存档被重新训练覆盖后，也分得清用的是哪一份
+        sha256 = hashlib.sha256(lora_path.read_bytes()).hexdigest()
+        lora = {"path": config.lora, "sha256": sha256, **load_lora(model, lora_path)}
+        merge_lora(model)
     tokenizer = HFTokenizer.load(model_dir / "tokenizer.json")
 
     result = evaluate_gsm8k(
@@ -88,7 +99,8 @@ def main() -> None:
         "model": model_name,
         "device": str(device),
         "dtype": str(next(model.parameters()).dtype),
-        # bf16 下会影响结果；第 1 批的 F1 是在加这个开关之前跑的，那时是关闭的
+        "lora": lora,
+        # bf16 下会影响结果；第 1 批的 F1 是在加这个开关之前跑的，那时是关闭的。
         # 开关对所有 RMSNorm 一起设置；用 any：模型里没有 RMSNorm 时是 False
         "rmsnorm_fp32": any(
             m.compute_fp32 for m in model.modules() if isinstance(m, RMSNorm)

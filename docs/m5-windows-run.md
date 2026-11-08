@@ -118,3 +118,97 @@ git add experiments/m5_gsm8k experiments/results.md && git commit -m "record the
 ```
 
 `PROGRESS.md` 不用在这边改，由 Claude Code 核对时记录。完成后回到 Mac，让 Claude Code 从原始文件核对。
+
+## 第 2 批：LoRA SFT 短测（显存和速度，不正式训练）
+
+本节由 Claude Code 于 2026-11-08 追加，对应分支 `m5-sft`。前提是 `m5-sft` 已合并到 `main`，否则脚本不存在。这一批只做短测：看 8 GB 显存够不够、训练和评测有多快，再由用户确认超参数。**这一批不跑完整训练，也不追加 `results.md` 的 F1、F2 行。**
+
+### 1. 同步和检查
+
+```bash
+cd ~/transformer-lab && git fetch origin && git switch main && git pull --ff-only && uv sync --locked
+```
+
+```bash
+uv run pytest -q
+```
+
+预期 **690 passed**（Mac 上提交前实测），全部通过才继续。
+
+```bash
+mkdir -p experiments/m5_gsm8k/short runs/m5 && set -o pipefail
+```
+
+数据和基座权重第 1 批已经准备好；如果 `data/gsm8k/train.jsonl` 不在，先跑一次 `uv run python scripts/prepare_gsm8k.py`。
+
+### 2. 开关打开后，bf16 下和 transformers 差多少
+
+第 1 批测的是加 `rmsnorm_fp32` 开关之前（分数最大误差 0.656）。现在载入 Qwen3 时会自动打开，再测一次：
+
+```bash
+uv run python scripts/check_qwen3.py --repo Qwen/Qwen3-0.6B-Base --device cuda --autocast bf16 --out experiments/m5_gsm8k/base_alignment_cuda_bf16_rmsnorm_fp32.json 2>&1 | tee runs/m5_align_bf16_rmsnorm_fp32.txt
+```
+
+最后一行应含 `只报告，不判定`。json 里的 `rmsnorm_fp32` 应是 `true`。
+
+### 3. 显存上限：只跑最长的那一步
+
+`memory_probe=true` 只跑一步，用训练集里最长的 16 条（最长 445 个 token），显存峰值就是正式训练的上限。r=8 和 r=32 各跑一次（F2 里 r 最大是 32）：
+
+```bash
+uv run python scripts/train_sft.py --config configs/finetune/sft_r8.yaml memory_probe=true out_dir=runs/m5/probe_r8 2>&1 | tee runs/m5_probe_r8.txt
+```
+
+```bash
+uv run python scripts/train_sft.py --config configs/finetune/sft_r8.yaml memory_probe=true r=32 out_dir=runs/m5/probe_r32 2>&1 | tee runs/m5_probe_r32.txt
+```
+
+最后一行会打印显存峰值。**OOM 或报错就停下，不要改 batch、精度等设置重跑**，把输出交给用户：退路（微批 2 × 累积 8、基座转 bf16、gradient checkpointing）要用户决定。
+
+### 4. 训练速度：正式配置跑 20 步
+
+```bash
+nvidia-smi --query-gpu=timestamp,temperature.gpu,clocks.sm,utilization.gpu,memory.used,power.draw --format=csv -l 5 > runs/m5_speed_gpu.csv &
+```
+
+```bash
+uv run python scripts/train_sft.py --config configs/finetune/sft_r8.yaml max_steps=20 out_dir=runs/m5/speed_r8 2>&1 | tee runs/m5_speed_r8.txt
+```
+
+```bash
+kill %1
+```
+
+第 20 步会看一次 val loss。记下最后一行的 tokens/s 和用时；正式训练一个 epoch 是 454 步，按每步用时估算总时长。
+
+### 5. 评测速度：用刚才 20 步的 LoRA 答 20 题
+
+微调后的模型会在 eos 停下，评测应该比第 1 批快。这 20 题的准确率没有意义（只训练了 20 步），只看速度和是否在 eos 停下：
+
+```bash
+uv run python scripts/eval_gsm8k.py --config configs/finetune/f1_sft_r8.yaml --out runs/m5/speed_r8_eval.json lora=runs/m5/speed_r8/lora.pt limit=20 2>&1 | tee runs/m5_speed_r8_eval.txt
+```
+
+### 6. 整理结果
+
+把短测的原始结果拷进仓库（都很小）：
+
+```bash
+for run in probe_r8 probe_r32 speed_r8; do cp runs/m5/$run/run.json experiments/m5_gsm8k/short/${run}_run.json && cp runs/m5/$run/metrics.csv experiments/m5_gsm8k/short/${run}_metrics.csv; done && cp runs/m5/speed_r8_eval.json experiments/m5_gsm8k/short/speed_r8_eval.json && cp runs/m5_speed_gpu.csv experiments/m5_gsm8k/short/speed_gpu.csv
+```
+
+确认这些 json 里的 `git_commit` 都不带 `-dirty`，`device` 是 `cuda`。
+
+`experiments/results.md` 只追加 1 行（对齐检查；短测不算实验，不记）：
+
+```markdown
+| 日期 | M5-align-bf16-rmsnorm32 | Qwen/Qwen3-0.6B-Base（scripts/check_qwen3.py --autocast bf16，rmsnorm_fp32 打开） | commit | — | 分数最大误差 max_error（bf16，GPU） | — | — | 只报告，不判定 |
+```
+
+征得用户同意后提交推送：
+
+```bash
+git add experiments/m5_gsm8k experiments/results.md && git commit -m "record the M5 SFT short tests on RTX 5060" && git push
+```
+
+跑完告诉用户这几个数：bf16 对齐的分数最大误差和贪心是否相同；两次 probe 的显存峰值；speed 的 tokens/s、每步用时和第 20 步的 train、val loss；评测 20 题的 tokens/s 和停在 eos 的题数（`stopped_by_eos`）。`PROGRESS.md` 不用在这边改，由 Claude Code 核对时记录。
