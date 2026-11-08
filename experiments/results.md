@@ -32,3 +32,5 @@
 | 2026-11-07 | F1-base-fewshot | configs/finetune/f1_base_fewshot.yaml | d47ab580911e647f7a6a126e12b898e57742a683 | — | 0.468（234/500） | 24.082784926455183 | 3788.81787109375 MiB | 基座 few-shot |
 | 2026-11-07 | F1-base-zeroshot | configs/finetune/f1_base_zeroshot.yaml | d47ab580911e647f7a6a126e12b898e57742a683 | — | 0.498（249/500） | 29.832448260595154 | 3498.3583984375 MiB | 基座不给例子 |
 | 2026-11-07 | M5-align-bf16 | Qwen/Qwen3-0.6B-Base（scripts/check_qwen3.py --autocast bf16） | d47ab580911e647f7a6a126e12b898e57742a683 | — | 分数最大误差 0.65625（bf16，GPU） | — | — | 只报告，不判定 |
+| 2026-11-07 | M5-align-cpu | Qwen/Qwen3-0.6B-Base@da87bfb608c14b7cf20ba1ce41287e8de496c0cd（scripts/check_qwen3.py --repo） | d47ab580911e647f7a6a126e12b898e57742a683 | — | 分数最大误差 1.11e-04（fp32，CPU） | — | —（CPU，未测显存） | 基座也能载入自研架构，贪心生成和 transformers 相同 |
+| 2026-11-07 | M5-align-cuda-fp32 | Qwen/Qwen3-0.6B-Base@da87bfb608c14b7cf20ba1ce41287e8de496c0cd（scripts/check_qwen3.py --repo --device cuda） | d47ab580911e647f7a6a126e12b898e57742a683 | — | 分数最大误差 0.0（fp32，GPU） | — | — | GPU 上每层逐位相同（由 Codex 运行，Claude 从 json 核对） |

@@ -4,24 +4,27 @@
 
 ## 当前状态
 
-更新时间：2026-11-07 15:45（Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-08 （Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M0–M4 完成，MVP 关口和 M4 里程碑已由用户确认勾选。M5 计划已由用户确认（2026-11-07）。第 1 步 `m5-baseline` 已合并到 main；基座的正式准确率还没测 |
-| 本轮范围 | `m5-baseline`：GSM8K 评测、`generate` 的 eos 和贪心、数据脚本、F1 配置、`check_qwen3.py` 的 `--repo` 和 `--autocast`、WSL 手册 |
+| 项目阶段 | M0–M4 完成，MVP 关口和 M4 里程碑已由用户确认勾选。M5 计划已由用户确认（2026-11-07）。第 1 步 `m5-baseline` 已合并；第 1 批（基座 F1）已在 WSL 跑完并核对：few-shot 46.8%，不给例子 49.8%。等用户决定 `RMSNorm` 的开关和下一步 |
+| 本轮范围 | 核对第 1 批；副本上试 `RMSNorm` 内部转 fp32 |
 | 实现方 / 审查方 | Claude 写；Claude 的两个只读子 agent 审查，Codex 未审查 |
-| 来源 | m5-baseline（从 main 76a5aad 分出），提交后快进 main 并推送 |
+| 来源 | main efec1da（Codex 推送的第 1 批结果）；m5-f1 已快进到它，上面有未提交的核对记录 |
 | 前置 | uv sync --locked、CUDA分配通过；367 passed in20.85s；RTX5060 Laptop、PyTorch2.9.1+cu128/CUDA12.8 |
 | 执行 | GPU每项5次/train-steps5；CPU每项3次/train-steps1；prompt32+新增480，每配置60秒降温；4条命令退出0，总耗时879.062s |
 | 缓存 | GPU对照4.50MiB/GQA-2 1.50MiB，k/v均bf16；CPU对照9.00MiB，k/v均fp32；完整缓存按B=1核对 |
 | 归档 | bench_batch/REPORT.md及原始JSON/MD/日志；results只追加1行，原bench.json/md与SUMMARY保持原文 |
 | 结果记录 | a0_control 提速倍数：RTX 5060 上 B=1、8、32 为 1.00、1.85、6.80；同机 CPU B=1 为 7.42。B=32 有缓存生成峰值 267.01 MiB，无缓存 662.30 MiB。详见 bench_batch/REPORT.md |
 | 温度 | GPU90次测量起始温度53.5–86.3°C；CPU项温度字段为GPU温度，CPU温度未测 |
-| 下一步 | 在干净的提交上重跑 Base 的 fp32 对齐；按 `docs/m5-windows-run.md` 第 1 批在 WSL 上测基座 |
+| 下一步 | 开 `m5-norm32`：先把测试接口和用户要写的代码列给用户确认；之后开始 `m5-lora` |
 
 ## 当前任务与下一步
 
+- 2026-11-08：用户回复“按推荐开始”：继续用 GSM8K；`RMSNorm` 加内部转 fp32 的开关（默认关闭，载入 Qwen3 时打开，`layers.py` 的几行由用户写）；F1 基座在新设置下和 SFT 后的评测同一批重测。核对记录提交、合并、推送，下一步开 `m5-norm32`。
+- 2026-11-08：第 1 批结果已核对，等用户决定 `RMSNorm` 的开关和下一步。
+- 2026-11-07 16:05：Base 的 fp32 对齐在干净的提交上通过，等 WSL 跑第 1 批。
 - 2026-11-07 15:55：用户确认保留两处改动并回复“开始下一步”，m5-baseline 提交、合并、推送。
 - 2026-11-07 15:45：m5-baseline 写完并审查修复，570 passed。
 - 2026-11-07 15:05：用户确认 M5 计划，m5-plan 提交、合并、推送；下一步列 `m5-baseline` 的测试接口。
@@ -1789,6 +1792,32 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 审查状态：Claude 的两个只读子 agent（规范、需求）审查，结果和处理见回复；Codex 未审查。
 - 学习状态：这一步是工程任务，不出自测题。接手入口第 6 点仍然开着。
 - 下一步：用户同意后提交、合并、推送；在干净的提交上重跑 Base 的 fp32 对齐，写进 `experiments/m5_gsm8k/`；按手册第 1 批在 WSL 上测基座。
+
+### 2026-11-07 16:05（UTC+08:00）｜Claude Code｜提交 m5-baseline；Base 的 fp32 对齐
+
+- 范围与用户确认：见上一条，提交、合并、推送的依据是用户回复“开始下一步”。提交 d47ab58，main 和 m5-baseline 一同推送，已用 `git ls-remote` 核对；从 origin/main 干净导出后 570 passed。
+- 工作区与设备：Mac CPU；对齐跑在 d47ab58（不带 -dirty）；m5-f1 从它分出，未提交。
+- 改动：`experiments/m5_gsm8k/base_alignment_cpu_fp32.json`；本文件。`results.md` 这次不追加，等 WSL 回传后一起加，避免两边同时改同一个文件产生冲突。
+- 本次验证：`check_qwen3.py --repo Qwen/Qwen3-0.6B-Base`：通过，分数最大误差 1.11e-04，门槛 1e-3，贪心有无缓存都和 `transformers` 5.22.2 相同，参数量 596,049,920。模型版本记录在 json 的 `model` 字段。
+- 未验证与失败：GPU、bf16、基座的正式准确率都还没测。
+- 决策与原因：无新决定。
+- 审查状态：这次只有结果，未请求审查。
+- 学习状态：见接手入口第 6 点。
+- 下一步：把手册第 1 批的指令交给用户，由 Codex 或用户在 WSL 上跑。
+
+### 2026-11-08（UTC+08:00）｜Claude Code｜核对第 1 批（基座 F1）；副本上试 RMSNorm 转 fp32
+
+- 范围与用户确认：用户说第 1 批跑完了。Codex 推送 efec1da，只有 `experiments/m5_gsm8k/` 的 4 个 json 和 `results.md` 的 3 行。
+- 工作区与设备：Mac；m5-f1 快进到 efec1da，未提交。
+- 改动：`results.md` 追加 2 行（Mac 和 GPU 的 fp32 对齐）；`experiments/m5_gsm8k/` 加 Mac 的对齐、两个副本实验和说明；本文件。
+- 本次验证：从原始 json 逐项复算，没有不一致：500 个下标和固定的题目相同；每题的提示用本地数据重建后逐字相同；标准答案、抽取结果、对错、准确率、token 数和 tokens/s 都能复算出来；四个 json 的 commit 都是 d47ab58，不带 -dirty，设备是 cuda；`results.md` 的 3 行和 json 相同。
+- 结果：few-shot 234/500 = 46.8%，不给例子 249/500 = 49.8%，标准误都约 2.2 个百分点。同一批题配对看：只有 few-shot 答对的 48 题，只有不给例子答对的 63 题，分不出高下。GPU 上 24.1 和 29.8 tokens/s，每种约 70 分钟，显存峰值 3,789 和 3,498 MiB。写满 256 个 token 还没写出答案的：few-shot 9 题（多是重复同一句），不给例子 39 题（多是很长的分步解答），这些里面只有 3 题答对。对齐：GPU fp32 每层误差都是 0.0；GPU bf16 分数最大误差 0.656，3 个提示里贪心有 2 个和 transformers 不同。
+- 副本实验（Mac CPU，bf16，代码在副本里改，git_commit 记成 unknown）：只把 `RMSNorm` 改成像 HF 一样内部先转 fp32，每层和分数的误差从最大 0.844 变成 0.0；不用缓存时 3 个提示的贪心都相同，用缓存时有 1 个不同。GPU 上没试过。
+- 未验证与失败：GPU fp32 误差是 0.0、而 Mac CPU 是 1.11e-04，原因是推断：CUDA 上除以一个数可能是按乘以倒数算的，所以和官方的 `* d**-0.5` 相同，没有验证。
+- 决策与原因：无新决定。基座还有约一半的题答错，没有触发“基座已经很高”的降级条件，建议继续用 GSM8K，由用户决定。
+- 审查状态：只有 Claude 核对；Codex 的执行报告没有转给 Claude，只核对了推送的文件。
+- 学习状态：用户在问“这次跑的是什么、下载的是什么”，已讲解。
+- 下一步：用户决定 `RMSNorm` 的开关；之后提交本次核对，开始 `m5-lora`。
 
 ## 后续交接模板
 
