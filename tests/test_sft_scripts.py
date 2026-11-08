@@ -233,5 +233,6 @@ def test_config_for_evaluating_the_sft_model() -> None:
     base = load_eval_config(ROOT / "configs" / "finetune" / "f1_base_zeroshot.yaml")
 
     # 和基座不给例子的评测只差 LoRA 存档：同样的题目、提示和生成设置
-    assert sft.lora == "runs/m5/sft_r8/lora.pt"
+    # F1 里“微调后”的数字用 F2 里 r=8、种子 1337 那一次
+    assert sft.lora == "runs/m5/f2_r8_seed1337/lora.pt"
     assert replace(sft, lora=None) == base

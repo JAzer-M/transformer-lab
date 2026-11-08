@@ -75,8 +75,8 @@ class SFTConfig:
     beta2: float = 0.999
     grad_clip: float = 1.0  # 梯度总范数上限；0 表示不裁剪
     # 数据：每步 batch_size × grad_accum_steps 条
-    batch_size: int = 4
-    grad_accum_steps: int = 4
+    batch_size: int = 2
+    grad_accum_steps: int = 8
     max_len: int = 512  # 输入比这长的样本丢掉
     epochs: int = 1
     max_steps: int | None = None  # 短测时只跑前几步；学习率仍按完整的步数调度

@@ -381,7 +381,8 @@ def test_sft_config_file_has_the_starting_hyperparameters() -> None:
     assert config.warmup_iters == 20
     assert (config.beta1, config.beta2) == (0.9, 0.999)
     assert config.weight_decay == 0.0
-    assert (config.batch_size, config.grad_accum_steps) == (4, 4)
+    # 2026-11-08 用户确认：4 × 4 时最长一批要 11 GB，改成 2 × 8，等效 batch 还是 16
+    assert (config.batch_size, config.grad_accum_steps) == (2, 8)
     assert config.grad_clip == 1.0
     assert config.max_len == 512 and config.epochs == 1
     assert config.eval_interval == 50
@@ -500,3 +501,17 @@ def test_val_loss_is_weighted_by_answer_tokens_across_batches() -> None:
     whole = answer_loss(model, items, 5, EOS, torch.device("cpu"))
 
     assert split == pytest.approx(whole, rel=1e-5)
+
+
+# ---- F2 的配置 ----
+
+
+@pytest.mark.parametrize("r", [4, 8, 16, 32])
+def test_f2_configs_differ_from_the_base_config_only_in_r_and_out_dir(r: int) -> None:
+    base = load_sft_config(ROOT / "configs" / "finetune" / "sft_r8.yaml")
+    f2 = load_sft_config(ROOT / "configs" / "finetune" / f"f2_r{r}.yaml")
+
+    # 只改 r 一个变量；alpha 固定 16，所以缩放 alpha/r 会跟着 r 变
+    assert f2.r == r
+    assert f2.out_dir == f"runs/m5/f2_r{r}"
+    assert replace(f2, r=8, out_dir=base.out_dir) == base
