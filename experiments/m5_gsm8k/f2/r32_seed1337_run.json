@@ -1,0 +1,62 @@
+{
+  "config": {
+    "repo": "Qwen/Qwen3-0.6B-Base",
+    "data_dir": "data/gsm8k",
+    "split_file": "configs/finetune/gsm8k_sft_split.json",
+    "out_dir": "runs/m5/f2_r32_seed1337",
+    "r": 32,
+    "alpha": 16.0,
+    "targets": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "out_proj"
+    ],
+    "learning_rate": 0.0002,
+    "min_lr": 2e-05,
+    "warmup_iters": 20,
+    "weight_decay": 0.0,
+    "beta1": 0.9,
+    "beta2": 0.999,
+    "grad_clip": 1.0,
+    "batch_size": 2,
+    "grad_accum_steps": 8,
+    "max_len": 512,
+    "epochs": 1,
+    "max_steps": null,
+    "eval_interval": 50,
+    "eos_token_id": 151643,
+    "base_dtype": "float32",
+    "memory_probe": false,
+    "seed": 1337,
+    "device": "auto"
+  },
+  "git_commit": "2d809a04426cc9dd15398398d436ff57e2ba8565",
+  "seed": 1337,
+  "lora": {
+    "r": 32,
+    "alpha": 16.0,
+    "targets": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "out_proj"
+    ]
+  },
+  "n_trainable": 9175040,
+  "n_train": 7273,
+  "n_val": 200,
+  "total_steps": 454,
+  "steps_run": 454,
+  "device": "cuda",
+  "seconds": 622.7731496139968,
+  "train_seconds": 556.5902611089805,
+  "tokens_per_second": 2004.8608069006607,
+  "peak_memory_mb": 7460.8876953125,
+  "final_train_loss": 0.7111422213040866,
+  "final_val_loss": 0.4979157945342947,
+  "model": "Qwen/Qwen3-0.6B-Base@da87bfb608c14b7cf20ba1ce41287e8de496c0cd",
+  "split_seed": 1337,
+  "dropped_train": 0,
+  "dropped_val": 0
+}
