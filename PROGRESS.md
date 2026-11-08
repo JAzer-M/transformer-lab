@@ -8,20 +8,22 @@
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M0–M4 完成，MVP 关口和 M4 里程碑已由用户确认勾选。M5 计划已由用户确认（2026-11-07）。第 1 步 `m5-baseline` 已合并；第 1 批（基座 F1）已核对：few-shot 46.8%，不给例子 49.8%。`m5-norm32`（`rmsnorm_fp32` 开关）已合并到 main |
-| 本轮范围 | `m5-norm32`：用户在 `layers.py` 写 `RMSNorm` 的 `compute_fp32`；agent 写 `rmsnorm_fp32` 开关、载入 Qwen3 时打开、报告字段 |
+| 项目阶段 | M0–M4 完成，MVP 关口和 M4 里程碑已由用户确认勾选。M5 计划已由用户确认（2026-11-07）。第 1 步 `m5-baseline` 已合并；第 1 批（基座 F1）已核对：few-shot 46.8%，不给例子 49.8%。`m5-norm32` 已合并。`m5-lora` 已合并到 main |
+| 本轮范围 | `m5-lora`：用户写 `LoRALinear`；agent 写 `apply_lora`、`save_lora`、`load_lora`、`merge_lora` 和测试 |
 | 实现方 / 审查方 | Claude 写；Claude 的两个只读子 agent 审查，Codex 未审查 |
-| 来源 | m5-norm32（从 main ea883cf 分出），用户回复“合并提交吧”后提交、快进 main 并推送 |
+| 来源 | m5-lora（从 main ae5a0cc 分出），用户回复“提交合并并推送”后提交、快进 main 并推送 |
 | 前置 | uv sync --locked、CUDA分配通过；367 passed in20.85s；RTX5060 Laptop、PyTorch2.9.1+cu128/CUDA12.8 |
 | 执行 | GPU每项5次/train-steps5；CPU每项3次/train-steps1；prompt32+新增480，每配置60秒降温；4条命令退出0，总耗时879.062s |
 | 缓存 | GPU对照4.50MiB/GQA-2 1.50MiB，k/v均bf16；CPU对照9.00MiB，k/v均fp32；完整缓存按B=1核对 |
 | 归档 | bench_batch/REPORT.md及原始JSON/MD/日志；results只追加1行，原bench.json/md与SUMMARY保持原文 |
 | 结果记录 | a0_control 提速倍数：RTX 5060 上 B=1、8、32 为 1.00、1.85、6.80；同机 CPU B=1 为 7.42。B=32 有缓存生成峰值 267.01 MiB，无缓存 662.30 MiB。详见 bench_batch/REPORT.md |
 | 温度 | GPU90次测量起始温度53.5–86.3°C；CPU项温度字段为GPU温度，CPU温度未测 |
-| 下一步 | 开始 `m5-lora`：先把测试接口和用户要写的 `LoRALinear` 列给用户确认 |
+| 下一步 | 第 3 步 `m5-sft`：先把测试接口列给用户确认 |
 
 ## 当前任务与下一步
 
+- 2026-11-08：用户回复“提交合并并推送”，m5-lora 提交、合并、推送；下一步 `m5-sft`。
+- 2026-11-08：m5-lora 写完并审查修复，629 passed。
 - 2026-11-08：用户回复“合并提交吧”，m5-norm32 提交、合并、推送；下一步 `m5-lora`。
 - 2026-11-08：m5-norm32 写完并审查修复，590 passed。
 - 2026-11-08：用户回复“按推荐开始”：继续用 GSM8K；`RMSNorm` 加内部转 fp32 的开关（默认关闭，载入 Qwen3 时打开，`layers.py` 的几行由用户写）；F1 基座在新设置下和 SFT 后的评测同一批重测。核对记录提交、合并、推送，下一步开 `m5-norm32`。
@@ -1833,6 +1835,18 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 审查状态：Claude 的两个只读子 agent（规范、需求）审查，问题已修或说明了不修的原因，见回复；Codex 未审查。
 - 学习状态：用户在问“这一步是不是转 fp32 算完再转回来”，已讲解。
 - 下一步：用户同意后提交、合并、推送；开始 `m5-lora`。
+
+### 2026-11-08（UTC+08:00）｜Claude Code｜m5-lora：手写 LoRA
+
+- 范围与用户确认：用户回复“可以按推荐开始”，确认 13 项测试接口和 5 个决定（`LoRALinear` 由用户写，旁路用 `F.linear`，不加 dropout，`lora.py` 只放 `LoRALinear`，存档只存 A、B 和设置）。用户先写好了 `lora.py`，测试是之后补的，顺序和平时相反。第一版有 3 处错误（类名、`requires_grad` 少了下划线、`kaiming_uniform_` 拼错），指出后改好。审查之后，用户又按建议改成冻结整层，并记下 `r` 和 `alpha`。
+- 工作区与设备：Mac，分支 m5-lora，从 main ae5a0cc 分出，未提交。
+- 改动：`src/tlab/finetune/lora.py`（用户写）；`src/tlab/finetune/lora_model.py`（agent 写）；`tests/test_lora.py`、`tests/test_lora_model.py`；PLAN 的第 2 步记了实现和给第 4 步的提示。
+- 本次验证：pytest 629 passed，ruff 通过。故意改错 24 种全部抓到。`tiny_smoke`、`tinystories_smoke` 的 metrics.csv 和 main 逐字相同。干净副本 629 passed。审查实测：真实 Base 上 r=8 时可训练参数 2,293,760，装上后 fp32 和 bf16 下分数都和原模型逐位相同，合并后误差 5e-5。
+- 未验证与失败：没有在 GPU 上跑过；还没有和真的 PEFT 对比（第 4 步）。
+- 决策与原因：A、B 搬到 W 的设备上，类型保持 fp32；合并要求 W 是 fp32；载入时先检查再动模型。这些是审查发现的问题。r、alpha、targets 没有打包成一个类型，第 3 步再看。
+- 审查状态：Claude 的两个只读子 agent（规范、需求）审查，问题已修或说明了原因，见回复；Codex 未审查。
+- 学习状态：用户问了 LoRA 的概念（base、A 和 B、缩放、merge、`F.linear` 和 `nn.Linear`、`no_grad`、为什么要 `nn.Parameter`），已讲解。M5 清单的题到阶段末统一问。
+- 下一步：用户同意后提交、合并、推送；第 3 步 `m5-sft`。
 
 ## 后续交接模板
 

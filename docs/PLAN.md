@@ -374,6 +374,9 @@ CPU 训练 10 步依赖 M1 的最小模型与可运行训练路径。相关代�
 - agent 写 `apply_lora(model, r, alpha, targets)`：默认替换每层的 `q_proj`、`k_proj`、`v_proj`、`out_proj`；词表和其他层冻结；存档只存 A、B。
 - 可训练参数手算（默认目标）：每层 (1024+2048)·r × 2 + (1024+1024)·r × 2 = 10,240·r，28 层 286,720·r。r=4、8、16、32 分别是 1,146,880、2,293,760、4,587,520、9,175,040 个，占 596,049,920 的 0.19%、0.38%、0.77%、1.54%。
 
+- **实现（2026-11-08，分支 `m5-lora`）：** 用户写的 `LoRALinear` 在 `src/tlab/finetune/lora.py`，只放这一个类；`apply_lora`、`save_lora`、`load_lora`、`merge_lora` 在 agent 写的 `src/tlab/finetune/lora_model.py`。A、B 先在 CPU 上随机初始化，再搬到 W 所在的设备，类型保持 fp32；基座转 bf16 时要开 autocast。合并要求 W 是 fp32，否则报错：bf16 下 ΔW 会被舍掉一部分（审查实测丢掉 3–31%）。存档只有 A、B 和 r、alpha、targets，载入出错时模型保持原样。真实 Base 上 r=8 时可训练参数 2,293,760（0.385%），和手算一致；装上后 fp32 和 bf16 下的分数都和原模型逐位相同（审查实测）。
+- **给第 4 步：** A、B 的形状和 PEFT 的 `lora_A`、`lora_B` 权重相同，不用转置。审查凭记忆说 PEFT 里同一个种子抽出的 A 不同（没装 peft，没实测），所以仍按计划把初始值拷过去。
+
 **第 3 步 `m5-sft`：**
 
 - 模板 `Question: {q}\nAnswer: {a}<eos>`，去掉 `<<...>>` 标注。提示和 padding 位置的 label 都是 -100（`F.cross_entropy` 默认忽略 -100）。
