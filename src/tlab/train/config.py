@@ -7,6 +7,7 @@ from typing import Any, TypeVar, get_args
 
 import yaml
 
+from tlab.model.gpt import check_rmsnorm_fp32
 from tlab.model.layers import (
     check_block_settings,
     check_kv_heads,
@@ -46,6 +47,9 @@ class TrainConfig:
     head_dim: int | None = None  # 每个头的维度；None 表示 d_model // n_heads
     qk_norm: bool = False  # q、k 拆头后各做一次 RMSNorm（Qwen3 的做法）
     mlp_hidden_dim: int | None = None  # SwiGLU 的隐藏维度；None 表示 8C//3
+    # RMSNorm 内部先转 fp32（Qwen3 的做法）；模型的开关都要在这里有同名字段，
+    # 存档和续训的结构检查靠它。TinyStories 的配置都不写，默认关闭
+    rmsnorm_fp32: bool = False
     # 存档：0 表示只在训练结束时存；resume=True 时从 out_dir/ckpt.pt 接着训练
     ckpt_interval: int = 0
     resume: bool = False
@@ -66,6 +70,7 @@ class TrainConfig:
         check_pos_encoding(self.pos_encoding, self.rope_theta, self.head_dim)
         check_kv_heads(self.n_heads, self.n_kv_heads)
         check_qwen3_switches(self.mlp, self.head_dim, self.qk_norm, self.mlp_hidden_dim)
+        check_rmsnorm_fp32(self.rmsnorm_fp32, self.norm, self.qk_norm)
 
 
 LR_SCHEDULES = ("constant", "cosine")

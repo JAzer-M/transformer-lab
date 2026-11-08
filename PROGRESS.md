@@ -4,24 +4,26 @@
 
 ## 当前状态
 
-更新时间：2026-11-08 （Asia/Shanghai，UTC+08:00）。
+更新时间：2026-11-08（Asia/Shanghai，UTC+08:00）。
 
 | 项目 | 当前可核实状态 |
 | --- | --- |
-| 项目阶段 | M0–M4 完成，MVP 关口和 M4 里程碑已由用户确认勾选。M5 计划已由用户确认（2026-11-07）。第 1 步 `m5-baseline` 已合并；第 1 批（基座 F1）已在 WSL 跑完并核对：few-shot 46.8%，不给例子 49.8%。等用户决定 `RMSNorm` 的开关和下一步 |
-| 本轮范围 | 核对第 1 批；副本上试 `RMSNorm` 内部转 fp32 |
+| 项目阶段 | M0–M4 完成，MVP 关口和 M4 里程碑已由用户确认勾选。M5 计划已由用户确认（2026-11-07）。第 1 步 `m5-baseline` 已合并；第 1 批（基座 F1）已核对：few-shot 46.8%，不给例子 49.8%。`m5-norm32`（`rmsnorm_fp32` 开关）已合并到 main |
+| 本轮范围 | `m5-norm32`：用户在 `layers.py` 写 `RMSNorm` 的 `compute_fp32`；agent 写 `rmsnorm_fp32` 开关、载入 Qwen3 时打开、报告字段 |
 | 实现方 / 审查方 | Claude 写；Claude 的两个只读子 agent 审查，Codex 未审查 |
-| 来源 | main efec1da（Codex 推送的第 1 批结果）；m5-f1 已快进到它，上面有未提交的核对记录 |
+| 来源 | m5-norm32（从 main ea883cf 分出），用户回复“合并提交吧”后提交、快进 main 并推送 |
 | 前置 | uv sync --locked、CUDA分配通过；367 passed in20.85s；RTX5060 Laptop、PyTorch2.9.1+cu128/CUDA12.8 |
 | 执行 | GPU每项5次/train-steps5；CPU每项3次/train-steps1；prompt32+新增480，每配置60秒降温；4条命令退出0，总耗时879.062s |
 | 缓存 | GPU对照4.50MiB/GQA-2 1.50MiB，k/v均bf16；CPU对照9.00MiB，k/v均fp32；完整缓存按B=1核对 |
 | 归档 | bench_batch/REPORT.md及原始JSON/MD/日志；results只追加1行，原bench.json/md与SUMMARY保持原文 |
 | 结果记录 | a0_control 提速倍数：RTX 5060 上 B=1、8、32 为 1.00、1.85、6.80；同机 CPU B=1 为 7.42。B=32 有缓存生成峰值 267.01 MiB，无缓存 662.30 MiB。详见 bench_batch/REPORT.md |
 | 温度 | GPU90次测量起始温度53.5–86.3°C；CPU项温度字段为GPU温度，CPU温度未测 |
-| 下一步 | 开 `m5-norm32`：先把测试接口和用户要写的代码列给用户确认；之后开始 `m5-lora` |
+| 下一步 | 开始 `m5-lora`：先把测试接口和用户要写的 `LoRALinear` 列给用户确认 |
 
 ## 当前任务与下一步
 
+- 2026-11-08：用户回复“合并提交吧”，m5-norm32 提交、合并、推送；下一步 `m5-lora`。
+- 2026-11-08：m5-norm32 写完并审查修复，590 passed。
 - 2026-11-08：用户回复“按推荐开始”：继续用 GSM8K；`RMSNorm` 加内部转 fp32 的开关（默认关闭，载入 Qwen3 时打开，`layers.py` 的几行由用户写）；F1 基座在新设置下和 SFT 后的评测同一批重测。核对记录提交、合并、推送，下一步开 `m5-norm32`。
 - 2026-11-08：第 1 批结果已核对，等用户决定 `RMSNorm` 的开关和下一步。
 - 2026-11-07 16:05：Base 的 fp32 对齐在干净的提交上通过，等 WSL 跑第 1 批。
@@ -188,7 +190,7 @@ python3 -I scripts/extract_history.py --out <本会话的 scratchpad>/history
 **5. 目前的状态：**
 
 - M0–M4 都完成了。M3 结果见 `experiments/m3_ablations/SUMMARY.md`。M4：Qwen3-0.6B 的权重载入自己写的架构，fp32 下 logits 最大误差 1.73e-04，贪心生成和 `transformers` 相同；把 `scores / d**0.5` 改成官方写法后每层误差都是 0.0（`experiments/m4_qwen3/`）。这一行不改，否则 M1–M3 不能逐字复现。
-- 权重缓存在这台 Mac 上（`Qwen/Qwen3-0.6B`）。`Qwen3-0.6B-Base` 还没下载，下载前要问。
+- 权重缓存在这台 Mac 上（`Qwen/Qwen3-0.6B`）。`Qwen3-0.6B-Base` 还没下载，下载前要问。（2026-11-08 补记：Base 和 GSM8K 已在 Mac 和 WSL 上下载，用户 2026-11-07 同意。）
 
 **6. 还开着的事（都由用户决定，不要替用户定）：**
 
@@ -1818,6 +1820,19 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 审查状态：只有 Claude 核对；Codex 的执行报告没有转给 Claude，只核对了推送的文件。
 - 学习状态：用户在问“这次跑的是什么、下载的是什么”，已讲解。
 - 下一步：用户决定 `RMSNorm` 的开关；之后提交本次核对，开始 `m5-lora`。
+
+### 2026-11-08（UTC+08:00）｜Claude Code｜m5-norm32：RMSNorm 内部转 fp32 的开关
+
+- 范围与用户确认：用户回复“按推荐开始”，确认 10 项测试接口，并同意把 `test_bf16_is_reported_but_does_not_decide_the_result` 的“bf16 误差比 fp32 大 10 倍”断言改成检查分数的类型。用户在 `layers.py` 手写 `RMSNorm` 的 `compute_fp32`（第一次误删了 `weight` 两行，指出后改好）。
+- 工作区与设备：Mac，分支 m5-norm32，从 main ea883cf 分出，未提交。
+- 改动：`layers.py`（用户写）；`gpt.py` 的 agent 部分：`rmsnorm_fp32` 字段、`check_rmsnorm_fp32`、建好模型后统一设置所有 RMSNorm，文件头的例外清单加了 11-08；`train/config.py` 加同名字段和检查；`convert/qwen3.py` 载入时打开；`check_qwen3.py` 记下开关和两边分数的类型；`eval_gsm8k.py` 记下开关；对应测试。
+- 计划之外：原计划训练配置里不加这个开关，但已有测试要求每个模型开关都是 TrainConfig 的字段，所以加了，默认关闭；审查建议后，建训练配置时就检查取值。
+- 本次验证：pytest 590 passed，ruff 通过。故意改错 17 种全部抓到；用户那几行的 6 种常见写错也都能抓到。`tiny_smoke`、`tinystories_smoke` 的 metrics.csv 和 main 逐字相同（审查修复前后各跑一次）。干净副本（没有 data、runs、.git）590 passed。真实 Base 在 Mac CPU、bf16 下打开开关：3 个提示每层和分数误差都是 0.0，第 3 个提示用缓存时贪心和官方不同（commit 带 -dirty，只算试跑）。审查实测：83 个 token 时注意力内部还有 bf16 舍入差别，RMSNorm 的输出相同，原因没查。
+- 未验证与失败：GPU 上没试过开关打开后的 bf16 误差；第 1 批的 F1 是开关加之前跑的，以后要重测。
+- 决策与原因：autocast 下残差主干是 fp32，这个开关实际影响的是 q_norm、k_norm；基座转 bf16 时才会影响全部 RMSNorm。
+- 审查状态：Claude 的两个只读子 agent（规范、需求）审查，问题已修或说明了不修的原因，见回复；Codex 未审查。
+- 学习状态：用户在问“这一步是不是转 fp32 算完再转回来”，已讲解。
+- 下一步：用户同意后提交、合并、推送；开始 `m5-lora`。
 
 ## 后续交接模板
 

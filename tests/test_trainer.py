@@ -594,3 +594,14 @@ def test_load_config_rejects_an_odd_head_dim_with_rope(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="head_dim"):
         load_config(path)
+
+
+def test_train_config_checks_rmsnorm_fp32_before_building_the_model() -> None:
+    from tlab.train.config import TrainConfig
+
+    # 默认是 LayerNorm、不开 QK-Norm，模型里没有 RMSNorm：建配置时就报错，不用等到建模型
+    with pytest.raises(ValueError, match="rmsnorm_fp32"):
+        TrainConfig(rmsnorm_fp32=True)
+    with pytest.raises(ValueError, match="rmsnorm_fp32"):
+        TrainConfig(norm="rmsnorm", rmsnorm_fp32="true")
+    assert TrainConfig(norm="rmsnorm", rmsnorm_fp32=True).rmsnorm_fp32 is True

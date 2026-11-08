@@ -698,9 +698,91 @@ def test_bf16_is_reported_but_does_not_decide_the_result(
     assert fp32["passed"] is True
     assert bf16["autocast"] == "bf16"
     assert bf16["passed"] is None
-    # 两边真的在 bf16 下算了：只有这样误差才会明显比 fp32 大
-    assert bf16["max_error"] > 10 * fp32["max_error"]
+    # 两边真的在 bf16 下算了：分数是 bf16。原来这里断言“误差比 fp32 大 10 倍”，
+    # rmsnorm_fp32 打开后 bf16 下误差变成 0，这条不再成立；2026-11-08 用户同意改成检查类型
+    for prompt in bf16["prompts"]:
+        assert prompt["logits_dtype"] == "torch.bfloat16"
+        assert prompt["their_logits_dtype"] == "torch.bfloat16"
+    for prompt in fp32["prompts"]:
+        assert prompt["logits_dtype"] == "torch.float32"
+        assert prompt["their_logits_dtype"] == "torch.float32"
     assert "不判定" in done.stdout
+
+
+def test_loading_qwen3_turns_on_rmsnorm_fp32() -> None:
+    from tlab.convert.qwen3 import gpt_config_from_hf
+
+    # 官方的 Qwen3RMSNorm 在内部先转 fp32，载入时要和它一致
+    assert gpt_config_from_hf(REAL_CONFIG).rmsnorm_fp32 is True
+
+
+@torch.no_grad()
+def test_bf16_matches_transformers_bit_for_bit_with_rmsnorm_fp32(
+    tiny_hf_dir: Path,
+) -> None:
+    from transformers import Qwen3ForCausalLM
+
+    from tlab.convert.qwen3 import load_qwen3
+    from tlab.model.layers import RMSNorm
+
+    script = load_script()
+    ours = load_qwen3(tiny_hf_dir, torch.device("cpu"))
+    theirs = Qwen3ForCausalLM.from_pretrained(
+        tiny_hf_dir, attn_implementation="eager", dtype=torch.float32
+    ).eval()
+    generator = torch.Generator().manual_seed(0)
+    ids = torch.randint(0, 97, (2, 12), generator=generator)  # (B, T)
+
+    with torch.autocast("cpu", dtype=torch.bfloat16):
+        on = script.compare_layers(ours, theirs, ids)
+        for module in ours.modules():
+            if isinstance(module, RMSNorm):
+                module.compute_fp32 = False
+        off = script.compare_layers(ours, theirs, ids)
+
+    # 打开时每一层都和官方逐位相同；关掉就有差别，说明差别正是来自这里。
+    # 注意 autocast 下残差主干是 fp32，这里真正受影响的是 q_norm、k_norm（输入是 bf16）。
+    # 这是短序列；真实模型上 83 个 token 时，注意力内部还有 bf16 舍入差别（2026-11-08 审查实测）
+    assert on["logits_dtype"] == "torch.bfloat16"
+    assert max(on["layer_max_errors"]) == 0.0
+    assert on["logits_max_error"] == 0.0
+    assert off["logits_max_error"] > 0.0
+
+
+def test_script_reports_the_rmsnorm_setting(tmp_path: Path, tiny_hf_dir: Path) -> None:
+    done, out = run_script(tmp_path, tiny_hf_dir)
+
+    assert done.returncode == 0, done.stderr
+    assert json.loads(out.read_text(encoding="utf-8"))["rmsnorm_fp32"] is True
+
+
+def test_script_reports_rmsnorm_fp32_off_when_it_is_off(
+    tmp_path: Path, tiny_hf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tlab.model.layers import RMSNorm
+
+    script = load_script()
+    real_load = script.load_qwen3
+
+    def load_with_switch_off(model_dir: Path, device: torch.device) -> nn.Module:
+        model = real_load(model_dir, device)
+        for module in model.modules():
+            if isinstance(module, RMSNorm):
+                module.compute_fp32 = False
+        return model
+
+    monkeypatch.setattr(script, "load_qwen3", load_with_switch_off)
+    out = tmp_path / "alignment.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["check_qwen3.py", "--model-dir", str(tiny_hf_dir), "--out", str(out)],
+    )
+
+    script.main()
+
+    # 记的是模型实际的设置，不是写死的值
+    assert json.loads(out.read_text(encoding="utf-8"))["rmsnorm_fp32"] is False
 
 
 def test_src_does_not_depend_on_transformers() -> None:

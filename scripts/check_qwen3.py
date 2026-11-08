@@ -29,6 +29,7 @@ from transformers import Qwen3ForCausalLM
 from tlab.convert.qwen3 import MODEL_FILES, load_qwen3
 from tlab.eval.generate import generate
 from tlab.model.gpt import count_parameters
+from tlab.model.layers import RMSNorm
 from tlab.tokenizer.hf_bpe import HFTokenizer
 from tlab.train.utils import git_commit
 
@@ -88,6 +89,9 @@ def compare_layers(
         ],
         "logits_max_error": (our_logits - their_logits).abs().max().item(),  # ()
         "logits_max_abs": their_logits.abs().max().item(),  # ()
+        # autocast 生效时两边都是 bfloat16，用来确认这次确实都在低精度下算
+        "logits_dtype": str(our_logits.dtype),
+        "their_logits_dtype": str(their_logits.dtype),
     }
 
 
@@ -224,6 +228,10 @@ def main() -> None:
         "model": model_name,
         "device": str(device),
         "dtype": str(next(ours.parameters()).dtype),
+        # 开关对所有 RMSNorm 一起设置；用 any：模型里没有 RMSNorm 时是 False
+        "rmsnorm_fp32": any(
+            m.compute_fp32 for m in ours.modules() if isinstance(m, RMSNorm)
+        ),
         "n_params": count_parameters(ours),
         "transformers_version": transformers.__version__,
         "torch_version": torch.__version__,

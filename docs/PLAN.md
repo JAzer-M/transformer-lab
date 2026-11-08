@@ -365,6 +365,8 @@ CPU 训练 10 步依赖 M1 的最小模型与可运行训练路径。相关代�
 
 **手册：** `docs/m5-windows-run.md` 的第 1 批。
 
+**第 1 批的结果和决定（2026-11-08 用户回复“按推荐开始”确认）：** 基座 few-shot 46.8%、不给例子 49.8%（各 500 题，GPU，bf16），继续用 GSM8K。GPU bf16 下和 `transformers` 的分数最大误差 0.656；副本实验发现差别来自 `RMSNorm`，于是加开关 `rmsnorm_fp32`（分支 `m5-norm32`）：默认关闭，M1–M3 逐字复现；载入 Qwen3 时打开。`layers.py` 里的几行由用户写，开关的其余部分由 agent 写。打开后真实 Base 在 Mac CPU 的 bf16 下，3 个短提示每层误差都是 0.0；审查实测 83 个 token 时注意力内部还有 bf16 舍入差别，原因没查。autocast 下残差主干是 fp32，所以这个开关实际影响的是 q_norm、k_norm；如果以后把基座转成 bf16 省显存，所有 RMSNorm 都会受影响。GPU 上的 bf16 对比和 F1 基座重测，和 SFT 之后的评测放在同一批 WSL 上跑，第 1 批的结果保留。
+
 **第 2 步 `m5-lora`：**
 
 - 用户写 `LoRALinear(base, r, alpha)`：A 形状 (r, in)，kaiming uniform 初始化（和 PEFT 相同）；B 形状 (out, r)，全 0；缩放 alpha/r；基座冻结；`merge()`、`unmerge()`。输出 `base(x) + (alpha/r) · x Aᵀ Bᵀ`。

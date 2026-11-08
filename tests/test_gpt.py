@@ -572,3 +572,76 @@ def test_qwen3_0_6b_parameter_count_matches_the_hand_calculation() -> None:
 
     # 手算：每层 15,730,944，28 层 440,466,432，词表 155,582,464，ln_f 1,024
     assert count_parameters(model) == 596_049_920
+
+
+# ---- rmsnorm_fp32 开关（M5）：RMSNorm 内部转 fp32，和 HF 的 Qwen3 相同 ----
+
+
+def rmsnorms(model: torch.nn.Module) -> list:
+    from tlab.model.layers import RMSNorm
+
+    return [m for m in model.modules() if isinstance(m, RMSNorm)]
+
+
+def test_rmsnorm_fp32_is_off_by_default() -> None:
+    from tlab.model.gpt import GPT
+
+    model = GPT(small_config(norm="rmsnorm", qk_norm=True))
+
+    assert small_config().rmsnorm_fp32 is False
+    assert not any(m.compute_fp32 for m in rmsnorms(model))
+
+
+def test_rmsnorm_fp32_turns_on_every_rmsnorm() -> None:
+    from tlab.model.gpt import GPT
+
+    L = 2
+    model = GPT(small_config(norm="rmsnorm", qk_norm=True, rmsnorm_fp32=True))
+
+    # ln1、ln2 每层各一个，ln_f 一个，q_norm、k_norm 每层各一个：共 4L + 1 个
+    norms = rmsnorms(model)
+    assert len(norms) == 4 * L + 1
+    assert all(m.compute_fp32 for m in norms)
+
+
+def test_rmsnorm_fp32_also_reaches_qk_norm_when_the_block_uses_layernorm() -> None:
+    from tlab.model.gpt import GPT
+
+    model = GPT(small_config(norm="layernorm", qk_norm=True, rmsnorm_fp32=True))
+
+    norms = rmsnorms(model)
+    assert len(norms) == 4  # 只有 q_norm、k_norm，每层各一个
+    assert all(m.compute_fp32 for m in norms)
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        # 字符串也是“真”，不能悄悄当成开启；用 rmsnorm，免得被下面那条检查先拦住
+        {"norm": "rmsnorm", "rmsnorm_fp32": "true"},
+        {"norm": "rmsnorm", "rmsnorm_fp32": 1},
+        # 模型里没有 RMSNorm，打开也不会有任何效果
+        {"norm": "layernorm", "rmsnorm_fp32": True},
+    ],
+)
+def test_gpt_config_rejects_bad_rmsnorm_fp32(fields: dict) -> None:
+    with pytest.raises(ValueError, match="rmsnorm_fp32"):
+        small_config(**fields)
+
+
+def test_rmsnorm_fp32_keeps_parameters_and_fp32_outputs_unchanged() -> None:
+    from tlab.model.gpt import GPT
+
+    torch.manual_seed(0)
+    off = GPT(small_config(norm="rmsnorm", qk_norm=True))
+    torch.manual_seed(0)
+    on = GPT(small_config(norm="rmsnorm", qk_norm=True, rmsnorm_fp32=True))
+    idx = torch.randint(0, 11, (2, 8))  # (B, T)
+
+    # 同一个种子初始化出的参数逐位相同，存档的名字也一样：旧存档能直接载入
+    off_state, on_state = off.state_dict(), on.state_dict()
+    assert list(off_state) == list(on_state)
+    assert all(torch.equal(off_state[k], on_state[k]) for k in off_state)
+    on.load_state_dict(off_state)
+    # fp32 下转不转都一样，所以 M4 的 fp32 对齐结果不受影响
+    assert torch.equal(off(idx), on(idx))  # (B, T, V)

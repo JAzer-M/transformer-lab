@@ -81,6 +81,98 @@ def test_rmsnorm_matches_reference_rms_norm() -> None:
     torch.testing.assert_close(norm(x), expected)
 
 
+# ---- RMSNorm 内部转 fp32（M5，和 HF 的 Qwen3 相同）----
+
+
+def random_norm(d_model: int, **kwargs: bool) -> torch.nn.Module:
+    """weight 随机的 RMSNorm：全 1 时乘不乘 weight、先乘后转都看不出差别。"""
+    from tlab.model.layers import RMSNorm
+
+    torch.manual_seed(0)
+    norm = RMSNorm(d_model, **kwargs)
+    with torch.no_grad():
+        norm.weight.normal_()
+    return norm
+
+
+def old_rmsnorm(x: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
+    """M1–M3 用的写法，用来检查默认行为没变。"""
+    ms = x.pow(2).mean(dim=-1, keepdim=True)  # (B, T, 1)
+    return x * torch.rsqrt(ms + 1e-6) * weight  # (B, T, C)
+
+
+def test_compute_fp32_is_off_by_default() -> None:
+    from tlab.model.layers import RMSNorm
+
+    assert RMSNorm(8).compute_fp32 is False
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
+def test_rmsnorm_without_fp32_is_bit_for_bit_unchanged(dtype: torch.dtype) -> None:
+    norm = random_norm(128)
+    x = torch.randn(2, 5, 128).to(dtype)  # (B, T, C)
+
+    assert torch.equal(norm(x), old_rmsnorm(x, norm.weight))
+
+
+def test_compute_fp32_changes_nothing_for_fp32_inputs() -> None:
+    on = random_norm(128, compute_fp32=True)
+    off = random_norm(128)
+    x = torch.randn(2, 5, 128)  # (B, T, C)，fp32
+
+    assert torch.equal(on(x), off(x))
+
+
+def test_compute_fp32_normalizes_bf16_inputs_in_fp32_then_casts_back() -> None:
+    on = random_norm(128, compute_fp32=True)
+    off = random_norm(128)
+    torch.manual_seed(1)
+    x = torch.randn(2, 5, 128).to(torch.bfloat16)  # (B, T, C)
+
+    # 手工按 HF 的顺序算：转 fp32 → 归一化 → 转回 bf16 → 乘 weight
+    x32 = x.float()  # (B, T, C)
+    normed = x32 * torch.rsqrt(
+        x32.pow(2).mean(dim=-1, keepdim=True) + 1e-6
+    )  # (B, T, C)
+    expected = normed.to(torch.bfloat16) * on.weight  # (B, T, C)
+    y = on(x)  # (B, T, C)
+
+    assert torch.equal(y, expected)
+    assert y.dtype == expected.dtype
+    # 开不开确实有差别，否则这个开关没有意义
+    assert not torch.equal(y, off(x))
+
+
+def test_compute_fp32_still_passes_gradients_back() -> None:
+    norm = random_norm(16, compute_fp32=True)
+    x = torch.randn(2, 3, 16).to(torch.bfloat16).requires_grad_()  # (B, T, C)
+    x_ref = x.detach().clone().requires_grad_()  # (B, T, C)
+    weight_ref = norm.weight.detach().clone().requires_grad_()  # (C,)
+
+    norm(x).float().sum().backward()
+    # 参考：同样的写法手工算一遍。中间漏了梯度（比如 detach）时两边会不同
+    x32 = x_ref.float()  # (B, T, C)
+    normed = x32 * torch.rsqrt(
+        x32.pow(2).mean(dim=-1, keepdim=True) + 1e-6
+    )  # (B, T, C)
+    (normed.to(torch.bfloat16) * weight_ref).float().sum().backward()
+
+    assert x.grad is not None and norm.weight.grad is not None
+    assert torch.equal(x.grad, x_ref.grad)
+    assert torch.equal(norm.weight.grad, weight_ref.grad)
+
+
+def test_compute_fp32_is_not_saved_in_the_checkpoint() -> None:
+    from tlab.model.layers import RMSNorm
+
+    on = RMSNorm(8, compute_fp32=True)
+
+    # 只是一个普通属性：存档里只有 weight，旧存档也能直接载入
+    assert list(on.state_dict()) == ["weight"]
+    on.load_state_dict(RMSNorm(8).state_dict())
+    assert on.compute_fp32 is True
+
+
 def test_swiglu_has_three_linear_layers_without_bias() -> None:
     from tlab.model.layers import SwiGLU
 

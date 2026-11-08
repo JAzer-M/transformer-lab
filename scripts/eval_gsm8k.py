@@ -30,6 +30,7 @@ from tlab.eval.gsm8k import (
     zero_shot_prompt,
 )
 from tlab.model.gpt import count_parameters
+from tlab.model.layers import RMSNorm
 from tlab.tokenizer.hf_bpe import HFTokenizer
 from tlab.train.utils import git_commit
 
@@ -87,6 +88,11 @@ def main() -> None:
         "model": model_name,
         "device": str(device),
         "dtype": str(next(model.parameters()).dtype),
+        # bf16 下会影响结果；第 1 批的 F1 是在加这个开关之前跑的，那时是关闭的
+        # 开关对所有 RMSNorm 一起设置；用 any：模型里没有 RMSNorm 时是 False
+        "rmsnorm_fp32": any(
+            m.compute_fp32 for m in model.modules() if isinstance(m, RMSNorm)
+        ),
         "n_params": count_parameters(model),
         "torch_version": torch.__version__,
         **result,

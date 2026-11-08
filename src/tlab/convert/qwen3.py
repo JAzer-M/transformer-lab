@@ -76,6 +76,8 @@ def gpt_config_from_hf(hf: Mapping[str, Any]) -> GPTConfig:
         n_kv_heads=hf.get("num_key_value_heads"),
         # 和官方代码一样：配置里没写时是 C / h
         head_dim=hf.get("head_dim") or hf["hidden_size"] // hf["num_attention_heads"],
+        # 官方的 Qwen3RMSNorm 在内部先转 fp32；不这样做，bf16 下就和官方对不上
+        rmsnorm_fp32=True,
         qk_norm=True,
         norm="rmsnorm",
         mlp="swiglu",

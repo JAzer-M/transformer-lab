@@ -8,18 +8,31 @@ from torch import nn
 
 
 class RMSNorm(nn.Module):
-    def __init__(self, d_model: int, eps: float = 1e-6) -> None:
+    def __init__(
+        self, d_model: int, eps: float = 1e-6, compute_fp32: bool = False
+    ) -> None:
         super().__init__()
         # 防止除以 0 的小常数， 加在根号里面； 默认值与 Qwen3 相同
         self.eps = eps
         # 逐分量的可学习缩放， 形状(C,), 初始全1； 没有bias (LayerNorm 有)
         self.weight = nn.Parameter(torch.ones(d_model))
+        # 为 True 时先转成 fp32 再算， 算完转回原来类型
+        self.compute_fp32 = compute_fp32
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # 记下输入的类型， 算完要转回去
+        dtype = x.dtype
+        if self.compute_fp32:
+            # bf16 只有约 3 位有效数字， 平方再平均会放大误差， 所以使用 fp32 计算
+            x = x.float()  # (B, T, C) fp32
+
         # 每个 token 自己的均方： 只在最后一维 C 上平均， keepdim 留下这一维以便广播
         ms = x.pow(2).mean(dim=-1, keepdim=True)  # (B, T, 1)
         # 除以均方根: rsqrt(a) 就是 1/√a, eps 加在根号里面
         x_normed = x * torch.rsqrt(ms + self.eps)  # (B, T, C)
+        if self.compute_fp32:
+            # 先转回输入的类型， 再乘 weight
+            x_normed = x_normed.to(dtype)  # (B, T, C)
         # 逐分量乘以缩放： weight(C,) 广播到 (B, T, C)
         return x_normed * self.weight  # (B, T, C)
 

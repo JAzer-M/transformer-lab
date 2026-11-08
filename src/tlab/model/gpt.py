@@ -1,5 +1,5 @@
 # USER-WRITTEN: agent 只提建议， 不改实现
-# 例外：标注“agent 编写”的 norm、mlp、pos_encoding、n_kv_heads、head_dim、qk_norm、mlp_hidden_dim 开关与 KV cache 代码，经用户 2026-11-03、11-04、11-05、11-07 同意由 agent 加入
+# 例外：标注“agent 编写”的 norm、mlp、pos_encoding、n_kv_heads、head_dim、qk_norm、mlp_hidden_dim、rmsnorm_fp32 开关与 KV cache 代码，经用户 2026-11-03、11-04、11-05、11-07、11-08 同意由 agent 加入
 from dataclasses import dataclass
 
 import torch
@@ -11,6 +11,7 @@ from tlab.model.block import Block
 
 # agent 编写（各开关）：检查开关取值、按配置名建最终归一化层、正弦位置编码
 from tlab.model.layers import (
+    RMSNorm,  # agent 编写（rmsnorm_fp32 开关）：统一设置时要按类型找到它
     check_block_settings,
     check_kv_heads,
     check_pos_encoding,
@@ -18,6 +19,17 @@ from tlab.model.layers import (
     make_norm,
     sinusoidal_positions,
 )
+
+
+# agent 编写（rmsnorm_fp32 开关）：训练配置和 GPTConfig 创建时都调用
+def check_rmsnorm_fp32(rmsnorm_fp32: bool, norm: str, qk_norm: bool) -> None:
+    """取值不对时报错。RMSNorm 只出现在两处：norm="rmsnorm" 时的 ln1、ln2、ln_f，
+    和 qk_norm 时的 q_norm、k_norm；两处都没有时，打开开关不会有任何效果。"""
+    # 不用真假判断：字符串 "false" 判断起来是真
+    if not isinstance(rmsnorm_fp32, bool):
+        raise ValueError(f"rmsnorm_fp32 应为 True 或 False，收到 {rmsnorm_fp32!r}")
+    if rmsnorm_fp32 and norm != "rmsnorm" and not qk_norm:
+        raise ValueError("rmsnorm_fp32 只对 RMSNorm 有用，但这个模型里没有 RMSNorm")
 
 
 @dataclass
@@ -38,6 +50,9 @@ class GPTConfig:
     head_dim: int | None = None  # 每个头的维度；None 表示 d_model // n_heads
     qk_norm: bool = False  # q、k 拆头后各做一次 RMSNorm（Qwen3 的做法）
     mlp_hidden_dim: int | None = None  # SwiGLU 的隐藏维度；None 表示 8C//3
+    # agent 编写（rmsnorm_fp32 开关）：所有 RMSNorm 内部先转 fp32（Qwen3 的做法）；
+    # 只影响 bf16 这类低精度输入，fp32 下结果不变
+    rmsnorm_fp32: bool = False
 
     def __post_init__(self) -> None:
         # agent 编写（各开关）：建配置时就检查取值，0 层时也不会被悄悄放过
@@ -45,6 +60,7 @@ class GPTConfig:
         check_pos_encoding(self.pos_encoding, self.rope_theta, self.head_dim)
         check_kv_heads(self.n_heads, self.n_kv_heads)
         check_qwen3_switches(self.mlp, self.head_dim, self.qk_norm, self.mlp_hidden_dim)
+        check_rmsnorm_fp32(self.rmsnorm_fp32, self.norm, self.qk_norm)
 
 
 class GPT(nn.Module):
@@ -96,6 +112,11 @@ class GPT(nn.Module):
         self.lm_head.weight = self.tok_emb.weight
         # 遍历所有子模块， 把 Linear 和 Embedding 的权重按 N(0, 0.02) 重新初始化
         self.apply(self._init_weights)
+        # agent 编写（rmsnorm_fp32 开关）：ln1、ln2、ln_f、q_norm、k_norm 都在这里统一设置，
+        # 不用改 block.py 和 attention.py；它不是参数，不影响初始化和存档
+        for module in self.modules():
+            if isinstance(module, RMSNorm):
+                module.compute_fp32 = config.rmsnorm_fp32
 
     def _init_weights(self, module: nn.Module) -> None:
         # 只处理 Linear 和 embedding: LayerNorm 保持 weight = 1, bias = 0

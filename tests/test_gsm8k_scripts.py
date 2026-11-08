@@ -282,6 +282,8 @@ def test_eval_script_writes_a_report_with_results_and_provenance(
     assert report["dtype"] == "torch.float32"
     assert report["n_params"] > 0
     assert report["torch_version"] == torch.__version__
+    # 载入 Qwen3 时打开；第 1 批的结果里没有这个字段，那时还是关闭的
+    assert report["rmsnorm_fp32"] is True
     assert report["tokens_per_second"] > 0
     assert report["peak_memory_mb"] is None  # CPU 上读不到显存峰值
     assert "准确率" in done.stdout
@@ -363,3 +365,43 @@ def test_eval_script_downloads_the_repo_in_the_config(
     assert report["model"] == f"some/repo@{tiny_model_dir.name}"
     assert report["config"]["device"] == "auto"
     assert report["device"] == "cpu"
+
+
+def test_eval_script_records_the_actual_rmsnorm_setting(
+    tmp_path: Path,
+    eval_config: Path,
+    tiny_model_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from tlab.model.layers import RMSNorm
+
+    script = load_script("eval_gsm8k")
+    real_load = script.load_qwen3
+
+    def load_with_switch_off(model_dir: Path, device: torch.device) -> torch.nn.Module:
+        model = real_load(model_dir, device)
+        for module in model.modules():
+            if isinstance(module, RMSNorm):
+                module.compute_fp32 = False
+        return model
+
+    monkeypatch.setattr(script, "load_qwen3", load_with_switch_off)
+    out = tmp_path / "f1.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "eval_gsm8k.py",
+            "--config",
+            str(eval_config),
+            "--model-dir",
+            str(tiny_model_dir),
+            "--out",
+            str(out),
+        ],
+    )
+
+    script.main()
+
+    # 记的是模型实际的设置，不是写死的值
+    assert json.loads(out.read_text(encoding="utf-8"))["rmsnorm_fp32"] is False
