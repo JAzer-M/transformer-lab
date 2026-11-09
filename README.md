@@ -364,7 +364,9 @@ uv run python scripts/bench_attention.py --configs configs/ablations/a0_control.
 ## 文档
 
 - [AGENTS.md](AGENTS.md)：项目规范。
+- [docs/report.md](docs/report.md)：实验报告，M1–M5 的结果、排查过的问题和局限。
 - [docs/PLAN.md](docs/PLAN.md)：计划、里程碑和验收标准。
 - [PROGRESS.md](PROGRESS.md)：当前状态和交接记录。
 - [docs/m3-windows-run.md](docs/m3-windows-run.md)：M3 实验的执行手册。
 - [docs/m5-windows-run.md](docs/m5-windows-run.md)：M5 实验的执行手册。
+- [docs/interview-prep.md](docs/interview-prep.md)：面试问答准备（素材，答案由作者自己写）。
