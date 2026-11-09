@@ -9,14 +9,15 @@
 | 项目 | 当前可核实状态 |
 | --- | --- |
 | 项目阶段 | M0–M5 完成；MVP 关口、M4、M5 里程碑已由用户确认勾选。M6 收尾开始，目标 2026-11-30 |
-| 本轮范围 | 提交 M5 复习记录、勾选 M5；清理（`.gitignore`、M0 勾选、本表）；Codex 交叉审查的指令；实验报告和面试问答素材（已推送）；自己提问的脚本 `scripts/ask.py`（已推送到 `origin/m6-ask`，未合并 main，等 Codex 审查和用户在 Windows 上试）。简历由用户在 Claude 对话里自己做 |
+| 本轮范围 | 提交 M5 复习记录、勾选 M5；清理（`.gitignore`、M0 勾选、本表）；Codex 交叉审查的指令；实验报告和面试问答素材（已推送）；自己提问的脚本 `scripts/ask.py`（Codex 已审，1 个 P3 已修，已合并 main）。简历由用户在 Claude 对话里自己做 |
 | 实现方 / 审查方 | Claude 写；Codex 交叉审查 M3–M5 的代码待用户转交 |
 | 最近的结果 | M5 见 `experiments/m5_gsm8k/SUMMARY.md`：F4 两条曲线 454 步逐位相同；F1 基座 46.8% / 48.4% → SFT r=8 两个种子均值 49.2%，按项目的判定规则差异不显著（不是统计检验）；F2 各 r 差异不显著 |
-| 测试 | main（e04bc79）765 passed（2026-11-09，`git archive main` 干净导出）；m6-ask 分支 778 passed（提交前，Mac） |
-| 下一步 | Codex 审查 m6-ask，用户在 Windows 上用 LoRA 自己提问，之后合并；Codex 只读审查 M3–M5；用户自己写面试问答和简历 |
+| 测试 | 778 passed（2026-11-09，m6-ask 合并后从 `git archive main` 干净导出） |
+| 下一步 | Codex 只读审查 M3–M5；用户自己写面试问答和简历 |
 
 ## 当前任务与下一步
 
+- 2026-11-09：Codex 审查 m6-ask 完成（22b4fd0）：规范 1 个 P3（`tests/test_ask.py` 的 `ask` 缺返回类型），需求 0 个；已修，README 补上审查时 GPU 实跑的基座与 SFT 对比。用户回复“提交合并并推送吧”：提交、合并 main、推送。
 - 2026-11-09：用户回复“可以提交推送，之后我会让 codex 做审查”：m6-ask 提交并推送分支，不合并 main。
 - 2026-11-09：用户回复“按推荐开始”：m6-ask 写完（`scripts/ask.py` 自己提问）；用户说之后在 Windows 上一起审。
 - 2026-11-09：用户回复“可以提交合并并推送了”：实验报告和面试问答素材按审查意见改完后提交（m6-report）。
@@ -2010,6 +2011,21 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 审查状态：Claude 只读子 agent 已审。规范：没有硬性违规，判断题 6 条，采纳了重复的测试辅助函数、`resolve_model_dir` 的位置、改名、显式传参。需求：采纳了 README 写明 160、“逐字相同”的措辞、截断提示的测试、先查 LoRA 再找基座、删 `--repo`、Ctrl-C 退出。用户在 Windows 上的审查待做。
 - 学习状态：用户想弄清“模型 = 架构 + 权重”，这次已经讲过（函数 f(x; θ) 的类比、`load_state_dict`、权重文件不含计算规则）；之后可以在 Windows 上用 ask.py 对比基座和 SFT 的回答。
 - 下一步：Codex 只读审查 m6-ask（`git diff main...origin/m6-ask`）；用户在 Windows 上用 `--lora runs/m5/f2_r8_seed1337/lora.pt` 自己提问；确认后合并 main 并推送。
+
+### 2026-11-09（UTC+08:00）｜Claude Code｜核实并修复 Codex 对 m6-ask 的审查
+
+- 范围与用户确认：用户说“审查已经做完了，可以下拉查看”。实现方 Claude Code 核实 Codex 的审查记录 `docs/reviews/codex-m6-ask-eb4e44b.md`（22b4fd0）并修复。
+- 工作区与设备：`/Users/j/Desktop/transformer-lab`，Mac，分支 m6-ask，从 eb4e44b 快进到 origin/m6-ask 的 22b4fd0；用户同意后提交修复，main 快进到 m6-ask 并推送。
+- 改动：
+  - `tests/test_ask.py`：辅助函数 `ask` 补上返回类型 `subprocess.CompletedProcess[str]`（审查的 P3，读代码确认确实缺）。
+  - `README.md`：“用训练好的模型”一节加了审查时在 RTX 5060 上实跑的对比，数字照抄审查记录。SFT r=8：抽出 29，34 个 token 在 eos 停下。基座：抽出 29，写满 256 个 token，截掉 600 个字符。
+  - 本文件。
+- 本次验证（Mac）：`uv run ruff check .` 通过；`uv run pytest tests/test_ask.py -q` 7 passed；`uv run ruff format --check .` 132 个文件不用改；`uv run pytest -q` 778 passed。合并后 `git archive main` 导出到临时目录跑 `uv run pytest -q`：778 passed。
+- 未验证与失败：README 里 GPU 上的数字是 Codex 审查时跑的，我没有在 Windows 上复跑，出处写在 README 里。M3–M5 的交叉审查还没做。
+- 决策与原因：审查的需求方向是 0 个问题，`--max-new-tokens 0` 的边界照旧保留（main 上一样）。
+- 审查状态：Codex 已审 eb4e44b（规范 1 个 P3，已修；需求 0 个）；这次的修复只改了类型标注和文档，没再请求审查。
+- 学习状态：同上一条。
+- 下一步：Codex 做 M3–M5 交叉审查（是否做、范围多大由用户决定）；用户写面试答案和简历；勾选“README、实验报告定稿”要用户确认。
 
 ## 后续交接模板
 

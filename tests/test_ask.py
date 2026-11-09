@@ -14,7 +14,9 @@ from conftest import ROOT, TINY_EOS, big_lora_model, load_script, write_eval_con
 from tlab.finetune.lora_model import save_lora
 
 
-def ask(model_dir: Path, *args: str, stdin: str | None = None):
+def ask(
+    model_dir: Path, *args: str, stdin: str | None = None
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [
             sys.executable,
