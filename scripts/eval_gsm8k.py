@@ -20,7 +20,7 @@ from pathlib import Path
 import torch
 from huggingface_hub import snapshot_download
 
-from tlab.convert.qwen3 import MODEL_FILES, load_qwen3
+from tlab.convert.qwen3 import MODEL_FILES
 from tlab.device import get_device
 from tlab.eval.gsm8k import (
     Example,
@@ -30,11 +30,11 @@ from tlab.eval.gsm8k import (
     load_examples,
     zero_shot_prompt,
 )
-from tlab.finetune.lora_model import load_lora, merge_lora
+from tlab.finetune.lora_model import check_lora_file, load_qwen3_with_lora
 from tlab.model.gpt import count_parameters
 from tlab.model.layers import RMSNorm
 from tlab.tokenizer.hf_bpe import HFTokenizer
-from tlab.train.utils import file_sha256, git_commit
+from tlab.train.utils import git_commit
 
 
 def prompt_builder(mode: str, shots: list[Example]) -> Callable[[str], str]:
@@ -62,6 +62,8 @@ def main() -> None:
 
     # 先建好目录：不建的话要等评测完才报错
     args.out.parent.mkdir(parents=True, exist_ok=True)
+    # 路径写错时不用等下载基座（约 1.2 GB）才知道
+    check_lora_file(config.lora)
     # 下载到的目录名就是这份权重在 HF 上的版本号
     model_dir = args.model_dir or Path(
         snapshot_download(config.repo, allow_patterns=MODEL_FILES)
@@ -70,15 +72,7 @@ def main() -> None:
         str(args.model_dir) if args.model_dir else f"{config.repo}@{model_dir.name}"
     )
     device = get_device() if config.device == "auto" else torch.device(config.device)
-    model = load_qwen3(model_dir, device)
-    lora = None
-    if config.lora is not None:
-        # 合并后和普通模型一样快；W 是 fp32，合并不会丢精度
-        lora_path = Path(config.lora)
-        # 记下哈希：同一个路径的存档被重新训练覆盖后，也分得清用的是哪一份
-        sha256 = file_sha256(lora_path)
-        lora = {"path": config.lora, "sha256": sha256, **load_lora(model, lora_path)}
-        merge_lora(model)
+    model, lora = load_qwen3_with_lora(model_dir, device, config.lora)
     tokenizer = HFTokenizer.load(model_dir / "tokenizer.json")
 
     result = evaluate_gsm8k(

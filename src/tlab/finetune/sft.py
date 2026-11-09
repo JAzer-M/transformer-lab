@@ -18,7 +18,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from tlab.convert.qwen3 import MODEL_FILES, load_qwen3
+from tlab.convert.qwen3 import load_qwen3, resolve_model_dir
 from tlab.device import get_device
 from tlab.eval.gsm8k import Tokenizer, load_examples
 from tlab.finetune.lora_model import (
@@ -386,17 +386,6 @@ def resolve_device(config: SFTConfig) -> torch.device:
         # 只有 GPU 上有 bf16 autocast；CPU 上 bf16 的基座和 fp32 的 A、B 相乘会报错
         raise ValueError(f"base_dtype={config.base_dtype} 需要 GPU，当前是 {device}")
     return device
-
-
-def resolve_model_dir(repo: str, model_dir: Path | None) -> tuple[Path, str]:
-    """返回模型目录和要记在结果里的名字；model_dir 不给时下载 repo。"""
-    if model_dir is not None:
-        return model_dir, str(model_dir)
-    # 只有真要下载时才需要；下载到的目录名就是这份权重在 HF 上的版本号
-    from huggingface_hub import snapshot_download
-
-    path = Path(snapshot_download(repo, allow_patterns=MODEL_FILES))
-    return path, f"{repo}@{path.name}"
 
 
 def check_start(settings: dict[str, Any], config: SFTConfig) -> dict[str, str]:

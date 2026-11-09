@@ -1,7 +1,10 @@
 """几个测试文件共用的小模型和小数据。"""
 
+import importlib.util
 import json
+from collections.abc import Sequence
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 import torch
@@ -10,6 +13,7 @@ from tokenizers.models import WordLevel
 from tokenizers.pre_tokenizers import Whitespace
 from transformers import Qwen3Config, Qwen3ForCausalLM
 
+ROOT = Path(__file__).resolve().parents[1]
 TINY_EOS = 1  # 小分词器里 <|endoftext|> 的编号
 
 
@@ -79,3 +83,63 @@ def sft_config(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     return config
+
+
+def load_script(name: str) -> ModuleType:
+    """把 scripts/ 下的脚本当模块导入，测试里可以替换它用到的函数。"""
+    spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / f"{name}.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def big_lora_model(model_dir: Path) -> torch.nn.Module:
+    """小 Qwen3 装上 r=4 的 LoRA，B 是很大的随机值：装上之后生成的内容一定会变。"""
+    # 在函数里导入：LoRALinear 是用户手写的，出错时只影响用到它的测试
+    from tlab.convert.qwen3 import load_qwen3
+    from tlab.finetune.lora import LoRALinear
+    from tlab.finetune.lora_model import apply_lora
+
+    model = load_qwen3(model_dir, torch.device("cpu"))
+    torch.manual_seed(0)
+    apply_lora(model, r=4, alpha=8)
+    with torch.no_grad():
+        for module in model.modules():
+            if isinstance(module, LoRALinear):
+                module.lora_B.normal_(std=1.0)
+    return model
+
+
+def write_eval_config(
+    directory: Path, lora: Path | None, test_indices: Sequence[int] = (1, 3)
+) -> Path:
+    """在 directory 下写小数据、题目子集和一份不给例子的评测配置。"""
+    data_dir = directory / "data"
+    write_data(data_dir)
+    subset = directory / "subset.json"
+    subset.write_text(
+        json.dumps(
+            {
+                "seed": 7,
+                "test_total": 6,
+                "test_indices": list(test_indices),
+                "train_total": 40,
+                "few_shot_indices": [0],
+            }
+        ),
+        encoding="utf-8",
+    )
+    lines = [
+        "prompt_mode: zero_shot",
+        "max_new_tokens: 6",
+        f"eos_token_id: {TINY_EOS}",
+        f"data_dir: {data_dir}",
+        f"subset_file: {subset}",
+        "device: cpu",
+    ]
+    if lora is not None:
+        lines.append(f"lora: {lora}")
+    path = directory / ("eval_lora.yaml" if lora else "eval_base.yaml")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path

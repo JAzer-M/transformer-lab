@@ -1,7 +1,6 @@
 """GSM8K 的数据脚本、F1 配置和评测脚本。都不联网，用测试里生成的小文件和小模型。"""
 
 import hashlib
-import importlib.util
 import json
 import subprocess
 import sys
@@ -13,20 +12,13 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 import torch
+from conftest import load_script
 
 from tlab.data.tinystories import SourceFile
 from tlab.eval.gsm8k import Example, Gsm8kEvalConfig, load_eval_config, load_examples
 
 ROOT = Path(__file__).resolve().parents[1]
 EOS = 1  # 小分词器里 <|endoftext|> 的编号
-
-
-def load_script(name: str) -> ModuleType:
-    spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / f"{name}.py")
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 # ---- 数据脚本 ----
@@ -345,16 +337,18 @@ def test_eval_script_records_the_actual_rmsnorm_setting(
     from tlab.model.layers import RMSNorm
 
     script = load_script("eval_gsm8k")
-    real_load = script.load_qwen3
+    real_load = script.load_qwen3_with_lora
 
-    def load_with_switch_off(model_dir: Path, device: torch.device) -> torch.nn.Module:
-        model = real_load(model_dir, device)
+    def load_with_switch_off(
+        model_dir: Path, device: torch.device, lora: str | None
+    ) -> tuple[torch.nn.Module, dict | None]:
+        model, info = real_load(model_dir, device, lora)
         for module in model.modules():
             if isinstance(module, RMSNorm):
                 module.compute_fp32 = False
-        return model
+        return model, info
 
-    monkeypatch.setattr(script, "load_qwen3", load_with_switch_off)
+    monkeypatch.setattr(script, "load_qwen3_with_lora", load_with_switch_off)
     out = tmp_path / "f1.json"
     monkeypatch.setattr(
         sys,

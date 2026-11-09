@@ -257,6 +257,24 @@ SFT 之后，模型学会了按 `#### 数字` 作答、答完就停下，但准�
 
 r 从 4 到 32，可训练参数从 0.19% 到 1.54%，准确率和 val loss 都分不出高下。
 
+## 用训练好的模型
+
+模型 = 我们写的结构 + 一份权重。两种用法：
+
+- **续写故事：** 用我们从零训练的小模型，结构和权重都是自己的。
+
+```bash
+uv run python scripts/sample.py --ckpt runs/tinystories_base/ckpt.pt --prompt "Once upon a time" --temperature 0.8 --top-k 50 --cache
+```
+
+- **自己提问：** 把 Qwen3 基座载入我们写的结构，可以选择装上 LoRA。提示格式、贪心解码、截断和抽答案都和评测一样。有测试保证：同一道题，这里的提示、生成的内容和抽出的答案都和评测记录相同；只是模型接着编的新题不显示。
+
+```bash
+uv run python scripts/ask.py --lora runs/m5/f2_r8_seed1337/lora.pt "Tom has 3 boxes with 12 pens each. He gives away 7 pens. How many pens does he have left?"
+```
+
+不给题目时进入交互模式，一题接一题地问，空行退出；去掉 `--lora` 就是基座。基座在 Mac（MPS）上用 `--max-new-tokens 160` 回答上面这道题：答对了 29，但没有在 eos 停下，160 个 token 用完时已经又编了 399 个字符的新题；`ask.py` 只显示截断之前的部分。
+
 ## 环境与安装
 
 - Python 3.11 或 3.12，用 `uv` 管理依赖和锁文件。

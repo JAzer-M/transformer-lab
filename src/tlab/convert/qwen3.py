@@ -23,6 +23,18 @@ MODEL_FILES = [
     "tokenizer_config.json",
 ]
 
+
+def resolve_model_dir(repo: str, model_dir: Path | None) -> tuple[Path, str]:
+    """返回模型目录和要记在结果里的名字；model_dir 不给时下载 repo（已在缓存里就不再下载）。"""
+    if model_dir is not None:
+        return model_dir, str(model_dir)
+    # 只有真要下载时才需要；下载到的目录名就是这份权重在 HF 上的版本号
+    from huggingface_hub import snapshot_download
+
+    path = Path(snapshot_download(repo, allow_patterns=MODEL_FILES))
+    return path, f"{repo}@{path.name}"
+
+
 # 每一层里，HF 的名字 → 我们的名字
 LAYER_NAMES = {
     "input_layernorm.weight": "ln1.weight",

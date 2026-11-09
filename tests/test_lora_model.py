@@ -1,17 +1,21 @@
 """把 LoRA 装进模型（agent 编写）：替换哪些层、冻结、参数量、只存 A 和 B、合并。"""
 
+import hashlib
 from pathlib import Path
 
 import pytest
 import torch
+from conftest import big_lora_model
 from torch import nn
 
+from tlab.convert.qwen3 import load_qwen3
 from tlab.eval.generate import generate
 from tlab.finetune.lora import LoRALinear
 from tlab.finetune.lora_model import (
     apply_lora,
     count_trainable,
     load_lora,
+    load_qwen3_with_lora,
     merge_lora,
     save_lora,
 )
@@ -356,3 +360,52 @@ def test_saved_alpha_is_exactly_the_one_given(
 
     # 不能从 alpha / r 反推：0.0204... × 49 不一定正好是 1
     assert torch.load(path, weights_only=True)["alpha"] == alpha
+
+
+# ---- 载入基座、装上 LoRA、合并（评测和自己提问共用）----
+
+
+IDS = torch.tensor([[5, 9, 2, 33, 7]])  # (1, T)
+
+
+def test_load_qwen3_with_lora_records_the_file_and_merges(
+    tmp_path: Path, tiny_model_dir: Path
+) -> None:
+    path = tmp_path / "lora.pt"
+    lora_model = big_lora_model(tiny_model_dir)
+    save_lora(lora_model, path)
+    with torch.no_grad():
+        expected = lora_model(IDS)  # 合并前的 logits，(1, T, V)
+
+    model, info = load_qwen3_with_lora(tiny_model_dir, torch.device("cpu"), path)
+
+    assert info == {
+        "path": str(path),
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "r": 4,
+        "alpha": 8.0,
+        "targets": list(TARGETS),
+    }
+    # 已经合并成普通的 Linear，算出来和没合并时一样
+    assert not any(isinstance(m, LoRALinear) for m in model.modules())
+    with torch.no_grad():
+        torch.testing.assert_close(model(IDS), expected)
+
+
+def test_load_qwen3_without_lora_is_the_plain_base(tiny_model_dir: Path) -> None:
+    model, info = load_qwen3_with_lora(tiny_model_dir, torch.device("cpu"), None)
+
+    assert info is None
+    base = load_qwen3(tiny_model_dir, torch.device("cpu"))
+    with torch.no_grad():
+        assert torch.equal(model(IDS), base(IDS))
+
+
+def test_missing_lora_file_is_an_error_before_loading_the_base(
+    tmp_path: Path,
+) -> None:
+    # 基座目录也不存在：先载基座的话，报的会是找不到 config.json
+    with pytest.raises(FileNotFoundError, match="nope.pt"):
+        load_qwen3_with_lora(
+            tmp_path / "no_model", torch.device("cpu"), tmp_path / "nope.pt"
+        )

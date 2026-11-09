@@ -158,17 +158,16 @@ def load_examples(path: Path) -> list[Example]:
         return [Example(row["question"], row["answer"]) for row in map(json.loads, f)]
 
 
-def answer_question(
+def generate_answer(
     model: nn.Module,
     tokenizer: Tokenizer,
-    example: Example,
     prompt: str,
     max_new_tokens: int,
     eos_token_id: int | None,
     device: torch.device,
-    use_cache: bool,
+    use_cache: bool = True,
 ) -> dict[str, Any]:
-    """贪心回答一题，返回这一题的完整记录。"""
+    """贪心续写一段提示，抽出答案；不需要标准答案（评测和自己提问共用）。"""
     prompt_ids = tokenizer.encode(prompt)
     ids = torch.tensor([prompt_ids], device=device)  # (1, T)
     with autocast_context(device):
@@ -184,20 +183,38 @@ def answer_question(
     stopped_by_eos = new_ids[-1] == eos_token_id
     # 原始文本整段留着，将来可以换规则重新打分；eos 不算文本
     output = tokenizer.decode(new_ids[:-1] if stopped_by_eos else new_ids)
-    pred = extract_answer(truncate_continuation(output))
-    gold = extract_answer(example.answer)
-    if gold is None:
-        # 否则 None == None，模型没答出也会算对
-        raise ValueError(f"标准答案里没有数：{example.answer!r}")
     return {
-        "prompt": prompt,
         "prompt_tokens": len(prompt_ids),
         "output": output,
         "new_tokens": len(new_ids),
         "stopped_by_eos": stopped_by_eos,
-        "pred": pred,
+        "pred": extract_answer(truncate_continuation(output)),
+    }
+
+
+def answer_question(
+    model: nn.Module,
+    tokenizer: Tokenizer,
+    example: Example,
+    prompt: str,
+    max_new_tokens: int,
+    eos_token_id: int | None,
+    device: torch.device,
+    use_cache: bool,
+) -> dict[str, Any]:
+    """贪心回答一题，返回这一题的完整记录。"""
+    gold = extract_answer(example.answer)
+    if gold is None:
+        # 否则 None == None，模型没答出也会算对
+        raise ValueError(f"标准答案里没有数：{example.answer!r}")
+    reply = generate_answer(
+        model, tokenizer, prompt, max_new_tokens, eos_token_id, device, use_cache
+    )
+    return {
+        "prompt": prompt,
+        **reply,
         "gold": gold,
-        "correct": pred == gold,
+        "correct": reply["pred"] == gold,
     }
 
 

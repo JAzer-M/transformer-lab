@@ -11,7 +11,10 @@ from typing import Any
 import torch
 from torch import nn
 
+from tlab.convert.qwen3 import load_qwen3
 from tlab.finetune.lora import LoRALinear
+from tlab.model.gpt import GPT
+from tlab.train.utils import file_sha256
 
 # 能装 LoRA 的层：注意力里的四个投影；F3 要试前馈子层时再加
 SUPPORTED_TARGETS = ("q_proj", "k_proj", "v_proj", "out_proj")
@@ -167,3 +170,27 @@ def merge_lora(model: nn.Module) -> nn.Module:
         child.merge()
         setattr(parent, name, child.base)
     return model
+
+
+def check_lora_file(lora: str | Path | None) -> None:
+    """LoRA 存档不存在就报错。脚本在找或下载基座之前先调用：路径写错应该马上知道。"""
+    if lora is not None and not Path(lora).is_file():
+        raise FileNotFoundError(f"找不到 LoRA 存档：{lora}")
+
+
+def load_qwen3_with_lora(
+    model_dir: Path, device: torch.device, lora: str | Path | None
+) -> tuple[GPT, dict[str, Any] | None]:
+    """载入 Qwen3 基座；给了 LoRA 存档就装上并合并。返回模型和存档的记录（没有就是 None）。
+
+    合并后和普通模型一样快；W 是 fp32，合并不会丢精度。
+    """
+    check_lora_file(lora)
+    model = load_qwen3(model_dir, device)
+    if lora is None:
+        return model, None
+    # 记下哈希：同一个路径的存档被重新训练覆盖后，也分得清用的是哪一份
+    info = {"path": str(lora), "sha256": file_sha256(Path(lora))}
+    info |= load_lora(model, Path(lora))
+    merge_lora(model)
+    return model, info

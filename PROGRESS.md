@@ -9,14 +9,16 @@
 | 项目 | 当前可核实状态 |
 | --- | --- |
 | 项目阶段 | M0–M5 完成；MVP 关口、M4、M5 里程碑已由用户确认勾选。M6 收尾开始，目标 2026-11-30 |
-| 本轮范围 | 提交 M5 复习记录、勾选 M5；清理（`.gitignore`、M0 勾选、本表）；Codex 交叉审查的指令；实验报告和面试问答素材。简历由用户在 Claude 对话里自己做 |
+| 本轮范围 | 提交 M5 复习记录、勾选 M5；清理（`.gitignore`、M0 勾选、本表）；Codex 交叉审查的指令；实验报告和面试问答素材（已推送）；自己提问的脚本 `scripts/ask.py`（已推送到 `origin/m6-ask`，未合并 main，等 Codex 审查和用户在 Windows 上试）。简历由用户在 Claude 对话里自己做 |
 | 实现方 / 审查方 | Claude 写；Codex 交叉审查 M3–M5 的代码待用户转交 |
-| 最近的结果 | M5 见 `experiments/m5_gsm8k/SUMMARY.md`：F4 两条曲线 454 步逐位相同；F1 基座 46.8% / 48.4% → SFT 后 8 次合计 49.75%，差异不显著；F2 各 r 差异不显著 |
-| 测试 | 765 passed（2026-11-09，m6-report 合并后从 `git archive main` 干净导出） |
-| 下一步 | Codex 只读审查 M3–M5；用户自己写面试问答和简历 |
+| 最近的结果 | M5 见 `experiments/m5_gsm8k/SUMMARY.md`：F4 两条曲线 454 步逐位相同；F1 基座 46.8% / 48.4% → SFT r=8 两个种子均值 49.2%，按项目的判定规则差异不显著（不是统计检验）；F2 各 r 差异不显著 |
+| 测试 | main（e04bc79）765 passed（2026-11-09，`git archive main` 干净导出）；m6-ask 分支 778 passed（提交前，Mac） |
+| 下一步 | Codex 审查 m6-ask，用户在 Windows 上用 LoRA 自己提问，之后合并；Codex 只读审查 M3–M5；用户自己写面试问答和简历 |
 
 ## 当前任务与下一步
 
+- 2026-11-09：用户回复“可以提交推送，之后我会让 codex 做审查”：m6-ask 提交并推送分支，不合并 main。
+- 2026-11-09：用户回复“按推荐开始”：m6-ask 写完（`scripts/ask.py` 自己提问）；用户说之后在 Windows 上一起审。
 - 2026-11-09：用户回复“可以提交合并并推送了”：实验报告和面试问答素材按审查意见改完后提交（m6-report）。
 - 2026-11-09：复习记录和清理已推送（fda6d9e）；实验报告和面试问答素材写好，等用户审；Codex 审查的指令已给用户。
 - 2026-11-09：用户回复“按推荐开始”：勾选 M5 里程碑，复习记录写全（第 51–68 题和两道附加题都附参考答案，用户之后自己对照）；M6 开始，简历由用户在 Claude 对话里做。
@@ -1980,6 +1982,34 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 审查状态：Claude 只读子 agent 已审（规范 5 条、需求 12 条，已改或已记录在上一项）；Codex 交叉审查 M3–M5 待做。
 - 学习状态：用户还要自己写 8 道面试题的答案；M3、M5 的 ★ 题自己回顾。
 - 下一步：Codex 只读审查 M3–M5（指令已给用户）；用户写面试答案和简历。
+
+### 2026-11-09（UTC+08:00）｜Claude Code｜M6：自己提问的脚本 ask.py
+
+- 范围与用户确认：用户问“怎么使用我们的模型”，选了“写 ask.py 计划”，确认计划时回复“按推荐开始”。实现方 Claude Code；审查方 Claude 的两个只读子 agent（规范、需求）。用户说之后在 Windows 上一起审。
+- 工作区与设备：`/Users/j/Desktop/transformer-lab`，Mac。m6-ask 从 main（e04bc79）分出；用户同意后提交并推送到 `origin/m6-ask`，没有合并 main。
+- 改动：
+  - 新增 `scripts/ask.py`：把 Qwen3 载入我们写的 GPT，可选 `--lora` 装上并合并；用 `Question: …\nAnswer:` 贪心回答。可以在命令行给一道题，也可以不给题进入交互模式（空行、Ctrl-D、Ctrl-C 退出）。打印提示（repr）、截断前的回答、截掉的字符数、抽出的答案、是否在 eos 停下、token 数和用时。
+  - `src/tlab/eval/gsm8k.py`：抽出 `generate_answer`，`answer_question` 改成调用它；标准答案的检查提前到生成之前，只影响报错时机。
+  - `src/tlab/finetune/lora_model.py`：新增 `check_lora_file`、`load_qwen3_with_lora`。
+  - `resolve_model_dir` 从 `sft.py` 挪到 `convert/qwen3.py`，`train_peft.py` 改从那里导入；`scripts/eval_gsm8k.py` 改用 `load_qwen3_with_lora`，并在下载基座之前先查 LoRA 路径。
+  - 测试：新增 `tests/test_ask.py`（7 个），`test_gsm8k.py` 加 2 个，`test_lora_model.py` 加 3 个，`test_sft_scripts.py` 加 1 个。`conftest.py` 收进 `load_script`、`big_lora_model`、`write_eval_config` 三个共用函数，原来 `test_gsm8k_scripts.py`、`test_sft_scripts.py` 里的同名函数和内联代码删掉，改用共用的。`test_eval_script_records_the_actual_rmsnorm_setting` 的 monkeypatch 从 `load_qwen3` 换成 `load_qwen3_with_lora`（脚本不再直接调用前者），断言没动。
+  - README 加“用训练好的模型”一节。
+- 本次验证（Mac）：
+  - `uv run pytest -q` 778 passed；`uv run ruff check .` 通过。
+  - 故意改错 7 种，最后都抓到了：换提示格式、回答不截断、ask.py 不先查 LoRA、评测脚本不先查 LoRA、停下的说法写反、抽答案前不截断、装 LoRA 不合并。“换提示格式”第一轮没抓到：小分词器不认识 Question、Answer，两种格式编成同样的 [UNK]。所以改成打印提示，并让测试核对提示和评测记录逐字相同。
+  - `tiny_smoke`、`tinystories_smoke` 的 metrics.csv 和 main 逐字相同。
+  - 在同一个小模型上，`eval_gsm8k.py` 的 4 种组合（few-shot、zero-shot × 基座、LoRA）在 main 和本分支上输出的 JSON 去掉用时、commit 后完全相同，字段顺序也相同（审查修改前后各核对一次）。
+  - 真实 Base 在 Mac MPS 上 `--max-new-tokens 160` 问 README 里那道题：答对 29，没在 eos 停下，截掉 399 个字符，跑了两次结果相同。需求审查实测：默认 256 时截掉的是 646 个字符。
+- 未验证与失败：没有在 Windows 上跑；LoRA 存档不在 Mac 上，真实的 SFT 模型没有试问。截断提示只在单元测试里用假回复测过，小模型触发不了截断。`--max-new-tokens 0` 会在 `generate_answer` 里报 IndexError，main 上的 `answer_question` 也一样，没改。
+- 决策与原因：
+  - 只做不给例子（zero-shot）、贪心，和 SFT 训练与评测一致。
+  - 共用函数而不复制，保证 ask.py 和评测走同一条路。
+  - 评测脚本保留自己的 `snapshot_download`，没有改用 `resolve_model_dir`：改的话要再改一个已有测试的 monkeypatch 位置，而这处重复 main 上本来就有。
+  - `load_qwen3_with_lora` 放在 `lora_model.py`：finetune 依赖 convert 的方向没变，不会循环导入。
+  - 审查建议的 `--repo` 参数删掉，基座固定为 `Qwen/Qwen3-0.6B-Base`。
+- 审查状态：Claude 只读子 agent 已审。规范：没有硬性违规，判断题 6 条，采纳了重复的测试辅助函数、`resolve_model_dir` 的位置、改名、显式传参。需求：采纳了 README 写明 160、“逐字相同”的措辞、截断提示的测试、先查 LoRA 再找基座、删 `--repo`、Ctrl-C 退出。用户在 Windows 上的审查待做。
+- 学习状态：用户想弄清“模型 = 架构 + 权重”，这次已经讲过（函数 f(x; θ) 的类比、`load_state_dict`、权重文件不含计算规则）；之后可以在 Windows 上用 ask.py 对比基座和 SFT 的回答。
+- 下一步：Codex 只读审查 m6-ask（`git diff main...origin/m6-ask`）；用户在 Windows 上用 `--lora runs/m5/f2_r8_seed1337/lora.pt` 自己提问；确认后合并 main 并推送。
 
 ## 后续交接模板
 

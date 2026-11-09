@@ -15,6 +15,7 @@ from tlab.eval.gsm8k import (
     evaluate_gsm8k,
     extract_answer,
     few_shot_prompt,
+    generate_answer,
     load_examples,
     make_eval_subset,
     strip_calculator,
@@ -267,6 +268,50 @@ def test_evaluate_scores_every_question_and_records_what_was_generated() -> None
     assert result["new_tokens"] == sum(item["new_tokens"] for item in result["items"])
     assert result["tokens_per_second"] > 0
     assert "peak_memory_mb" in result
+
+
+def test_generate_answer_needs_no_gold_answer() -> None:
+    # 自己提问时没有标准答案：只续写、抽答案，不打分
+    model = ScriptedModel(
+        {"Question: Right?\nAnswer:": " 9*2=18\n#### 18\n\nQuestion: other #### 7"}
+    )
+
+    result = generate_answer(
+        model,
+        ByteTokenizer(),
+        "Question: Right?\nAnswer:",
+        max_new_tokens=64,
+        eos_token_id=EOS,
+        device=torch.device("cpu"),
+        use_cache=False,
+    )
+
+    assert result == {
+        "prompt_tokens": 24,
+        "output": " 9*2=18\n#### 18\n\nQuestion: other #### 7",
+        "new_tokens": 40,  # 39 个字节 + eos
+        "stopped_by_eos": True,
+        "pred": "18",  # 抽之前先截掉编出来的下一题
+    }
+
+
+def test_generate_answer_cut_off_by_the_token_limit() -> None:
+    model = ScriptedModel({"Q": " 9*2=18"})
+
+    result = generate_answer(
+        model,
+        ByteTokenizer(),
+        "Q",
+        max_new_tokens=5,
+        eos_token_id=EOS,
+        device=torch.device("cpu"),
+        use_cache=False,
+    )
+
+    assert result["output"] == " 9*2="
+    assert result["new_tokens"] == 5
+    assert result["stopped_by_eos"] is False
+    assert result["pred"] == "2"  # 没写完时只能取到最后一个数
 
 
 def test_evaluate_ignores_numbers_of_the_invented_question() -> None:

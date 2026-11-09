@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 import torch
-from conftest import TINY_EOS, write_data
+from conftest import big_lora_model, load_script, write_data, write_eval_config
 
 from tlab.convert.qwen3 import load_qwen3
 from tlab.finetune.lora import LoRALinear
@@ -105,50 +105,12 @@ def test_bfloat16_base_needs_a_gpu(sft_config: Path, tiny_model_dir: Path) -> No
 # ---- 评测时载入 LoRA ----
 
 
-def write_eval_config(tmp_path: Path, lora: Path | None) -> Path:
-    data_dir = tmp_path / "data"
-    write_data(data_dir)
-    subset = tmp_path / "subset.json"
-    subset.write_text(
-        json.dumps(
-            {
-                "seed": 7,
-                "test_total": 6,
-                "test_indices": [1, 3],
-                "train_total": 40,
-                "few_shot_indices": [0],
-            }
-        ),
-        encoding="utf-8",
-    )
-    lines = [
-        "prompt_mode: zero_shot",
-        "max_new_tokens: 6",
-        f"eos_token_id: {TINY_EOS}",
-        f"data_dir: {data_dir}",
-        f"subset_file: {subset}",
-        "device: cpu",
-    ]
-    if lora is not None:
-        lines.append(f"lora: {lora}")
-    path = tmp_path / ("eval_lora.yaml" if lora else "eval_base.yaml")
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    return path
-
-
 def test_eval_script_loads_and_merges_a_lora(
     tmp_path: Path, tiny_model_dir: Path
 ) -> None:
     # 一个 B 很大的 LoRA：装上之后生成的内容一定会变
-    model = load_qwen3(tiny_model_dir, torch.device("cpu"))
-    torch.manual_seed(0)
-    apply_lora(model, r=4, alpha=8)
-    with torch.no_grad():
-        for module in model.modules():
-            if isinstance(module, LoRALinear):
-                module.lora_B.normal_(std=1.0)
     lora_path = tmp_path / "lora.pt"
-    save_lora(model, lora_path)
+    save_lora(big_lora_model(tiny_model_dir), lora_path)
 
     outputs = {}
     for lora in (None, lora_path):
@@ -183,6 +145,25 @@ def test_eval_script_loads_and_merges_a_lora(
     base_text = [item["output"] for item in outputs[None]["items"]]
     lora_text = [item["output"] for item in outputs[lora_path]["items"]]
     assert base_text != lora_text
+
+
+def test_eval_checks_the_lora_before_looking_for_the_base(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    script = load_script("eval_gsm8k")
+
+    def must_not_download(*args: object) -> None:
+        raise AssertionError("LoRA 路径不对时不该去找或下载基座")
+
+    monkeypatch.setattr(script, "snapshot_download", must_not_download)
+    config = write_eval_config(tmp_path, tmp_path / "nope.pt")
+    out = str(tmp_path / "out.json")
+    monkeypatch.setattr(
+        sys, "argv", ["eval_gsm8k.py", "--config", str(config), "--out", out]
+    )
+
+    with pytest.raises(FileNotFoundError, match="nope.pt"):
+        script.main()
 
 
 def test_config_for_evaluating_the_sft_model() -> None:

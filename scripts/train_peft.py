@@ -28,6 +28,7 @@ from peft import LoraConfig, get_peft_model
 from torch import nn
 from transformers import Qwen3ForCausalLM
 
+from tlab.convert.qwen3 import resolve_model_dir
 from tlab.finetune.sft import (
     SFTConfig,
     check_start,
@@ -35,7 +36,6 @@ from tlab.finetune.sft import (
     load_sft_config,
     prepare_items,
     resolve_device,
-    resolve_model_dir,
 )
 from tlab.finetune.sft_data import Item
 from tlab.tokenizer.hf_bpe import HFTokenizer
