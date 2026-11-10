@@ -23,3 +23,7 @@ return self.weight * x_normed.to(dtype)
 ```
 
 这个改动在 CPU 的 bf16 下让每层和分数的误差都变成 0.0；GPU 上没有试过。
+
+## 数据来源
+
+评测和训练记录里的题目、标准答案来自 [GSM8K](https://huggingface.co/datasets/openai/gsm8k)（Cobbe et al., 2021），按 MIT 许可证发布，版权归 OpenAI 所有。基座权重 [Qwen3-0.6B-Base](https://huggingface.co/Qwen/Qwen3-0.6B-Base) 按 Apache-2.0 发布，本仓库不包含权重文件。

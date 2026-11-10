@@ -1,10 +1,15 @@
 # transformer-lab
 
-从零实现 Llama/Qwen 风格的 Decoder-only Transformer：先在 TinyStories 上预训练小模型，逐个替换组件做消融实验，再让这套架构载入 Qwen3-0.6B 的权重，用手写 LoRA 在 GSM8K 上做微调。
+从零实现的 Llama/Qwen 风格 Decoder-only Transformer。项目包括：在 TinyStories 上预训练小模型并逐个组件做消融实验；用同一套实现载入 Qwen3-0.6B 的官方权重并与 `transformers` 逐层对齐；用手写的 LoRA 在 GSM8K 上做监督微调（SFT），并与 HF PEFT 对照。
 
-这是学习项目和简历项目，目标是能讲清每一行。模型、注意力、归一化、位置编码、训练循环都不使用 `nn.Transformer`、`nn.MultiheadAttention` 或 `transformers` 的模型类。
+模型、注意力、归一化、位置编码、训练循环与 LoRA 均为从零实现，未使用 `nn.Transformer`、`nn.MultiheadAttention` 或 `transformers`、`peft` 的模型类；后两者只用于对照实验和测试。文中数字均为实际运行结果，完整分析见[实验报告](docs/report.md)。
 
-**当前进度：** M3（现代组件和消融实验）、M4（载入 Qwen3-0.6B 权重）和 M5（手写 LoRA，在 GSM8K 上做 SFT）已经完成，下面的数字都是实际跑出来的。
+## 主要结果
+
+- **权重对齐：** 自研架构载入 Qwen3-0.6B（596,049,920 个参数）后，fp32 下 logits 与官方实现的最大误差为 1.73e-04；RMSNorm 内部改用 fp32 计算后，GPU bf16 下三个提示的每一层输出均逐位相同。
+- **LoRA 实现：** 手写 LoRA 与 HF PEFT 从相同初值出发训练 454 步，每一步的 train loss 和最终的 val loss 均逐位相同。
+- **结构消融：** 约 1,400 万参数的模型，每个变体 1 亿 token、2 个种子。RoPE 和 SwiGLU 分别使 val loss 降低 0.0523 和 0.0339；Post-LN、正弦位置编码、GQA-2、MQA 均更差。
+- **监督微调：** GSM8K 固定 500 题上，在 eos 处停止的题目由 32/500 增至 483/500；准确率由 48.4% 变为 49.2%（r=8 两个种子的均值），未超过种子间差距，按项目的判定规则差异不显著。
 
 ## 模型结构
 
@@ -41,8 +46,6 @@ flowchart TD
 | `rmsnorm_fp32` | `true`、`false`（RMSNorm 内部先转 fp32，和 Qwen3 官方相同） | `false`；载入 Qwen3 时自动打开 |
 
 生成时可以用 KV 缓存：`generate(..., use_cache=True)` 或 `scripts/sample.py --cache`，生成的文字不变。
-
-**亲手写的部分：** 多头注意力、GQA、`head_dim` 和 QK-Norm（`model/attention.py`）、Block（`model/block.py`）、RMSNorm、SwiGLU、RoPE（`model/layers.py`）、主训练循环（`train/trainer.py`）、RMSNorm 内部转 fp32 的那几行、`LoRALinear`（`finetune/lora.py`）、SFT 里只让答案算 loss 的 `build_example`（`finetune/sft_labels.py`）。配置开关、KV 缓存、权重转换、评测和汇总脚本由 AI 编程助手写，并在手写的文件里逐处标注。规则见 [AGENTS.md](AGENTS.md)。
 
 ## 消融实验
 
@@ -131,7 +134,7 @@ RoPE 没有长度上限，比正弦也稳得多，但超出训练长度后同样
 | `a4_mqa` | 88,163 | +1.6% | 4,728 | -23 |
 | `a9_modern` | 74,706 | -13.9% | 5,303 | +552 |
 
-### KV 缓存什么时候才划算
+### KV 缓存的收益
 
 对照结构，随机权重，贪心生成，开头 32 个 token，新生成 480 个。RTX 5060 每项 5 次，CPU 每项 3 次，取中位数；tokens/s 是整个 batch 的总和：
 
@@ -182,7 +185,7 @@ Once upon a time. he, was., the... mom the., and a to and... a of.. you and said
 - 训练吞吐只看短测，长训练的吞吐受温度和频率影响，不作结论。
 - RoPE 和 RMSNorm 确实更慢，RMSNorm 和 SwiGLU 确实更占显存，这里只测了差多少，没有拆开测原因。
 
-## 载入 Qwen3-0.6B
+## 载入 Qwen3-0.6B 官方权重
 
 用上面同一套代码载入 [Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B) 的官方权重（596,049,920 个参数），和 `transformers` 的官方实现逐层对比。结构靠配置开关切换，不需要另写模型。
 
@@ -196,8 +199,8 @@ Once upon a time. he, was., the... mom the., and a to and... a of.. you and said
 
 验收标准是 fp32 下分数最大误差在 1e-4 量级、贪心生成一致，都满足。记录见 [alignment.json](experiments/m4_qwen3/alignment.json)。
 
-- **误差只来自一处浮点舍入：** 我们写的是 `scores / d**0.5`，官方是 `scores * d**-0.5`，数学上相同。在代码副本里改成官方的写法后，三个提示每一层的误差都是 0.0（[记录](experiments/m4_qwen3/alignment_official_scaling.json)），说明结构和权重映射没有差别。正式代码不改这一行，否则 M1–M3 的结果就不能逐字复现。
-- **GPU 和 bf16 下（M5 补充）：** 官方的 RMSNorm 内部会先转成 fp32。M5 加了同样的开关 `rmsnorm_fp32`（载入 Qwen3 时打开）后，RTX 5060 上 bf16 的分数最大误差从 0.65625 变成 0.0。记录见 [experiments/m5_gsm8k/](experiments/m5_gsm8k/)。
+- **误差只来自一处浮点舍入：** 本实现写作 `scores / d**0.5`，官方是 `scores * d**-0.5`，数学上相同。在代码副本里改成官方的写法后，三个提示每一层的误差都是 0.0（[记录](experiments/m4_qwen3/alignment_official_scaling.json)），说明结构和权重映射没有差别。正式代码保留原写法，以保证此前预训练和消融的结果能逐字复现。
+- **GPU 和 bf16 下：** 官方的 RMSNorm 内部会先转成 fp32。加入同样的开关 `rmsnorm_fp32`（载入 Qwen3 时打开）后，RTX 5060 上 bf16 的分数最大误差从 0.65625 变成 0.0。记录见 [experiments/m5_gsm8k/](experiments/m5_gsm8k/)。
 
 自研模型生成的文字（没有用对话模板，只是接着写）：
 
@@ -205,14 +208,14 @@ Once upon a time. he, was., the... mom the., and a to and... a of.. you and said
 Once upon a time, in a small town by the sea, there lived an old fisherman who went out every morning before the sun came up. One day he found a small boat on the beach, and he decided to go out on it. He took the boat to the sea, and soon he found that the boat was full of fish.……
 ```
 
-## LoRA 微调（M5）
+## LoRA 监督微调
 
 用手写的 `LoRALinear` 在 GSM8K 上微调 Qwen3-0.6B-Base（用自研架构载入），并和 HF + PEFT 的官方实现对比。完整结果和设置见 [experiments/m5_gsm8k/SUMMARY.md](experiments/m5_gsm8k/SUMMARY.md)。
 
 - **训练：** LoRA 装在每层的 q、k、v、out 投影上，alpha 16，学习率 2e-4，微批 2 × 累积 8，1 个 epoch（7,273 题，454 步），只对答案算 loss，RTX 5060 Laptop 8 GB，bf16。
 - **评测：** 测试集里固定的 500 题，贪心解码；500 题的标准误约 2.2 个百分点。
 
-### 自研 LoRA 和 PEFT：逐位相同（F4）
+### 与 PEFT 的对照
 
 PEFT 从同一个初始 A、B 出发，用同样的数据、顺序、训练循环和超参数训练：
 
@@ -234,7 +237,7 @@ PEFT 从同一个初始 A、B 出发，用同样的数据、顺序、训练循�
 
 这说明自研的架构加手写的 LoRA，和官方 Qwen3 加 PEFT 做的是同一套计算，连 bf16 下的舍入都一样。
 
-### 微调前后（F1）
+### 微调前后对比
 
 | 模型 | 提示 | 答对 | 准确率 | 在 eos 停下 | 平均新 token |
 | --- | --- | --- | --- | --- | --- |
@@ -246,7 +249,7 @@ PEFT 从同一个初始 A、B 出发，用同样的数据、顺序、训练循�
 
 SFT 之后，模型学会了按 `#### 数字` 作答、答完就停下，但准确率只比基座高 1–3 个百分点，没有超过种子之间的差距，按判定规则是差异不显著。原因没有验证；推断之一是基座在预训练时已经见过大量类似的数学数据。
 
-### LoRA 的 rank（F2）
+### LoRA 秩（rank）的影响
 
 | r | 可训练参数 | 占全部参数 | 种子 1337 | 种子 2024 | 均值 | 种子间差距 | 与 r=8 差 | 结论 | 最后的 val loss（均值） | 显存峰值 | 训练用时 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -257,17 +260,17 @@ SFT 之后，模型学会了按 `#### 数字` 作答、答完就停下，但准�
 
 r 从 4 到 32，可训练参数从 0.19% 到 1.54%，准确率和 val loss 都分不出高下。
 
-## 用训练好的模型
+## 使用模型
 
-模型 = 我们写的结构 + 一份权重。两种用法：
+模型由结构（本仓库的代码）和一份权重组成。提供两种用法：
 
-- **续写故事：** 用我们从零训练的小模型，结构和权重都是自己的。
+- **续写故事：** 使用在 TinyStories 上从零预训练的小模型。
 
 ```bash
 uv run python scripts/sample.py --ckpt runs/tinystories_base/ckpt.pt --prompt "Once upon a time" --temperature 0.8 --top-k 50 --cache
 ```
 
-- **自己提问：** 把 Qwen3 基座载入我们写的结构，可以选择装上 LoRA。提示格式、贪心解码、截断和抽答案都和评测一样。有测试保证：同一道题，这里的提示、生成的内容和抽出的答案都和评测记录相同；只是模型接着编的新题不显示。
+- **自由提问：** 将 Qwen3 基座载入本实现，可选装上 LoRA。提示格式、贪心解码、截断和抽答案都和评测一样。有测试保证：同一道题，这里的提示、生成的内容和抽出的答案都和评测记录相同；只是模型接着编的新题不显示。
 
 ```bash
 uv run python scripts/ask.py --lora runs/m5/f2_r8_seed1337/lora.pt "Tom has 3 boxes with 12 pens each. He gives away 7 pens. How many pens does he have left?"
@@ -275,14 +278,14 @@ uv run python scripts/ask.py --lora runs/m5/f2_r8_seed1337/lora.pt "Tom has 3 bo
 
 不给题目时进入交互模式，一题接一题地问，空行退出；去掉 `--lora` 就是基座。基座在 Mac（MPS）上用 `--max-new-tokens 160` 回答上面这道题：答对了 29，但没有在 eos 停下，160 个 token 用完时已经又编了 399 个字符的新题；`ask.py` 只显示截断之前的部分。
 
-Codex 审查时，在 RTX 5060 上用默认的 256 个 token 对比了同一道题（见[审查记录](docs/reviews/codex-m6-ask-eb4e44b.md)）：
+代码审查时在 RTX 5060 上以默认的 256 个 token 对同一道题做了对比（见[审查记录](docs/reviews/codex-m6-ask-eb4e44b.md)）：
 
 | 模型 | 抽出的答案 | 在 eos 停下 | 生成 token | 截掉的续写 |
 | --- | --- | --- | --- | --- |
 | LoRA SFT r=8，种子 1337 | 29（写成 `#### 29`） | 是 | 34 | 0 个字符 |
 | 基座 | 29 | 否，写满 256 个 | 256 | 600 个字符 |
 
-两者答案相同；SFT 改变的是写法和答完就停，这和 F1 里在 eos 停下的题从 32/500 变成 483/500 是一回事。
+两者答案相同；SFT 改变的是作答格式和答完即停，与微调前后对比中在 eos 停下的题目由 32/500 增至 483/500 是同一现象。
 
 ## 环境与安装
 
@@ -310,7 +313,7 @@ uv run ruff check . && uv run ruff format --check .
 uv run python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.get_device_name(0)); torch.randn(1).cuda()"
 ```
 
-## 复现结果
+## 复现实验
 
 训练一个变体，再在完整验证集上打分（需要先准备好 `data/tinystories/`，见 `scripts/prepare_tinystories.py`）：
 
@@ -336,7 +339,7 @@ uv run python scripts/check_qwen3.py --out experiments/m4_qwen3/alignment.json
 
 环境里设了 SOCKS 代理时，下载会报缺 `socksio`。如果同时有 HTTP 代理，在命令前加 `env -u ALL_PROXY -u all_proxy`。
 
-M5：准备 GSM8K，评测基座，LoRA 微调后再评测（第一次会下载基座权重，约 1.2 GB）：
+微调实验：准备 GSM8K，评测基座，LoRA 微调后再评测（第一次会下载基座权重，约 1.2 GB）：
 
 ```bash
 uv run python scripts/prepare_gsm8k.py
@@ -354,7 +357,7 @@ uv run python scripts/train_sft.py --config configs/finetune/f2_r8.yaml seed=133
 uv run python scripts/eval_gsm8k.py --config configs/finetune/f1_sft_r8.yaml --out runs/m5/f2_r8_seed1337_eval.json
 ```
 
-和 PEFT 对比（F4，要先跑完上面那次训练）：
+与 PEFT 对照（需先完成上面的训练）：
 
 ```bash
 uv run python scripts/train_peft.py --config configs/finetune/f4_peft_r8.yaml
@@ -364,13 +367,13 @@ uv run python scripts/train_peft.py --config configs/finetune/f4_peft_r8.yaml
 uv run python scripts/compare_curves.py --ours runs/m5/f2_r8_seed1337 --theirs runs/m5/f4_peft_r8_seed1337 --out runs/m5/f4_compare.json
 ```
 
-用仓库里已有的结果重新生成 M5 的汇总表：
+用仓库里已有的结果重新生成微调实验的汇总表：
 
 ```bash
 uv run python scripts/summarize_m5.py --out experiments/m5_gsm8k/SUMMARY.md
 ```
 
-用仓库里已有的结果重新生成汇总表和曲线图：
+用仓库里已有的结果重新生成消融实验的汇总表和曲线图：
 
 ```bash
 uv run python scripts/summarize_ablations.py experiments/m3_ablations --configs configs/ablations --out experiments/m3_ablations/SUMMARY.md
@@ -388,22 +391,11 @@ uv run python scripts/bench_attention.py --configs configs/ablations/a0_control.
 
 每次实验的配置、commit、种子和数字都记录在 [experiments/results.md](experiments/results.md)、[experiments/m3_ablations/](experiments/m3_ablations/) 和 [experiments/m5_gsm8k/](experiments/m5_gsm8k/) 里。
 
-## 文档
+## AI 辅助说明
 
-- [AGENTS.md](AGENTS.md)：项目规范。
-- [docs/report.md](docs/report.md)：实验报告，M1–M5 的结果、排查过的问题和局限。
-- [docs/PLAN.md](docs/PLAN.md)：计划、里程碑和验收标准。
-- [PROGRESS.md](PROGRESS.md)：当前状态和交接记录。
-- [docs/m3-windows-run.md](docs/m3-windows-run.md)：M3 实验的执行手册。
-- [docs/m5-windows-run.md](docs/m5-windows-run.md)：M5 实验的执行手册。
-- [docs/interview-prep.md](docs/interview-prep.md)：面试问答准备（素材，答案由作者自己写）。
+本项目开发中使用了 AI 编程助手（Claude Code、Codex），用于：组件的配置开关与 KV 缓存、Qwen3 权重转换、数据预处理、评测与结果汇总脚本、单元测试、代码审查、在 RTX 5060 上执行实验，以及文档撰写。核心模块中由 AI 编写的段落均在文件内逐处标注；协作规范见 [AGENTS.md](AGENTS.md)，开发过程记录见 [PROGRESS.md](PROGRESS.md)。
 
-## 许可证
+## 相关文档
 
-代码以 [MIT 许可证](LICENSE) 发布。仓库里不包含数据集和模型权重；用到的第三方资源各有各的许可证：
-
-| 资源 | 用在哪里 | 许可证 |
-| --- | --- | --- |
-| [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories) | M2–M3 预训练 | CDLA-Sharing-1.0 |
-| [Qwen3-0.6B-Base](https://huggingface.co/Qwen/Qwen3-0.6B-Base) | M4–M5 载入的权重 | Apache-2.0 |
-| [GSM8K](https://huggingface.co/datasets/openai/gsm8k) | M5 的微调和评测；`experiments/m5_gsm8k/` 的评测记录里有题目原文 | MIT |
+- [docs/report.md](docs/report.md)：实验报告，包括各阶段结果、排查过的问题和局限。
+- [experiments/results.md](experiments/results.md)：每次实验的配置、commit、种子和结果。

@@ -17,6 +17,7 @@
 
 ## 当前任务与下一步
 
+- 2026-11-10：用户要求 README 更正式：不用第一人称，不写哪些是自己写的，只写明 AI 辅助了什么；去掉“当前进度”和许可证一节。m6-readme 改完；用户回复“提交合并并推送”，并让 Claude 一并处理报告第 1 节和 PLAN 里的私人待办。
 - 2026-11-10：用户在 Safari 里把 GitHub 仓库改成公开（Claude 不登录核对：主页和 README 原文都返回 200）；用户选择加 MIT 许可证。
 - 2026-11-09：用户回复“勾选一下吧，然后不做了”：勾选“README、实验报告定稿”，M3–M5 的 Codex 交叉审查不做；报告第 7 节的审查说明改成实际情况。
 - 2026-11-09：Codex 审查 m6-ask 完成（22b4fd0）：规范 1 个 P3（`tests/test_ask.py` 的 `ask` 缺返回类型），需求 0 个；已修，README 补上审查时 GPU 实跑的基座与 SFT 对比。用户回复“提交合并并推送吧”：提交、合并 main、推送。
@@ -2054,6 +2055,21 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 审查状态：未请求（只改文档）。
 - 学习状态：同上一条。
 - 下一步：用户自己取舍面试准备和简历；简历里可以放这个仓库的链接。
+
+### 2026-11-10（UTC+08:00）｜Claude Code｜README 改成正式的项目介绍
+
+- 范围与用户确认：用户说“能否将这个仓库设计的更有个人味道一点，比如像当前进度，许可证什么的，我想不需要出现了吧”。Claude 给了第一人称的计划和样稿，用户改为：不用第一人称，更正式；不写哪些是自己写的，写明 AI 辅助做了什么。实现方 Claude Code；只改文档，没有请求审查。
+- 工作区与设备：`/Users/j/Desktop/transformer-lab`，Mac。m6-readme 从 main（f3ff6d0）分出，未提交。
+- 改动：
+  - `README.md`：开头改成正式的项目简介，加“主要结果”4 条（数字都取自实验报告）；删去“学习项目和简历项目”“当前进度”、亲手写的部分清单和“许可证”一节；标题去掉 M、F 编号；正文里的“我们写的”改成“本实现”；末尾加“AI 辅助说明”（Claude Code、Codex 用于配置开关与 KV 缓存、权重转换、数据预处理、评测与汇总脚本、单元测试、代码审查、执行实验和撰写文档）；“相关文档”只留实验报告和 `experiments/results.md`。结果表、样例节选、对齐数据都没动。
+  - `experiments/m5_gsm8k/README.md`：末尾加“数据来源”，注明 GSM8K（MIT，版权归 OpenAI）和 Qwen3-0.6B-Base（Apache-2.0），贴着含题目原文的评测记录。`LICENSE` 文件保留，GitHub 页面照常显示。
+  - 本文件。
+- 本次验证（Mac，提交前）：`uv run pytest tests/test_readme.py tests/test_m5_summary.py tests/test_report.py -q` 57 passed；`uv run ruff check .` 通过；`uv run pytest -q` 778 passed。
+- 未验证与失败：`docs/report.md` 第 1 节仍然列出作者亲手写的部分，用户这次只要求改 README，没动。`docs/PLAN.md` 里有投递前总待办（刷题、PaperLens、简历、GPA），仓库公开后也能看到；README 不再链接它。
+- 决策与原因：已有测试逐格核对 README 里的结果表，所以表不挪、不改，测试一个没动；GSM8K 的许可声明挪到它的数据旁边，满足 MIT 要求附声明的条件，主页上不再出现许可证。
+- 审查状态：未请求（只改文档）。
+- 学习状态：同前。
+- 下一步：用户看过 README 后决定是否提交合并推送。
 
 ## 后续交接模板
 
