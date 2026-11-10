@@ -17,6 +17,7 @@
 
 ## 当前任务与下一步
 
+- 2026-11-10：用户在 Safari 里把 GitHub 仓库改成公开（Claude 不登录核对：主页和 README 原文都返回 200）；用户选择加 MIT 许可证。
 - 2026-11-09：用户回复“勾选一下吧，然后不做了”：勾选“README、实验报告定稿”，M3–M5 的 Codex 交叉审查不做；报告第 7 节的审查说明改成实际情况。
 - 2026-11-09：Codex 审查 m6-ask 完成（22b4fd0）：规范 1 个 P3（`tests/test_ask.py` 的 `ask` 缺返回类型），需求 0 个；已修，README 补上审查时 GPU 实跑的基座与 SFT 对比。用户回复“提交合并并推送吧”：提交、合并 main、推送。
 - 2026-11-09：用户回复“可以提交推送，之后我会让 codex 做审查”：m6-ask 提交并推送分支，不合并 main。
@@ -2039,6 +2040,20 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 审查状态：未请求（只改文档）。
 - 学习状态：学习护栏 21 题在 PLAN 里都没勾；`docs/self-test-qa.md` 共 73 条，✅ 8、🟡 25、⬜ 31、未作答 9；`docs/interview-prep.md` 8 道题的回答是空的。
 - 下一步：用户按进度清单自己取舍。
+
+### 2026-11-10（UTC+08:00）｜Claude Code｜仓库公开，加 MIT 许可证
+
+- 范围与用户确认：用户问要不要把仓库设为公开，看过公开前的检查后说“你帮我操作一下吧”。内置浏览器没有登录 GitHub，用户改为自己在 Safari 里把仓库改成公开；之后选择“加 MIT 许可证”。实现方 Claude Code；只改文档，没有请求审查。
+- 工作区与设备：`/Users/j/Desktop/transformer-lab`，Mac。m6-license 从 main（9f95486）分出。
+- 公开前的检查（Mac，全部历史）：没有 HF、GitHub、OpenAI 的 token、私钥或密码；仓库文件里没有邮箱，提交作者邮箱是本机默认地址；最大的文件是 1.4 MB 的评测 JSON，数据、存档、权重都没进 git；11 个文件共 50 行带 `/Users/j/` 或 `/home/j/`。`docs/self-test-qa.md` 有 33 处“不会、忘了、不知道”的原始回答，用户知情，没有移出。
+- 公开后的核对：不登录访问 `https://github.com/JAzer-M/transformer-lab` 返回 200（改之前不登录访问 API 是 404），`main` 的 README 原文返回 200。GitHub API 因为出口 IP 超了限额返回 403，没用上。
+- 改动：新增 `LICENSE`（MIT，署名 JAzer-M）；README 末尾加“许可证”一节，列出 TinyStories（CDLA-Sharing-1.0）、Qwen3-0.6B-Base（Apache-2.0）、GSM8K（MIT），三项都在 Hugging Face 的 API 上核对过；本文件。
+- 本次验证（Mac，提交前）：`uv run pytest tests/test_report.py -q` 34 passed；`uv run ruff check .` 通过。
+- 未验证与失败：GitHub 是否识别出 MIT 许可证，要推送后再看。
+- 决策与原因：署名用 GitHub 用户名 JAzer-M，用户想换成真名可以改 `LICENSE` 第 3 行；`pyproject.toml` 没加 license 字段，免得影响 `uv.lock`。
+- 审查状态：未请求（只改文档）。
+- 学习状态：同上一条。
+- 下一步：用户自己取舍面试准备和简历；简历里可以放这个仓库的链接。
 
 ## 后续交接模板
 

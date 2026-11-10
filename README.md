@@ -397,3 +397,13 @@ uv run python scripts/bench_attention.py --configs configs/ablations/a0_control.
 - [docs/m3-windows-run.md](docs/m3-windows-run.md)：M3 实验的执行手册。
 - [docs/m5-windows-run.md](docs/m5-windows-run.md)：M5 实验的执行手册。
 - [docs/interview-prep.md](docs/interview-prep.md)：面试问答准备（素材，答案由作者自己写）。
+
+## 许可证
+
+代码以 [MIT 许可证](LICENSE) 发布。仓库里不包含数据集和模型权重；用到的第三方资源各有各的许可证：
+
+| 资源 | 用在哪里 | 许可证 |
+| --- | --- | --- |
+| [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories) | M2–M3 预训练 | CDLA-Sharing-1.0 |
+| [Qwen3-0.6B-Base](https://huggingface.co/Qwen/Qwen3-0.6B-Base) | M4–M5 载入的权重 | Apache-2.0 |
+| [GSM8K](https://huggingface.co/datasets/openai/gsm8k) | M5 的微调和评测；`experiments/m5_gsm8k/` 的评测记录里有题目原文 | MIT |
