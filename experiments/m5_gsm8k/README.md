@@ -24,6 +24,10 @@ return self.weight * x_normed.to(dtype)
 
 这个改动在 CPU 的 bf16 下让每层和分数的误差都变成 0.0；GPU 上没有试过。
 
+## 抽答案规则的试跑（2026-11-07，Mac）
+
+正式评测之前，先在 Mac 上用基座试跑，结果没有单独存档：不给例子的 40 题，旧规则 5/40，新规则 22/40；few-shot 5 题 1/5。旧规则截断续写时还不认 `[Question]` 这种开头，也没有 `answer is` 一条，基座答完接着编题时取到了编出来的数。样本太小，不作结论，没有写进 `experiments/results.md`；这 40 题是看过旧规则的结果后才改的规则。
+
 ## 数据来源
 
 评测和训练记录里的题目、标准答案来自 [GSM8K](https://huggingface.co/datasets/openai/gsm8k)（Cobbe et al., 2021），按 MIT 许可证发布，版权归 OpenAI 所有。基座权重 [Qwen3-0.6B-Base](https://huggingface.co/Qwen/Qwen3-0.6B-Base) 按 Apache-2.0 发布，本仓库不包含权重文件。

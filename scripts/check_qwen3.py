@@ -1,6 +1,6 @@
 """M4 验收：自研模型载入 Qwen3 权重，和 transformers 逐层对比，再比较贪心生成。
 
-transformers 只在这个脚本里当对照，src/tlab 不依赖它（AGENTS 硬性规则 1）。
+transformers 只在这个脚本里当对照，src/tlab 不依赖它。
 超过门槛时退出码不是 0。
 
 用法（第一次会下载约 1.5 GB，放在 HuggingFace 默认缓存目录）：

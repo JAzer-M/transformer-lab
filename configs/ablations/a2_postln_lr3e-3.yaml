@@ -1,7 +1,7 @@
 # M3 消融 A2 高学习率加测：Post-LN，学习率 3e-3，参数量 13,968,384
 # 与 configs/ablations/a0_control.yaml 只差：norm_position, learning_rate, min_lr（以及 out_dir）；由 tests/test_ablation_configs.py 检查
 # 学习率 3e-3、min_lr 3e-4（保持降到峰值的 1/10），warmup 仍为 92 步；本组只看会不会发散，各跑 1 个种子
-# 种子用命令行覆盖 seed 与 out_dir，命令见 docs/m3-windows-run.md
+# 种子用命令行覆盖 seed 与 out_dir，命令见 README 的“复现实验”
 data_dir: data/tinystories
 out_dir: runs/m3/a2_postln_lr3e-3/seed1337
 

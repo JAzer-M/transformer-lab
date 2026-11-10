@@ -1,6 +1,6 @@
 """把 HuggingFace 上的 Qwen3 权重载入自研模型（M4）。
 
-只读 config.json 和 safetensors 文件，不依赖 transformers（AGENTS 硬性规则 1）。
+只读 config.json 和 safetensors 文件，不依赖 transformers。
 两边都是 nn.Linear，权重的形状相同，不用转置，只要改名字。
 """
 

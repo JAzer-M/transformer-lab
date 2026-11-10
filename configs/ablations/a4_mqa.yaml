@@ -1,6 +1,6 @@
 # M3 消融 A4 注意力：MQA，1 组 k、v（6 个头共用），参数量 12,494,592（少 10.56%）
 # 与 configs/ablations/a0_control.yaml 只差：n_kv_heads（以及 out_dir）；由 tests/test_ablation_configs.py 检查
-# 种子用命令行覆盖 seed 与 out_dir，命令见 docs/m3-windows-run.md
+# 种子用命令行覆盖 seed 与 out_dir，命令见 README 的“复现实验”
 data_dir: data/tinystories
 out_dir: runs/m3/a4_mqa/seed1337
 

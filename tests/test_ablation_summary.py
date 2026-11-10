@@ -17,7 +17,7 @@ def write_run(
     n_params: int = 13969152,
     **config_overrides,
 ) -> None:
-    """按 Codex 回传的目录结构写一次假训练：<变体>/seed<种子>/run.json 与 metrics.csv。"""
+    """按实验回传的目录结构写一次假训练：<变体>/seed<种子>/run.json 与 metrics.csv。"""
     run_dir = root / variant / f"seed{seed}"
     run_dir.mkdir(parents=True)
     config = {
@@ -260,7 +260,7 @@ def test_render_summary_lists_control_variants_stress_and_others(
     assert "NaN" in stress_row
     # 不在名单里的变体单独列出，不会被悄悄丢掉
     assert "x_misc" in text
-    # 速度另做短测（PLAN「M3 实施计划」），汇总表不放长训练的 tokens/s，免得被拿来下结论
+    # 速度另做短测，汇总表不放长训练的 tokens/s，免得被拿来下结论
     assert "tokens/s" not in text
 
 
@@ -297,7 +297,7 @@ def test_summarize_script_writes_summary_file(tmp_path: Path) -> None:
     write_run(tmp_path, "a0_control", 1337, 1.50)
     out = tmp_path / "SUMMARY.md"
 
-    # Codex 每跑完一批就运行这条命令（docs/m3-windows-run.md）
+    # 每跑完一批实验就运行这条命令
     subprocess.run(
         [
             sys.executable,
@@ -319,7 +319,7 @@ def test_summarize_script_writes_summary_file(tmp_path: Path) -> None:
 def write_full_val(
     root: Path, variant: str, seed: int, val: float, ckpt_step: int = 3052
 ) -> None:
-    """在已有的种子目录里放一份 full_val.json，与 Codex 回传的一致。"""
+    """在已有的种子目录里放一份 full_val.json，与实验回传的一致。"""
     path = root / variant / f"seed{seed}" / "full_val.json"
     # ckpt_step 与 write_run 的 max_iters 一致：是训练结束时那个存档的分数
     result = {"val_loss": val, "n_tokens": 5414547, "ckpt_step": ckpt_step}
@@ -740,7 +740,7 @@ def test_load_benchmarks_reads_the_files_next_to_the_results(tmp_path: Path) -> 
     )
     batch = tmp_path / "bench_batch"
     batch.mkdir()
-    # Codex 的执行记录也在这个目录里，不能当成短测结果
+    # 实验的执行记录也在这个目录里，不能当成短测结果
     (batch / "validation.json").write_text("{}", encoding="utf-8")
     (batch / "bench_notes.json").write_text('{"x": {}}', encoding="utf-8")
     for name, size in (("b8", 8), ("b1", 1)):

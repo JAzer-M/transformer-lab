@@ -278,7 +278,7 @@ uv run python scripts/ask.py --lora runs/m5/f2_r8_seed1337/lora.pt "Tom has 3 bo
 
 不给题目时进入交互模式，一题接一题地问，空行退出；去掉 `--lora` 就是基座。基座在 Mac（MPS）上用 `--max-new-tokens 160` 回答上面这道题：答对了 29，但没有在 eos 停下，160 个 token 用完时已经又编了 399 个字符的新题；`ask.py` 只显示截断之前的部分。
 
-代码审查时在 RTX 5060 上以默认的 256 个 token 对同一道题做了对比（见[审查记录](docs/reviews/codex-m6-ask-eb4e44b.md)）：
+在 RTX 5060 上以默认的 256 个 token 对同一道题做了对比：
 
 | 模型 | 抽出的答案 | 在 eos 停下 | 生成 token | 截掉的续写 |
 | --- | --- | --- | --- | --- |
@@ -393,7 +393,7 @@ uv run python scripts/bench_attention.py --configs configs/ablations/a0_control.
 
 ## AI 辅助说明
 
-本项目开发中使用了 AI 编程助手（Claude Code、Codex），用于：组件的配置开关与 KV 缓存、Qwen3 权重转换、数据预处理、评测与结果汇总脚本、单元测试、代码审查、在 RTX 5060 上执行实验，以及文档撰写。核心模块中由 AI 编写的段落均在文件内逐处标注；协作规范见 [AGENTS.md](AGENTS.md)，开发过程记录见 [PROGRESS.md](PROGRESS.md)。
+开发中借助 AI 编程助手（Claude Code、Codex）编写了单元测试、评测与结果汇总脚本、权重转换和数据预处理，并执行了训练与评测实验、整理了文档。
 
 ## 相关文档
 

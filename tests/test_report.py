@@ -1,7 +1,7 @@
-"""实验报告 docs/report.md 里的表和数字必须来自原始结果（会被简历和面试引用）。
+"""实验报告 docs/report.md 里的表和数字必须来自原始结果。
 
-原始结果优先查 experiments/ 下的文件；只在 README 或 PROGRESS 留了记录的
-（比如没有存档的 40 题试跑），查那里。
+原始结果优先查 experiments/ 下的文件，其次查 README 和各实验目录的说明
+（比如没有单独存档的 40 题试跑，记在 experiments/m5_gsm8k/README.md）。
 """
 
 from collections.abc import Callable
@@ -86,8 +86,8 @@ NUMBERS = [
         "experiments/m5_gsm8k/SUMMARY.md",
         "两个种子之间的 3.2",
     ),
-    ("旧规则 5/40", "PROGRESS.md", "旧规则 5/40"),
-    ("新规则 22/40", "PROGRESS.md", "新规则 22/40"),
+    ("旧规则 5/40", "experiments/m5_gsm8k/README.md", "旧规则 5/40"),
+    ("新规则 22/40", "experiments/m5_gsm8k/README.md", "新规则 22/40"),
 ]
 
 

@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 # M3 消融配置的单变量规则：每个变体与对照组 a0_control 相比，只允许差下表里的字段
-# （out_dir 按变体名区分，单独检查）。变体名见 docs/PLAN.md「M3 实施计划」。
+# （out_dir 按变体名区分，单独检查）。变体名见 README 的“消融实验”一节。
 
 ABLATIONS = Path(__file__).resolve().parents[1] / "configs" / "ablations"
 

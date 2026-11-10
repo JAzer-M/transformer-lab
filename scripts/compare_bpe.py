@@ -2,7 +2,7 @@
 
 用法：uv run python scripts/compare_bpe.py
 默认在 Tiny Shakespeare 前 100,000 个字符上训练，在最后 50,000 个字符上评估。
-验收标准（docs/PLAN.md）：两边都能无损还原，压缩率相差不超过 5%。
+验收标准：两边都能无损还原，压缩率相差不超过 5%。
 """
 
 import argparse

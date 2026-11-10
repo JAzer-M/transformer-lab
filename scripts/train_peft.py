@@ -4,7 +4,7 @@
 自研那次训练存下的 lora_init.pt）、同样的数据和顺序（prepare_items、training_plan）、
 同一个训练循环和 loss（sft.fit、sft_step：只算答案，按 token 加权）。
 不用 HF 的 labels= 和 DataCollator：pad 和 eos 是同一个编号，最后那个 eos 会被遮掉。
-peft 和 transformers 只在这个脚本里用，src/tlab 不依赖它们（AGENTS 硬性规则 1）。
+peft 和 transformers 只在这个脚本里用，src/tlab 不依赖它们。
 
 用法：
     uv run python scripts/train_peft.py --config configs/finetune/f4_peft_r8.yaml

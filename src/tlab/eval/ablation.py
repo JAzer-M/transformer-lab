@@ -1,6 +1,6 @@
 """消融结果汇总：读取每次训练回传的 run.json 与 metrics.csv，按变体合并种子，与对照组比较。
 
-目录结构（见 docs/m3-windows-run.md）：<root>/<变体>/seed<种子>/{run.json, metrics.csv}，
+目录结构：<root>/<变体>/seed<种子>/{run.json, metrics.csv}，
 第 2 批起每个种子目录还有完整验证集评估的 full_val.json（scripts/eval_full_val.py），
 A1 的变体另有外推评测的 extrapolation.json（scripts/eval_extrapolation.py）。
 """
@@ -17,7 +17,7 @@ from tlab.train.config import TrainConfig, load_config
 
 # 同一变体的几个种子，只允许这些配置字段不同
 PER_SEED_KEYS = ("seed", "out_dir")
-# 判定规则（PLAN「M3 实施计划」）：至少 2 个种子；补到第 3 个种子后不再看配对方向
+# 判定规则：至少 2 个种子；补到第 3 个种子后不再看配对方向
 MIN_SEEDS = 2
 SEEDS_AFTER_EXTRA = 3
 # 发散判定：与第 250 步比较；比此前最低点高 0.5 以上（含 0.5）
@@ -96,7 +96,7 @@ class Variant:
 
 
 def compare(variant: Variant, control: Variant) -> str:
-    """按 PLAN「M3 实施计划」的判定规则，给出变体相对对照组的结论（val loss 越低越好）。"""
+    """按事先定好的判定规则，给出变体相对对照组的结论（val loss 越低越好）。"""
     if variant.has_nan or control.has_nan:
         return "无法比较"
     # 规范要求主结论至少 2 个种子
@@ -374,7 +374,7 @@ def load_bench(root: Path) -> dict[str, dict] | None:
 
 def load_cache_speed(root: Path) -> list[tuple[str, dict]] | None:
     """读第 5 批补充 bench_batch/ 下的每个 json：[(变体, 结果)]；没有时返回 None。"""
-    # 这个目录里还有 Codex 的执行记录，短测结果的文件名是 b<B>.json、cpu_b<B>.json
+    # 这个目录里还有实验的执行记录，短测结果的文件名是 b<B>.json、cpu_b<B>.json
     rows = [
         item
         for path in sorted((root / "bench_batch").glob("*.json"))
@@ -488,7 +488,7 @@ def render_summary(
         "# M3 消融汇总",
         "",
         "由 `scripts/summarize_ablations.py` 自动生成，数字取自各次训练回传的 run.json 与 full_val.json；"
-        "判定规则见 docs/PLAN.md「M3 实施计划」。速度与显存另做短测，不在本表。",
+        "判定规则见 README 的“消融实验”一节。速度与显存另做短测，不在本表。",
         "",
         f"最终 val 优先用{FULL_VAL}的分数（full_val.json）；一行里对照或变体只要有一个"
         f"种子缺，这一行两边都用 run.json 的 {SAMPLED}，“依据”一列注明。",

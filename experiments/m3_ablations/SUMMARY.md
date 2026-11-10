@@ -1,6 +1,6 @@
 # M3 消融汇总
 
-由 `scripts/summarize_ablations.py` 自动生成，数字取自各次训练回传的 run.json 与 full_val.json；判定规则见 docs/PLAN.md「M3 实施计划」。速度与显存另做短测，不在本表。
+由 `scripts/summarize_ablations.py` 自动生成，数字取自各次训练回传的 run.json 与 full_val.json；判定规则见 README 的“消融实验”一节。速度与显存另做短测，不在本表。
 
 最终 val 优先用完整验证集的分数（full_val.json）；一行里对照或变体只要有一个种子缺，这一行两边都用 run.json 的 20 batch 抽样估计，“依据”一列注明。
 

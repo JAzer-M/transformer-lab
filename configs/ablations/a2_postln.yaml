@@ -1,6 +1,6 @@
 # M3 消融 A2 归一化位置：Post-LN（LayerNorm 放在残差加法之后，不用最终 ln_f），参数量 13,968,384
 # 与 configs/ablations/a0_control.yaml 只差：norm_position（以及 out_dir）；由 tests/test_ablation_configs.py 检查
-# 种子用命令行覆盖 seed 与 out_dir，命令见 docs/m3-windows-run.md
+# 种子用命令行覆盖 seed 与 out_dir，命令见 README 的“复现实验”
 data_dir: data/tinystories
 out_dir: runs/m3/a2_postln/seed1337
 

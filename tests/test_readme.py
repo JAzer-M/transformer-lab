@@ -1,6 +1,6 @@
 from pathlib import Path
 
-# README 里的结果会被简历引用，这里核对它和原始结果一致，防止抄错或过期
+# 核对 README 里的结果和原始结果一致，防止抄错或过期
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "experiments" / "m3_ablations"

@@ -22,7 +22,7 @@ def main() -> None:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--variants", nargs="+", default=VARIANTS)
     parser.add_argument("--run-seed", type=int, default=1337, help="用哪个种子的存档")
-    # 下面的默认值与 M2 的样例相同（docs/m2-windows-run.md）
+    # 下面的默认值与 M2 的样例相同
     parser.add_argument("--prompt", default="Once upon a time")
     parser.add_argument("--max-new-tokens", type=int, default=300)
     parser.add_argument("--temperature", type=float, default=0.8)

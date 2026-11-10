@@ -9,7 +9,7 @@ import pytest
 import torch
 from torch import nn
 
-# 权重转换（M4）。transformers 只在这里当对照，src/tlab 不依赖它（AGENTS 硬性规则 1）。
+# 权重转换（M4）。transformers 只在这里当对照，src/tlab 不依赖它。
 # 用随机初始化的小模型，不需要下载；真实权重的验收是 scripts/check_qwen3.py
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -786,7 +786,7 @@ def test_script_reports_rmsnorm_fp32_off_when_it_is_off(
 
 
 def test_src_does_not_depend_on_transformers() -> None:
-    # AGENTS 硬性规则 1：transformers 不得出现在 src/tlab 的实现里
+    # 项目约定：transformers 不得出现在 src/tlab 的实现里
     for path in (ROOT / "src" / "tlab").rglob("*.py"):
         text = path.read_text(encoding="utf-8")
         assert "import transformers" not in text, path

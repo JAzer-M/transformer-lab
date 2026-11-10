@@ -99,7 +99,7 @@ def test_full_cache_of_real_configs_under_bf16_matches_the_runbook(
     from tlab.eval.bench import cache_bytes, fill_cache
     from tlab.train.config import load_config
 
-    # 手算：6 层 × g 组 × T=512 × d=64 × (k 的字节数 + v 的字节数)；Codex 按这些数字核对
+    # 手算：6 层 × g 组 × T=512 × d=64 × (k 的字节数 + v 的字节数)；实测时按这些数字核对
     config = load_config(ROOT / "configs" / "ablations" / f"{variant}.yaml")
     model = tiny_model(config, vocab_size=8192)
 

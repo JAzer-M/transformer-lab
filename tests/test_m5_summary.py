@@ -1,4 +1,4 @@
-"""M5 的汇总：SUMMARY.md 和 README 里的数字必须和原始结果一致（会被简历引用）。"""
+"""M5 的汇总：SUMMARY.md 和 README 里的数字必须和原始结果一致。"""
 
 import json
 from pathlib import Path

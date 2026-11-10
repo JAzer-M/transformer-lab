@@ -1,7 +1,7 @@
 # M3 消融对照组：M2 基线结构（可学习位置编码、Pre-LN LayerNorm、GELU、MHA），每次 1 亿 token
-# 参数量 13,969,152；3052 步 × 32,768 token = 100,007,936 token（PLAN「M3 实施计划」）
+# 参数量 13,969,152；3052 步 × 32,768 token = 100,007,936 token
 # 与 configs/tinystories_base.yaml 只差 max_iters、warmup_iters（3%）、eval_interval、out_dir
-# 两个种子（1337、2024）用命令行覆盖 seed 与 out_dir，命令见 docs/m3-windows-run.md
+# 两个种子（1337、2024）用命令行覆盖 seed 与 out_dir，命令见 README 的“复现实验”
 data_dir: data/tinystories
 out_dir: runs/m3/a0_control/seed1337
 

@@ -1,4 +1,4 @@
-# 任务 D 吞吐与显存短跑：PLAN 的例子模型（6 层、d_model 384、6 头、上下文 512、8192 词表）
+# 任务 D 吞吐与显存短跑：计划中的例子模型（6 层、d_model 384、6 头、上下文 512、8192 词表）
 # 参数量应为 13,969,152。只测 tokens/s 与显存峰值，不是正式实验，不写入 experiments/results.md
 # 显存粗估（未实测）：batch 16 约 3 GB，batch 32 约 5–6 GB；batch 32 用命令行 batch_size=32 覆盖
 data_dir: data/tinystories

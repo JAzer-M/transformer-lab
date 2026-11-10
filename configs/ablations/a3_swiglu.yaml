@@ -1,6 +1,6 @@
 # M3 消融 A3 前馈子层：SwiGLU（隐藏维度 8C/3 = 1024）代替 GELU MLP，参数量 13,969,152，与对照组相同
 # 与 configs/ablations/a0_control.yaml 只差：mlp（以及 out_dir）；由 tests/test_ablation_configs.py 检查
-# 种子用命令行覆盖 seed 与 out_dir，命令见 docs/m3-windows-run.md
+# 种子用命令行覆盖 seed 与 out_dir，命令见 README 的“复现实验”
 data_dir: data/tinystories
 out_dir: runs/m3/a3_swiglu/seed1337
 

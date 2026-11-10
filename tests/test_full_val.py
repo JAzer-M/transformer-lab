@@ -155,7 +155,7 @@ def test_script_writes_full_val_json(tmp_path: Path) -> None:
     out_dir = train_tiny_run(tmp_path)
     out = tmp_path / "full_val.json"
 
-    # Codex 每次训练完运行这条命令（docs/m3-windows-run.md），再把 json 复制进 experiments/
+    # 每次训练完运行这条命令，再把 json 复制进 experiments/
     done = subprocess.run(
         [
             sys.executable,
