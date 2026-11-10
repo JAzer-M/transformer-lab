@@ -12,11 +12,12 @@
 | 本轮范围 | 提交 M5 复习记录、勾选 M5；清理（`.gitignore`、M0 勾选、本表）；Codex 交叉审查的指令；实验报告和面试问答素材（已推送）；自己提问的脚本 `scripts/ask.py`（Codex 已审，1 个 P3 已修，已合并 main）。简历由用户在 Claude 对话里自己做 |
 | 实现方 / 审查方 | Claude 写；Codex 审过 M2 数据管线和 m6-ask。M3–M5 的 Codex 交叉审查，用户 2026-11-09 决定不做 |
 | 最近的结果 | M5 见 `experiments/m5_gsm8k/SUMMARY.md`：F4 两条曲线 454 步逐位相同；F1 基座 46.8% / 48.4% → SFT r=8 两个种子均值 49.2%，按项目的判定规则差异不显著（不是统计检验）；F2 各 r 差异不显著 |
-| 测试 | 778 passed（2026-11-09，m6-ask 合并后从 `git archive main` 干净导出） |
+| 测试 | 778 passed（2026-11-10，m6-readme 合并后从 `git archive main` 干净导出） |
 | 下一步 | 用户自己取舍：学习护栏自查、面试问答、模拟面试、简历；可选实验（GQA-2/MQA 第 3 个种子、F3、F5）不做也不影响结项 |
 
 ## 当前任务与下一步
 
+- 2026-11-10：报告第 1 节改成“约束与开发方式”，写明 AI 辅助的范围；PLAN 里的私人待办、简历草稿和 `docs/interview-prep.md` 挪到本机的 `personal/`（已 gitignore）。
 - 2026-11-10：用户要求 README 更正式：不用第一人称，不写哪些是自己写的，只写明 AI 辅助了什么；去掉“当前进度”和许可证一节。m6-readme 改完；用户回复“提交合并并推送”，并让 Claude 一并处理报告第 1 节和 PLAN 里的私人待办。
 - 2026-11-10：用户在 Safari 里把 GitHub 仓库改成公开（Claude 不登录核对：主页和 README 原文都返回 200）；用户选择加 MIT 许可证。
 - 2026-11-09：用户回复“勾选一下吧，然后不做了”：勾选“README、实验报告定稿”，M3–M5 的 Codex 交叉审查不做；报告第 7 节的审查说明改成实际情况。
@@ -2070,6 +2071,22 @@ python3 -c "import json,sys; [print('=====', d.get('timestamp'), d['type'], '\n'
 - 审查状态：未请求（只改文档）。
 - 学习状态：同前。
 - 下一步：用户看过 README 后决定是否提交合并推送。
+
+### 2026-11-10（UTC+08:00）｜Claude Code｜公开仓库里的私人内容挪到本地
+
+- 范围与用户确认：用户回复“提交合并并推送那，然后可能想处理的问题你也可以帮我处理一下”。所说的问题是上一条记录里列的两处：报告第 1 节的“作者亲手写的部分”和 PLAN 里的私人待办。实现方 Claude Code；只改文档，没有请求审查。
+- 工作区与设备：`/Users/j/Desktop/transformer-lab`，Mac，分支 m6-readme（README 改版已提交为 0430be4）。
+- 改动：
+  - `docs/report.md` 第 1 节改名为“约束与开发方式”，删去“学习项目”和亲手写的清单，改成和 README 一样的“AI 辅助”说明。
+  - `docs/PLAN.md` 标题改为“Transformer 项目规划”；“投递前总待办”只留项目里程碑，改名为“里程碑”；刷题、PaperLens 收尾、面试准备、简历、长期几条线，以及“简历写法与面试准备”一节原样挪到 `personal/job-prep.md`。
+  - `docs/interview-prep.md` 挪到 `personal/interview-prep.md`，从 git 里删除，文件留在本机，文中的引用路径相应更新。
+  - `.gitignore` 加 `/personal/`；本文件。
+- 本次验证（Mac，提交前）：`git check-ignore` 确认 `personal/` 下两个文件都被忽略；`uv run pytest tests/test_report.py -q` 34 passed；`uv run ruff check .` 通过；`uv run pytest -q` 778 passed。合并后 `git archive main` 导出到临时目录：778 passed，导出里没有 `personal/` 和 `docs/interview-prep.md`。
+- 未验证与失败：`personal/` 只在这台 Mac 上，Windows 那边没有，也没有备份；旧版本的 PLAN 和 interview-prep 在 git 历史里仍然能看到，没有改写历史。PLAN 的时间表、M6 一节等处还有“简历”“投递”的字样，属于项目计划的上下文，没有改。`AGENTS.md` 里写着“用户是数学系本科生”，README 链接了它，这次没动（改 agent 规范要用户另外决定）。`docs/self-test-qa.md` 用户之前决定保留。
+- 决策与原因：私人内容挪到 gitignore 的本地目录，而不是直接删掉，这样用户还能接着用；不改写 git 历史，保留逐步提交的记录。
+- 审查状态：未请求（只改文档）。
+- 学习状态：面试题的答案以后写在 `personal/interview-prep.md`，不会公开。
+- 下一步：提交、合并、推送；用户决定 `AGENTS.md` 里的个人信息要不要改。
 
 ## 后续交接模板
 

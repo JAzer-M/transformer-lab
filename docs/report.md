@@ -9,10 +9,10 @@
 - **结构消融（同 1 亿 token，2 个种子）：** RoPE、SwiGLU 更好，Post-LN、正弦位置编码、GQA-2、MQA 更差，RMSNorm 和 LayerNorm 差异不显著（按项目自己的判定规则，见第 3 节）。
 - **LoRA SFT 学会了格式和停下，没有明显提高准确率：** GSM8K 500 题上，基座 46.8%（few-shot）/ 48.4%（不给例子），SFT 后 r=8 两个种子的均值 49.2%；高出的 0.8–2.4 个百分点不超过两个种子之间的 3.2，按同一条规则差异不显著。不给例子时在 eos 停下的题从 32/500 变成 483/500 和 484/500。
 
-## 1. 目标和约束
+## 1. 约束与开发方式
 
-- **学习项目：** 目标是能讲清每一行。注意力、Block、GPT、训练主循环、BPE、RMSNorm、SwiGLU、RoPE、GQA、`LoRALinear`、SFT 的标签构造由作者亲手写；配置开关、KV 缓存、权重转换、评测、汇总和实验脚本由 AI 编程助手写，并在手写的文件里逐处标注。
-- **不用现成实现：** 模型、注意力、归一化、位置编码、训练循环、LoRA 都不用 `nn.Transformer`、`nn.MultiheadAttention` 或 `transformers`、`peft` 的模型类；`transformers` 和 `peft` 只在对照脚本和测试里出现，有测试检查这一点。
+- **从零实现：** 模型、注意力、归一化、位置编码、训练循环、LoRA 都不用 `nn.Transformer`、`nn.MultiheadAttention` 或 `transformers`、`peft` 的模型类；`transformers` 和 `peft` 只在对照脚本和测试里出现，有测试检查这一点。
+- **AI 辅助：** 开发中使用了 AI 编程助手（Claude Code、Codex），用于组件的配置开关与 KV 缓存、Qwen3 权重转换、数据预处理、评测与结果汇总脚本、单元测试、代码审查、在 RTX 5060 上执行实验，以及文档撰写；核心模块中由 AI 编写的段落均在文件内逐处标注。
 - **硬件：** RTX 5060 Laptop 8 GB（WSL2），bf16 autocast；Mac 跑单元测试、CPU 冒烟和 fp32 的权重对齐。
 - **工程做法：** 先写失败的测试再实现；提交前故意把代码改错，确认测试能抓到；每个功能由两个只读子 agent 分别按规范和需求审查；实验只通过配置文件运行，结果表只追加。
 
