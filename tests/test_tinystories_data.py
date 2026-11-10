@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-# TinyStories 预处理（agent 编写）；待实现模块在各测试内导入
+# TinyStories 预处理；待实现模块在各测试内导入
 
 
 class ByteTokenizer:

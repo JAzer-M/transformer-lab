@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 import torch
 
-# 配置新字段、存档读档、日志的 lr 列与续训追加（agent 编写）
+# 配置新字段、存档读档、日志的 lr 列与续训追加
 
 
 def tiny_model_and_optimizer(seed: int):

@@ -7,7 +7,7 @@ import pytest
 import torch
 
 # M2 主循环的行为测试：学习率调度、梯度累积、梯度裁剪由用户在 trainer.py 中实现，
-# 断点续训的外围改动由 agent 在用户写完后加入。这里只规定行为，不规定写法。
+# 这里只规定断点续训的行为，不规定写法。
 
 VOCAB = 11
 
@@ -216,7 +216,7 @@ def test_learning_rate_follows_schedule_and_is_logged(tmp_path: Path) -> None:
     )
 
 
-# ---------- 断点续训（agent 在用户写完核心后加入外围改动） ----------
+# ---------- 断点续训 ----------
 
 
 class StopTraining(Exception):
@@ -285,7 +285,7 @@ def test_resume_matches_uninterrupted_training(tmp_path: Path) -> None:
         assert torch.equal(a, b)
 
 
-# ---------- run()：读档、续训与 tokens 统计（agent 编写） ----------
+# ---------- run()：读档、续训与 tokens 统计 ----------
 
 
 def write_char_dir(data_dir: Path) -> None:

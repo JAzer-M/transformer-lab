@@ -1,4 +1,4 @@
-"""把 LoRA 装进模型（agent 编写）：替换哪些层、冻结、参数量、只存 A 和 B、合并。"""
+"""把 LoRA 装进模型：替换哪些层、冻结、参数量、只存 A 和 B、合并。"""
 
 import hashlib
 from pathlib import Path

@@ -1,6 +1,6 @@
 import pytest
 
-# 学习率调度（agent 编写）；待实现模块在各测试内导入
+# 学习率调度；待实现模块在各测试内导入
 
 
 def make_config(**overrides):

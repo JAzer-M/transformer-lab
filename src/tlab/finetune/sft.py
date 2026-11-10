@@ -1,6 +1,6 @@
-"""LoRA SFT 的训练循环和配置（M5，agent 编写）。
+"""LoRA SFT 的训练循环和配置（M5）。
 
-和 train/trainer.py（用户手写）的预训练不同：数据是一条一条的问答，不是随机窗口；
+和 train/trainer.py 的预训练不同：数据是一条一条的问答，不是随机窗口；
 只有答案算 loss；梯度累积按整个 batch 的答案 token 数平均。bf16 autocast、梯度累积、
 裁剪、warmup + cosine、日志和存档的写法照 trainer.py 来。
 """

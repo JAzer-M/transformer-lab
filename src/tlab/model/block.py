@@ -1,14 +1,11 @@
-# USER-WRITTEN: agent 只提建议， 不改实现
-# 例外：标注“agent 编写”的 norm、mlp、pos_encoding、n_kv_heads、head_dim、qk_norm、mlp_hidden_dim 开关与 KV cache 代码，经用户 2026-11-03、11-04、11-05、11-07 同意由 agent 加入
-
 import torch
 import torch.nn.functional as F
 from torch import nn
 
-# agent 编写（KV cache）：KVCache 只用于标注类型
+# KV cache：KVCache 只用于标注类型
 from tlab.model.attention import CausalSelfAttention, KVCache
 
-# agent 编写（各开关）：检查开关取值、按配置名建归一化层、SwiGLU
+# 各开关：检查开关取值、按配置名建归一化层、SwiGLU
 from tlab.model.layers import (
     MLPS,
     SwiGLU,
@@ -36,7 +33,7 @@ class MLP(nn.Module):
         return y
 
 
-# agent 编写（mlp 开关）：按配置名建前馈子层。SwiGLU 的隐藏维度默认取 8C/3：
+# mlp 开关：按配置名建前馈子层。SwiGLU 的隐藏维度默认取 8C/3：
 # C 能被 3 整除时，3·C·(8C/3) = 8C²，参数量与 GELU MLP 相同，比较才公平。
 # 载入别人的权重时要跟着对方，比如 Qwen3-0.6B 是 3072，所以也可以指定
 def make_mlp(kind: str, d_model: int, hidden_dim: int | None = None) -> nn.Module:
@@ -48,7 +45,7 @@ def make_mlp(kind: str, d_model: int, hidden_dim: int | None = None) -> nn.Modul
 
 
 class Block(nn.Module):
-    # agent 编写（各开关）：多了 norm、norm_position、mlp、rope_theta、n_kv_heads、
+    # 各开关：多了 norm、norm_position、mlp、rope_theta、n_kv_heads、
     # head_dim、qk_norm、mlp_hidden_dim 参数，默认值与 M1/M2 相同
     def __init__(
         self,
@@ -64,15 +61,15 @@ class Block(nn.Module):
         mlp_hidden_dim: int | None = None,
     ) -> None:
         super().__init__()
-        # agent 编写（各开关）：检查取值；记下归一化放在子层前（pre）还是加法后（post）
+        # 各开关：检查取值；记下归一化放在子层前（pre）还是加法后（post）
         check_block_settings(norm, norm_position, mlp)
         check_qwen3_switches(mlp, head_dim, qk_norm, mlp_hidden_dim)
         self.norm_position = norm_position
-        # agent 编写（norm 开关）：ln1、ln2 沿用 M1 的名字（改名会让旧存档载不进来），
+        # norm 开关：ln1、ln2 沿用 M1 的名字（改名会让旧存档载不进来），
         # 里面装的可能是 LayerNorm 或 RMSNorm
         # 注意力子层： 先归一化， 再让 token 之间交换信息
-        self.ln1 = make_norm(norm, d_model)  # agent 编写（norm 开关）
-        # agent 编写（各开关）：rope_theta 为 None 时不用 RoPE，n_kv_heads 为 None 时每个头
+        self.ln1 = make_norm(norm, d_model)  # norm 开关
+        # 各开关：rope_theta 为 None 时不用 RoPE，n_kv_heads 为 None 时每个头
         # 一组（MHA），head_dim 为 None 时是 C/h
         self.attn = CausalSelfAttention(
             d_model,
@@ -83,13 +80,13 @@ class Block(nn.Module):
             qk_norm=qk_norm,
         )
         # MLP子层： 先归一化， 再让每个 token 各自加工
-        self.ln2 = make_norm(norm, d_model)  # agent 编写（norm 开关）
-        # agent 编写（mlp、mlp_hidden_dim 开关）
+        self.ln2 = make_norm(norm, d_model)  # norm 开关
+        # mlp、mlp_hidden_dim 开关
         self.mlp = make_mlp(mlp, d_model, mlp_hidden_dim)
 
-    # agent 编写（KV cache）：cache 只在生成时传，原样交给注意力
+    # KV cache：cache 只在生成时传，原样交给注意力
     def forward(self, x: torch.Tensor, cache: KVCache | None = None) -> torch.Tensor:
-        # agent 编写（norm 开关）：Post-LN 先把子层输出加回 x，再归一化（原论文的 Add & Norm）
+        # norm 开关：Post-LN 先把子层输出加回 x，再归一化（原论文的 Add & Norm）
         if self.norm_position == "post":
             x = self.ln1(x + self.attn(x, cache))  # (B, T, C)
             x = self.ln2(x + self.mlp(x))  # (B, T, C)

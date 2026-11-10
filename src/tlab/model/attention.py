@@ -1,14 +1,11 @@
-# USER-WRITTEN: agent 只提建议，不改实现。
-# 例外：标注“agent 编写”的 pos_encoding 开关与 KV cache 代码，经用户 2026-11-04、11-05 同意由 agent 加入
-
 import torch
 from torch import nn
 
-# agent 编写（pos_encoding 开关）：RoPE 的旋转
+# pos_encoding 开关：RoPE 的旋转
 from tlab.model.layers import RMSNorm, RotaryEmbedding
 
 
-# agent 编写（KV cache）：生成时每层一个；g 是 k、v 的组数，T_past 是已经存下的 token 数
+# KV cache：生成时每层一个；g 是 k、v 的组数，T_past 是已经存下的 token 数
 class KVCache:
     def __init__(self) -> None:
         # 存旋转后、复制前的 k、v：旧 token 的旋转角度不会变，复制前只有 g 组，GQA 才省缓存
@@ -30,7 +27,7 @@ class KVCache:
 
 
 class CausalSelfAttention(nn.Module):
-    # agent 编写（pos_encoding 开关）：多了 rope_theta 参数，None 表示不用 RoPE
+    # pos_encoding 开关：多了 rope_theta 参数，None 表示不用 RoPE
     def __init__(
         self,
         d_model: int,
@@ -74,12 +71,12 @@ class CausalSelfAttention(nn.Module):
         self.q_norm = RMSNorm(self._head_dim) if qk_norm else None
         self.k_norm = RMSNorm(self._head_dim) if qk_norm else None
 
-        # agent 编写（pos_encoding 开关）：没有参数，也不进存档
+        # pos_encoding 开关：没有参数，也不进存档
         self.rope = (
             None if rope_theta is None else RotaryEmbedding(self._head_dim, rope_theta)
         )
 
-    # agent 编写（KV cache）：cache 只在生成时传，不传时和以前完全一样
+    # KV cache：cache 只在生成时传，不传时和以前完全一样
     def forward(self, x: torch.Tensor, cache: KVCache | None = None) -> torch.Tensor:
         q = self.q_proj(x)  # (B, T, h*d)
         k = self.k_proj(x)  # (B, T, g*d)
@@ -96,30 +93,30 @@ class CausalSelfAttention(nn.Module):
             q = self.q_norm(q)  # (B, h, T, d)
             k = self.k_norm(k)  # (B, g, T, d)
 
-        # agent 编写（KV cache）：缓存里已有的 token 数，新 token 的位置从这里数起
+        # KV cache：缓存里已有的 token 数，新 token 的位置从这里数起
         T_past = 0 if cache is None else cache.length
         T_all = T_past + T
 
-        # agent 编写（pos_encoding 开关）：RoPE 只转 q、k；v 是被读走的内容，不带位置
+        # pos_encoding 开关：RoPE 只转 q、k；v 是被读走的内容，不带位置
         if self.rope is not None:
             q = self.rope(q, offset=T_past)  # (B, h, T, d)
             k = self.rope(k, offset=T_past)  # (B, g, T, d)
 
-        # agent 编写（KV cache）：接上旧 token 的 k、v；q 不用存，新 token 只需要自己的 q
+        # KV cache：接上旧 token 的 k、v；q 不用存，新 token 只需要自己的 q
         if cache is not None:
             k, v = cache.update(k, v)  # (B, g, T_all, d)
 
         # 把每组复制给它下面的头: k0 k0 k0 k1 k1 k1, 同组头排在一起
         k = k.repeat_interleave(self._n_repeat, dim=1)  # (B, h, T_all, d)
         v = v.repeat_interleave(self._n_repeat, dim=1)  # (B, h, T_all, d)
-        # agent 编写（KV cache）：下面的形状注释里 T_all 是列数；不用缓存时 T_all = T
+        # KV cache：下面的形状注释里 T_all 是列数；不用缓存时 T_all = T
         k_t = k.transpose(-2, -1)  # 交换最后两个维度 因为原来是(B, h, T_all, d)
         # 计算q乘以k的转置
         scores = q @ k_t  # (B, h, T, T_all)
         scores = scores / (self._head_dim**0.5)  # (B, h, T, T_all)
 
         # 掩码操作
-        # agent 编写（KV cache）：第 i 个新 token 的绝对位置是 T_past + i，能看到第 0 到
+        # KV cache：第 i 个新 token 的绝对位置是 T_past + i，能看到第 0 到
         # T_past + i 列，所以从第 T_past + 1 条对角线起遮住；T_past = 0 时和以前相同
         mask = torch.triu(
             torch.ones(T, T_all, dtype=torch.bool, device=x.device),

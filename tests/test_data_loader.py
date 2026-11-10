@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-# 按数据目录里的文件选择字符级或 BPE 的加载方式（agent 编写）
+# 按数据目录里的文件选择字符级或 BPE 的加载方式
 
 STORIES = [
     "Once upon a time, Tom met a little cat.",

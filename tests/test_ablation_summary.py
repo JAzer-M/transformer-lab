@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-# 消融结果汇总（agent 编写）；预期值都是手算好的具体数字，不用实现里的算法重算
+# 消融结果汇总；预期值都是手算好的具体数字，不用实现里的算法重算
 
 
 def write_run(

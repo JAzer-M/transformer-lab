@@ -74,7 +74,7 @@ def run(config: TrainConfig) -> Path:
     if device.type == "cuda":
         torch.cuda.reset_peak_memory_stats(device)
 
-    # 主循环（用户手写）；计时包含其中的评估
+    # 主循环；计时包含其中的评估
     start = time.perf_counter()
     train_losses = train(
         model,

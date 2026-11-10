@@ -1,6 +1,6 @@
-"""SFT 的数据管线（M5，agent 编写）：模板、分词、拼 batch、验证集、训练顺序。
+"""SFT 的数据管线（M5）：模板、分词、拼 batch、验证集、训练顺序。
 
-哪些位置算 loss 由用户手写的 build_example 决定（sft_labels.py）。
+哪些位置算 loss 由 build_example 决定（sft_labels.py）。
 """
 
 import random

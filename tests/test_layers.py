@@ -2,7 +2,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-# RMSNorm 由用户手写在 tlab/model/layers.py；在各测试内导入，文件还没写时每个测试单独报错
+# RMSNorm 在 tlab/model/layers.py；在各测试内导入，文件出错时每个测试单独报错
 
 
 def test_rmsnorm_has_only_a_weight_initialized_to_ones() -> None:

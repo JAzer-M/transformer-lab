@@ -1,4 +1,3 @@
-# USER-WRITTEN: agent 只提建议， 不改实现
 """SFT 的输入和目标：只有答案部分算 loss（M5）"""
 
 # F.cross_entropy 默认跳过这个值的位置

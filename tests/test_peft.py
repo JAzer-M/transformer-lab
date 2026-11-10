@@ -1,4 +1,4 @@
-"""F4 的 PEFT 对照（agent 编写）：名字对应、同样的 A 和 B 输出相同、几步训练和自研相同。
+"""F4 的 PEFT 对照：名字对应、同样的 A 和 B 输出相同、几步训练和自研相同。
 
 peft 只出现在 scripts/ 和 tests/。用 conftest.py 里的小模型，CPU、fp32。
 """

@@ -1,8 +1,8 @@
-"""SFT 的输入和目标（用户手写的 build_example）：只有答案部分算 loss。预期值都是手写的。"""
+"""SFT 的输入和目标（build_example）：只有答案部分算 loss。预期值都是手写的。"""
 
 import pytest
 
-# build_example 由用户手写在 tlab/finetune/sft_labels.py；在各测试内导入，文件出错时每个测试单独报错
+# build_example 在 tlab/finetune/sft_labels.py；在各测试内导入，文件出错时每个测试单独报错
 
 
 def test_prompt_targets_are_ignored_and_answer_targets_are_kept() -> None:

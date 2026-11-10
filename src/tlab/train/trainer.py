@@ -1,8 +1,6 @@
-# USER-WRITTEN: agent 只提建议， 不改实现
-# 例外：标注“agent 编写”的断点续训外围代码，经用户 2026-11-01 同意由 agent 加入
 """训练主循环"""
 
-# agent 编写（断点续训）：checkpoint 参数的类型标注要用
+# 断点续训：checkpoint 参数的类型标注要用
 from collections.abc import Callable
 
 import numpy as np
@@ -28,19 +26,19 @@ def train(
     config: TrainConfig,
     device: torch.device,
     logger: RunLogger,
-    # agent 编写（断点续训）：从第几步开始、外部传入的生成器、存档函数
+    # 断点续训：从第几步开始、外部传入的生成器、存档函数
     start_step: int = 0,
     generator: torch.Generator | None = None,
     checkpoint: Callable[[int], None] | None = None,
 ) -> list[float]:
-    # agent 编写（断点续训）：续训时 run.py 传入已恢复状态的生成器，否则在这里新建
+    # 断点续训：续训时 run.py 传入已恢复状态的生成器，否则在这里新建
     if generator is None:
         # 训练用的随机数生成器： 固定种子， 每次运行取到的 batch 顺序都一样
         generator = torch.Generator().manual_seed(config.seed)
     losses = []
     model.train()
 
-    # agent 编写（断点续训）：续训时从 start_step 开始，而不是从 0 开始
+    # 断点续训：续训时从 start_step 开始，而不是从 0 开始
     for step in range(start_step, config.max_iters):
         # 设定这一步的学习率： 按调度算出来， 写进 optimizer 的每一组参数
         lr = get_lr(step, config)
@@ -82,7 +80,7 @@ def train(
         # 记录这一步的 loss (转成 float， 不保留计算图)
         losses.append(step_loss)
 
-        # agent 编写（断点续训）：每 ckpt_interval 步存一次档；存的是“下一步”的编号
+        # 断点续训：每 ckpt_interval 步存一次档；存的是“下一步”的编号
         if checkpoint is not None and config.ckpt_interval > 0:
             if (step + 1) % config.ckpt_interval == 0:
                 checkpoint(step + 1)

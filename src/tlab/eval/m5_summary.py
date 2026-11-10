@@ -1,4 +1,4 @@
-"""M5 的汇总（agent 编写）：从 experiments/m5_gsm8k/ 下的原始结果生成 SUMMARY.md 的表格。
+"""M5 的汇总：从 experiments/m5_gsm8k/ 下的原始结果生成 SUMMARY.md 的表格。
 
 表里的数字都从 json 和 csv 算出来，不手抄；测试核对 SUMMARY.md 和 README 与它一致。
 判定规则同 M3：两个均值之差大于双方种子间差距中的较大者，才算有结论。

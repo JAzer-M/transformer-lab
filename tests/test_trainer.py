@@ -133,7 +133,7 @@ def test_run_logger_writes_csv_rows(tmp_path: Path) -> None:
     assert float(rows[1]["val_loss"]) == pytest.approx(3.4)
 
 
-# ---------- 主循环（用户手写的 train） ----------
+# ---------- 主循环（train） ----------
 
 
 def test_train_runs_and_returns_one_loss_per_step(tmp_path: Path) -> None:

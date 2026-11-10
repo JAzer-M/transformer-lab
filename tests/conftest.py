@@ -96,7 +96,7 @@ def load_script(name: str) -> ModuleType:
 
 def big_lora_model(model_dir: Path) -> torch.nn.Module:
     """小 Qwen3 装上 r=4 的 LoRA，B 是很大的随机值：装上之后生成的内容一定会变。"""
-    # 在函数里导入：LoRALinear 是用户手写的，出错时只影响用到它的测试
+    # 在函数里导入：lora.py 出错时只影响用到它的测试
     from tlab.convert.qwen3 import load_qwen3
     from tlab.finetune.lora import LoRALinear
     from tlab.finetune.lora_model import apply_lora

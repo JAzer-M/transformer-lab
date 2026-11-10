@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-# 通用的 get_batch：同时支持内存里的张量和硬盘上的 memmap（agent 编写）
+# 通用的 get_batch：同时支持内存里的张量和硬盘上的 memmap
 
 
 def write_memmap(tmp_path: Path, values: np.ndarray) -> np.memmap:

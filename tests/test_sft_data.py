@@ -1,4 +1,4 @@
-"""SFT 的数据管线（agent 编写）：模板、分词、丢掉太长的、拼 batch、验证集、训练顺序。"""
+"""SFT 的数据管线：模板、分词、丢掉太长的、拼 batch、验证集、训练顺序。"""
 
 import json
 from pathlib import Path

@@ -1,4 +1,4 @@
-"""SFT 的训练循环和配置（agent 编写）：只有答案算 loss、按 token 加权的累积、学习率、输出。"""
+"""SFT 的训练循环和配置：只有答案算 loss、按 token 加权的累积、学习率、输出。"""
 
 import csv
 import json

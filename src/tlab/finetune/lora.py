@@ -1,4 +1,3 @@
-# USER-WRITTEN: agent 只提建议， 不改实现
 """LoRA：冻结原来的 Linear， 旁边加一条低秩的旁路（M5）"""
 
 import math

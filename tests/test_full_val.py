@@ -5,7 +5,7 @@ import pytest
 import torch
 from torch import nn
 
-# 完整验证集评估（agent 编写）：把验证集切成首尾相接、互不重叠的窗口，
+# 完整验证集评估：把验证集切成首尾相接、互不重叠的窗口，
 # 每个 token 恰好被预测一次，按 token 求平均。预期值都是手算的具体数字。
 
 

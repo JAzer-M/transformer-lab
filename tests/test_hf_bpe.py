@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-# 正式训练用的 HF 字节级 BPE 词表（agent 编写）；待实现模块在各测试内导入
+# 正式训练用的 HF 字节级 BPE 词表；待实现模块在各测试内导入
 
 STORIES = [
     "Once upon a time, there was a little cat named Tom. Tom liked to play.",

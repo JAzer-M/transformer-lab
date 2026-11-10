@@ -1,4 +1,4 @@
-"""LoRALinear（用户手写）：B 全 0 时和原来相同、手算、梯度、merge 和 unmerge、参数量。"""
+"""LoRALinear：B 全 0 时和原来相同、手算、梯度、merge 和 unmerge、参数量。"""
 
 import math
 
@@ -6,7 +6,7 @@ import pytest
 import torch
 from torch import nn
 
-# LoRALinear 由用户手写在 tlab/finetune/lora.py；在各测试内导入，文件出错时每个测试单独报错
+# LoRALinear 在 tlab/finetune/lora.py；在各测试内导入，文件出错时每个测试单独报错
 
 
 def make_lora(in_features: int, out_features: int, r: int, alpha: float):

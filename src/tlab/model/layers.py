@@ -1,5 +1,3 @@
-# USER-WRITTEN: agent 只提建议， 不改实现
-# 例外：标注“agent 编写”的 norm、mlp、pos_encoding、n_kv_heads、head_dim、qk_norm、mlp_hidden_dim 开关与 KV cache 代码，经用户 2026-11-03、11-04、11-05、11-07 同意由 agent 加入
 """现代 Transformer 组件：RMSNorm（M3 第 1 步）；之后的 SwiGLU、RoPE 也写在这里"""
 
 import torch
@@ -84,11 +82,11 @@ class RotaryEmbedding(nn.Module):
         return x * angles.cos() + swapped * angles.sin()  # (B, h, T, d)
 
 
-# agent 编写（norm、mlp 开关）：配置里各开关的合法取值、取值检查，以及按名字建归一化层
+# norm、mlp 开关：配置里各开关的合法取值、取值检查，以及按名字建归一化层
 NORMS = ("layernorm", "rmsnorm")
 NORM_POSITIONS = ("pre", "post")
 MLPS = ("gelu", "swiglu")
-# agent 编写（pos_encoding 开关）：下面的取值表、检查函数和正弦位置编码
+# pos_encoding 开关：下面的取值表、检查函数和正弦位置编码
 POS_ENCODINGS = ("learned", "sinusoidal", "rope")
 
 
@@ -120,7 +118,7 @@ def check_pos_encoding(
         raise ValueError(f"RoPE 要求 head_dim 是偶数，收到 {head_dim!r}")
 
 
-# agent 编写（head_dim、qk_norm、mlp_hidden_dim 开关）
+# head_dim、qk_norm、mlp_hidden_dim 开关
 def check_qwen3_switches(
     mlp: str, head_dim: int | None, qk_norm: bool, mlp_hidden_dim: int | None
 ) -> None:
@@ -139,7 +137,7 @@ def check_qwen3_switches(
         raise ValueError(f"mlp_hidden_dim 只用于 swiglu，当前 mlp 是 {mlp!r}")
 
 
-# agent 编写（n_kv_heads 开关）
+# n_kv_heads 开关
 def check_kv_heads(n_heads: int, n_kv_heads: int | None) -> None:
     """组数不能整除头数时报错；训练配置和 GPTConfig 创建时调用，None 表示等于头数。"""
     if n_kv_heads is None:
@@ -154,7 +152,7 @@ def sinusoidal_positions(
     T: int, d_model: int, device: torch.device, offset: int = 0
 ) -> torch.Tensor:
     """原论文的正弦位置编码：不用训练，序列多长都能算；位置从 offset 数起（KV cache 用）。"""
-    # agent 编写（KV cache）：offset 参数
+    # KV cache：offset 参数
     assert d_model % 2 == 0, "正弦位置编码的 sin、cos 成对出现，d_model 必须是偶数"
     pos = torch.arange(offset, offset + T, device=device).float()[:, None]  # (T, 1)
     # 分母 10000^(2i/C)，i 是第几对

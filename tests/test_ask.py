@@ -1,4 +1,4 @@
-"""自己提问的脚本 scripts/ask.py（agent 编写）。
+"""自己提问的脚本 scripts/ask.py。
 
 用 conftest.py 里结构和 Qwen3 相同的小模型，不联网。
 """

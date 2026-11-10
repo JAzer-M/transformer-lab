@@ -1,6 +1,6 @@
 from pathlib import Path
 
-# 保存加载与 HF 对照（agent 编写）；BPETokenizer 本身由用户手写
+# 保存加载与 HF 对照；BPETokenizer 本身在 bpe.py
 
 TEXT = "Once upon a time, there was a little cat. The cat sat on the mat.\n" * 20
 
